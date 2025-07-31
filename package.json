@@ -5,9 +5,16 @@
   "scripts": {
     "dev": "bun --hot index.html",
     "build": "bun build ./index.html --outdir ./dist --minify",
-    "test": "bun test"
+    "test": "bun test",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.3",
+    "prettier": "^3.6.2",
+    "typescript-eslint": "^8.38.0"
   }
 }
