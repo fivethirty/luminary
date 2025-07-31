@@ -1,0 +1,13 @@
+{
+  "name": "eclipse-battle-calculator",
+  "version": "0.0.1",
+  "description": "Battle calculator for Eclipse: Second Dawn for the Galaxy",
+  "scripts": {
+    "dev": "bun --hot index.html",
+    "build": "bun build ./index.html --outdir ./dist --minify",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
