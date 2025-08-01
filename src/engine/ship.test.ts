@@ -2,76 +2,80 @@ import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType, Shot, WeaponDamage, WeaponType } from './ship';
 
 describe('Ship', () => {
-  test.each([
-    {
-      type: ShipType.Interceptor,
-      expected: () => emptyShip(ShipType.Interceptor),
-    },
-    {
-      type: ShipType.Carrier,
-      expected: () => emptyShip(ShipType.Carrier),
-    },
-    {
-      type: ShipType.Dreadnaught,
-      expected: () => emptyShip(ShipType.Dreadnaught),
-    },
-    {
-      type: ShipType.Orbital,
-      expected: () => emptyShip(ShipType.Orbital),
-    },
-    {
-      type: ShipType.Starbase,
-      expected: () => emptyShip(ShipType.Starbase),
-    },
-    {
-      type: ShipType.Ancient,
-      expected: () => {
-        const ship = emptyShip(ShipType.Ancient);
-        ship.hull = 1;
-        ship.computers = 1;
-        ship.cannons.ion = 2;
-        ship.initiative = 2;
-        return ship;
+  describe('constructor', () => {
+    test.each([
+      {
+        type: ShipType.Interceptor,
+        expected: () => emptyShip(ShipType.Interceptor),
       },
-    },
-    {
-      type: ShipType.Guardian,
-      expected: () => {
-        const ship = emptyShip(ShipType.Guardian);
-        ship.hull = 2;
-        ship.computers = 2;
-        ship.cannons.ion = 3;
-        ship.initiative = 3;
-        return ship;
+      {
+        type: ShipType.Carrier,
+        expected: () => emptyShip(ShipType.Carrier),
       },
-    },
-    {
-      type: ShipType.GCDS,
-      expected: () => {
-        const ship = emptyShip(ShipType.GCDS);
-        ship.hull = 7;
-        ship.computers = 2;
-        ship.cannons.ion = 4;
-        return ship;
+      {
+        type: ShipType.Dreadnaught,
+        expected: () => emptyShip(ShipType.Dreadnaught),
       },
-    },
-  ])('constructor: $type', ({ type, expected }) => {
-    const ship = new Ship(type);
-    expect(ship).toMatchObject(expected());
+      {
+        type: ShipType.Orbital,
+        expected: () => emptyShip(ShipType.Orbital),
+      },
+      {
+        type: ShipType.Starbase,
+        expected: () => emptyShip(ShipType.Starbase),
+      },
+      {
+        type: ShipType.Ancient,
+        expected: () => {
+          const ship = emptyShip(ShipType.Ancient);
+          ship.hull = 1;
+          ship.computers = 1;
+          ship.cannons.ion = 2;
+          ship.initiative = 2;
+          return ship;
+        },
+      },
+      {
+        type: ShipType.Guardian,
+        expected: () => {
+          const ship = emptyShip(ShipType.Guardian);
+          ship.hull = 2;
+          ship.computers = 2;
+          ship.cannons.ion = 3;
+          ship.initiative = 3;
+          return ship;
+        },
+      },
+      {
+        type: ShipType.GCDS,
+        expected: () => {
+          const ship = emptyShip(ShipType.GCDS);
+          ship.hull = 7;
+          ship.computers = 2;
+          ship.cannons.ion = 4;
+          return ship;
+        },
+      },
+    ])('$type', ({ type, expected }) => {
+      const ship = new Ship(type);
+      expect(ship).toMatchObject(expected());
+    });
   });
 
-  test.each([
-    { type: ShipType.Interceptor, expected: true },
-    { type: ShipType.Carrier, expected: true },
-    { type: ShipType.Dreadnaught, expected: true },
-    { type: ShipType.Orbital, expected: true },
-    { type: ShipType.Starbase, expected: true },
-    { type: ShipType.Ancient, expected: false },
-    { type: ShipType.Guardian, expected: false },
-    { type: ShipType.GCDS, expected: false },
-  ])('isPlayerShip: $type returns $expected', ({ type, expected }) => {
-    const ship = new Ship(type);
-    expect(ship.isPlayerShip()).toBe(expected);
+  describe('isPlayerShip', () => {
+    test.each([
+      { type: ShipType.Interceptor, expected: true },
+      { type: ShipType.Carrier, expected: true },
+      { type: ShipType.Dreadnaught, expected: true },
+      { type: ShipType.Orbital, expected: true },
+      { type: ShipType.Starbase, expected: true },
+      { type: ShipType.Ancient, expected: false },
+      { type: ShipType.Guardian, expected: false },
+      { type: ShipType.GCDS, expected: false },
+    ])('$type returns $expected', ({ type, expected }) => {
+      const ship = new Ship(type);
+      expect(ship.isPlayerShip()).toBe(expected);
+    });
   });
 
   const weaponTests = [
@@ -159,225 +163,218 @@ describe('Ship', () => {
     );
   }
 
-  const hitRoller = () => 6;
-  const missRoller = () => 1;
-
-  test.each(weaponTests)('shootMissles: $name', ({ weapons }) => {
-    const ship = new Ship(ShipType.Interceptor, hitRoller);
-    ship.missiles = weapons;
-    ship.computers = 1;
-    const shots = ship.shootMissles();
-    validateShots(ship.computers, ship.missiles, shots);
+  describe('shootMissles', () => {
+    test.each(weaponTests)('$name', ({ weapons }) => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          missiles: weapons,
+          computers: 1,
+        },
+        () => 6
+      );
+      const shots = ship.shootMissles();
+      validateShots(ship.computers, ship.missiles, shots);
+    });
   });
 
-  test.each(weaponTests)('shootCannons: $name', ({ weapons }) => {
-    const ship = new Ship(ShipType.Interceptor, hitRoller);
-    ship.cannons = weapons;
-    ship.computers = 1;
-    const shots = ship.shootCannons();
-    validateShots(ship.computers, ship.cannons, shots);
+  describe('shootCannons', () => {
+    test.each(weaponTests)('$name', ({ weapons }) => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: weapons,
+          computers: 1,
+        },
+        () => 6
+      );
+      const shots = ship.shootCannons();
+      validateShots(ship.computers, ship.cannons, shots);
+    });
   });
 
-  test('shootMissles: does not return misses', () => {
-    const ship = new Ship(ShipType.Interceptor, missRoller);
-    ship.missiles = {
-      ion: 1,
-      plasma: 1,
-      soliton: 1,
-      antimatter: 1,
-    };
-    ship.computers = 1;
-    const shots = ship.shootMissles();
-    expect(shots.length).toEqual(0);
-  });
-
-  test('shootCannons: does not return misses', () => {
-    const ship = new Ship(ShipType.Interceptor, missRoller);
-    ship.cannons = {
-      ion: 1,
-      plasma: 1,
-      soliton: 1,
-      antimatter: 1,
-    };
-    ship.computers = 1;
-    const shots = ship.shootMissles();
-    expect(shots.length).toEqual(0);
-  });
-
-  test.each([
-    {
-      roll: 1,
-      expected: {
-        selfDamage: 0,
-        targetDamage: 0,
-      },
-    },
-    {
-      roll: 2,
-      expected: {
-        selfDamage: 0,
-        targetDamage: 0,
-      },
-    },
-    {
-      roll: 3,
-      expected: {
-        selfDamage: 0,
-        targetDamage: 1,
-      },
-    },
-    {
-      roll: 4,
-      expected: {
-        selfDamage: 0,
-        targetDamage: 2,
-      },
-    },
-    {
-      roll: 5,
-      expected: {
-        selfDamage: 1,
-        targetDamage: 0,
-      },
-    },
-    {
-      roll: 6,
-      expected: {
-        selfDamage: 1,
-        targetDamage: 3,
-      },
-    },
-  ])('shootRiftCannon: result for $roll', ({ roll, expected }) => {
-    const ship = new Ship(ShipType.Interceptor, () => roll);
-    ship.rift = 1;
-    const riftShots = ship.shootRiftCannon();
-    expect(riftShots.length).toEqual(1);
-    expect(riftShots[0]).toEqual(expected);
-  });
-
-  test('shootRiftCannon: shoots the right number of shots', () => {
-    const ship = new Ship(ShipType.Interceptor);
-    ship.rift = 3;
-    const riftShots = ship.shootRiftCannon();
-    expect(riftShots.length).toEqual(3);
-  });
-
-  test.each([
-    {
-      name: '1 misses',
-      shot: {
+  describe('shootRiftCannon', () => {
+    test.each([
+      {
         roll: 1,
-        computers: 10000,
-        damage: 1,
+        expected: {
+          selfDamage: 0,
+          targetDamage: 0,
+        },
       },
-      shields: 0,
-      expected: false,
-    },
-    {
-      name: '2 no shields misses',
-      shot: {
+      {
         roll: 2,
-        computers: 0,
-        damage: 1,
+        expected: {
+          selfDamage: 0,
+          targetDamage: 0,
+        },
       },
-      shields: 0,
-      expected: false,
-    },
-    {
-      name: '3 no shields misses',
-      shot: {
-        roll: 2,
-        computers: 0,
-        damage: 1,
+      {
+        roll: 3,
+        expected: {
+          selfDamage: 0,
+          targetDamage: 1,
+        },
       },
-      shields: 0,
-      expected: false,
-    },
-    {
-      name: '4 no shields misses',
-      shot: {
-        roll: 2,
-        computers: 0,
-        damage: 1,
+      {
+        roll: 4,
+        expected: {
+          selfDamage: 0,
+          targetDamage: 2,
+        },
       },
-      shields: 0,
-      expected: false,
-    },
-    {
-      name: '5 no shields misses',
-      shot: {
-        roll: 2,
-        computers: 0,
-        damage: 1,
+      {
+        roll: 5,
+        expected: {
+          selfDamage: 1,
+          targetDamage: 0,
+        },
       },
-      shields: 0,
-      expected: false,
-    },
-    {
-      name: '6 hits',
-      shot: {
+      {
         roll: 6,
-        computers: 0,
-        damage: 1,
+        expected: {
+          selfDamage: 1,
+          targetDamage: 3,
+        },
       },
-      shields: 10000,
-      expected: true,
-    },
-    {
-      name: '5 hits with computers',
-      shot: {
-        roll: 6,
-        computers: 1,
-        damage: 1,
-      },
-      shields: 0,
-      expected: true,
-    },
-    {
-      name: '5 misses with computers and shields',
-      shot: {
-        roll: 0,
-        computers: 1,
-        damage: 1,
-      },
-      shields: 1,
-      expected: false,
-    },
-  ])('shotHits: $name', ({ shot, shields, expected }) => {
-    const ship = new Ship(ShipType.Interceptor);
-    ship.shields = shields;
-    expect(ship.shotHits(shot)).toEqual(expected);
+    ])('result for $roll', ({ roll, expected }) => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          rift: 1,
+        },
+        () => roll
+      );
+      const riftShots = ship.shootRiftCannon();
+      expect(riftShots.length).toEqual(1);
+      expect(riftShots[0]).toEqual(expected);
+    });
+
+    test('shoots the right number of shots', () => {
+      const ship = new Ship(ShipType.Interceptor, { rift: 3 });
+      const riftShots = ship.shootRiftCannon();
+      expect(riftShots.length).toEqual(3);
+    });
   });
 
-  test('can track HP', () => {
-    const ship = new Ship(ShipType.Interceptor);
-    ship.hull = 3;
-    expect(ship.remainingHP()).toEqual(4);
-    expect(ship.isAlive()).toEqual(true);
+  describe('shotHits', () => {
+    test.each([
+      {
+        name: '1 misses',
+        shot: {
+          roll: 1,
+          computers: 10000,
+          damage: 1,
+        },
+        shields: 0,
+        expected: false,
+      },
+      {
+        name: '2 no shields misses',
+        shot: {
+          roll: 2,
+          computers: 0,
+          damage: 1,
+        },
+        shields: 0,
+        expected: false,
+      },
+      {
+        name: '3 no shields misses',
+        shot: {
+          roll: 2,
+          computers: 0,
+          damage: 1,
+        },
+        shields: 0,
+        expected: false,
+      },
+      {
+        name: '4 no shields misses',
+        shot: {
+          roll: 2,
+          computers: 0,
+          damage: 1,
+        },
+        shields: 0,
+        expected: false,
+      },
+      {
+        name: '5 no shields misses',
+        shot: {
+          roll: 2,
+          computers: 0,
+          damage: 1,
+        },
+        shields: 0,
+        expected: false,
+      },
+      {
+        name: '6 hits',
+        shot: {
+          roll: 6,
+          computers: 0,
+          damage: 1,
+        },
+        shields: 10000,
+        expected: true,
+      },
+      {
+        name: '5 hits with computers',
+        shot: {
+          roll: 6,
+          computers: 1,
+          damage: 1,
+        },
+        shields: 0,
+        expected: true,
+      },
+      {
+        name: '5 misses with computers and shields',
+        shot: {
+          roll: 0,
+          computers: 1,
+          damage: 1,
+        },
+        shields: 1,
+        expected: false,
+      },
+    ])('$name', ({ shot, shields, expected }) => {
+      const ship = new Ship(ShipType.Interceptor, { shields: shields });
+      expect(ship.shotHits(shot)).toEqual(expected);
+    });
+  });
 
-    ship.takeDamage(1);
-    expect(ship.remainingHP()).toEqual(3);
-    expect(ship.isAlive()).toEqual(true);
+  describe('damage tracking', () => {
+    test('can track HP', () => {
+      const ship = new Ship(ShipType.Interceptor, { hull: 3 });
+      expect(ship.remainingHP()).toEqual(4);
+      expect(ship.isAlive()).toEqual(true);
 
-    ship.takeDamage(2);
-    expect(ship.remainingHP()).toEqual(1);
-    expect(ship.isAlive()).toEqual(true);
+      ship.takeDamage(1);
+      expect(ship.remainingHP()).toEqual(3);
+      expect(ship.isAlive()).toEqual(true);
 
-    ship.takeDamage(1);
-    expect(ship.remainingHP()).toEqual(0);
-    expect(ship.isAlive()).toEqual(false);
+      ship.takeDamage(2);
+      expect(ship.remainingHP()).toEqual(1);
+      expect(ship.isAlive()).toEqual(true);
 
-    ship.takeDamage(10);
-    expect(ship.remainingHP()).toEqual(0);
-    expect(ship.isAlive()).toEqual(false);
+      ship.takeDamage(1);
+      expect(ship.remainingHP()).toEqual(0);
+      expect(ship.isAlive()).toEqual(false);
 
-    ship.resetDamage();
-    expect(ship.remainingHP()).toEqual(4);
-    expect(ship.isAlive()).toEqual(true);
+      ship.takeDamage(10);
+      expect(ship.remainingHP()).toEqual(0);
+      expect(ship.isAlive()).toEqual(false);
 
-    ship.takeDamage(10);
-    expect(ship.remainingHP()).toEqual(0);
-    expect(ship.isAlive()).toEqual(false);
+      ship.resetDamage();
+      expect(ship.remainingHP()).toEqual(4);
+      expect(ship.isAlive()).toEqual(true);
+
+      ship.takeDamage(10);
+      expect(ship.remainingHP()).toEqual(0);
+      expect(ship.isAlive()).toEqual(false);
+    });
   });
 });
 

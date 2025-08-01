@@ -46,6 +46,16 @@ export interface RiftShot {
   targetDamage: number;
 }
 
+export interface ShipConfig {
+  hull?: number;
+  computers?: number;
+  shields?: number;
+  initiative?: number;
+  cannons?: Partial<Record<WeaponType, number>>;
+  missiles?: Partial<Record<WeaponType, number>>;
+  rift?: number;
+}
+
 function rollRandomD6() {
   return Math.floor(Math.random() * 6) + 1;
 }
@@ -75,7 +85,11 @@ export class Ship {
   private damage = 0;
   private rollD6: () => number;
 
-  constructor(type: ShipType, rollD6: () => number = rollRandomD6) {
+  constructor(
+    type: ShipType,
+    config: ShipConfig = {},
+    rollD6: () => number = rollRandomD6
+  ) {
     this.type = type;
     this.rollD6 = rollD6;
 
@@ -85,18 +99,28 @@ export class Ship {
         this.computers = 1;
         this.cannons.ion = 2;
         this.initiative = 2;
-        return;
+        break;
       case 'guardian':
         this.hull = 2;
         this.computers = 2;
         this.cannons.ion = 3;
         this.initiative = 3;
-        return;
+        break;
       case 'gcds':
         this.hull = 7;
         this.computers = 2;
         this.cannons.ion = 4;
-        return;
+        this.initiative = 0;
+        break;
+    }
+
+    const { cannons, missiles, ...topLevel } = config;
+    Object.assign(this, topLevel);
+    if (cannons) {
+      this.cannons = { ...this.cannons, ...cannons };
+    }
+    if (missiles) {
+      this.missiles = { ...this.missiles, ...missiles };
     }
   }
 
@@ -117,11 +141,6 @@ export class Ship {
       const shots: Shot[] = [];
       for (let i = 0; i < count; i++) {
         const roll = this.rollD6();
-        // 1s never hit so just short circuit here and pretend
-        // they never happen
-        if (roll === 1) {
-          continue;
-        }
         shots.push({
           roll: roll,
           computers: this.computers,
@@ -167,6 +186,10 @@ export class Ship {
       return true;
     }
     return shot.roll + shot.computers - this.shields >= 6;
+  }
+
+  shotKills(shot: Shot): boolean {
+    return this.shotHits(shot) && shot.damage >= this.remainingHP();
   }
 
   takeDamage(amount: number) {
