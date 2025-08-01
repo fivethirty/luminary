@@ -346,6 +346,47 @@ describe('Fleet', () => {
     });
   });
 
+  describe('getLivingShips', () => {
+    test('returns all ships when all are alive', () => {
+      const ship1 = new Ship(ShipType.Interceptor);
+      const ship2 = new Ship(ShipType.Carrier);
+      const fleet = new Fleet('test', [ship1, ship2]);
+
+      const living = fleet.getLivingShips();
+      expect(living).toHaveLength(2);
+      expect(living).toContain(ship1);
+      expect(living).toContain(ship2);
+    });
+
+    test('returns only living ships', () => {
+      const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });
+      const ship2 = new Ship(ShipType.Carrier);
+      const ship3 = new Ship(ShipType.Dreadnaught);
+      const fleet = new Fleet('test', [ship1, ship2, ship3]);
+
+      // Kill ship1
+      ship1.takeDamage(2);
+
+      const living = fleet.getLivingShips();
+      expect(living).toHaveLength(2);
+      expect(living).not.toContain(ship1);
+      expect(living).toContain(ship2);
+      expect(living).toContain(ship3);
+    });
+
+    test('returns empty array when all ships are dead', () => {
+      const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });
+      const ship2 = new Ship(ShipType.Carrier, { hull: 2 });
+      const fleet = new Fleet('test', [ship1, ship2]);
+
+      ship1.takeDamage(2);
+      ship2.takeDamage(3);
+
+      const living = fleet.getLivingShips();
+      expect(living).toHaveLength(0);
+    });
+  });
+
   describe('reset', () => {
     test('restores all ships', () => {
       const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });

@@ -70,8 +70,13 @@ export class Fleet {
   }
 
   isAlive(): boolean {
-    return this.ships.some((ship) => ship.isAlive());
+    return this.getLivingShips().length > 0;
   }
+
+  getLivingShips(): Ship[] {
+    return this.ships.filter((ship) => ship.isAlive());
+  }
+
   reset() {
     this.ships.forEach((ship) => ship.resetDamage());
   }
