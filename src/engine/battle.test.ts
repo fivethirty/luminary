@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { Battle } from './battle';
+import { Battle, BattleOutcome } from './battle';
 import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
 
@@ -30,7 +30,7 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('defender');
+      expect(result.outcome).toBe(BattleOutcome.Defender);
       expect(result.victors).toEqual([defender]);
     });
 
@@ -59,7 +59,7 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('defender');
+      expect(result.outcome).toBe(BattleOutcome.Defender);
       expect(result.victors).toEqual([defender]);
     });
 
@@ -88,7 +88,7 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('attacker');
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
       expect(result.victors).toEqual([attacker]);
     });
 
@@ -118,7 +118,7 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('defender');
+      expect(result.outcome).toBe(BattleOutcome.Defender);
       expect(result.victors).toEqual([defender]);
     });
 
@@ -140,7 +140,7 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('defender');
+      expect(result.outcome).toBe(BattleOutcome.Defender);
       expect(result.victors).toEqual([defender]);
     });
 
@@ -171,7 +171,7 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('draw');
+      expect(result.outcome).toBe(BattleOutcome.Draw);
       expect(result.victors).toEqual([]);
     });
 
@@ -186,8 +186,8 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('stalemate');
-      expect(result.victors).toEqual([]);
+      expect(result.outcome).toBe(BattleOutcome.Defender);
+      expect(result.victors).toEqual([defender]);
     });
 
     test('victors are living ships from winning fleet', () => {
@@ -216,38 +216,38 @@ describe('Battle', () => {
       );
 
       const result = battle.fight();
-      expect(result.outcome).toBe('attacker');
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
       expect(result.victors).toEqual([attackers[1]]);
     });
-  });
-  test('battle continues for many rounds', () => {
-    let hitRoll = 0;
-    const attacker = new Ship(
-      ShipType.Interceptor,
-      {
-        hull: 5,
-        cannons: { ion: 1 },
-      },
-      () => (hitRoll++ % 2 === 0 ? 6 : 1)
-    );
 
-    const defender = new Ship(
-      ShipType.Interceptor,
-      {
-        hull: 4,
-        cannons: { ion: 1 },
-      },
-      () => 1
-    );
+    test('battle continues for many rounds', () => {
+      let hitRoll = 0;
+      const attacker = new Ship(
+        ShipType.Interceptor,
+        {
+          hull: 5,
+          cannons: { ion: 1 },
+        },
+        () => (hitRoll++ % 2 === 0 ? 6 : 1)
+      );
 
-    const battle = new Battle(
-      new Fleet('Attacker', [attacker]),
-      new Fleet('Defender', [defender])
-    );
+      const defender = new Ship(
+        ShipType.Interceptor,
+        {
+          hull: 4,
+          cannons: { ion: 1 },
+        },
+        () => 1
+      );
 
-    const result = battle.fight();
-    expect(result.outcome).toBe('attacker');
-    expect(result.victors).toEqual([attacker]);
+      const battle = new Battle(
+        new Fleet('Attacker', [attacker]),
+        new Fleet('Defender', [defender])
+      );
+
+      const result = battle.fight();
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
+      expect(result.victors).toEqual([attacker]);
+    });
   });
 });
-

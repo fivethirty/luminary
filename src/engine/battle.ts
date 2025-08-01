@@ -2,11 +2,17 @@ import { Fleet } from './fleet';
 import { RiftShot, Ship } from './ship';
 
 const MAX_ROUNDS: number = 100;
-export type BattleOutcome = 'attacker' | 'defender' | 'draw' | 'stalemate';
+export const BattleOutcome = {
+  Attacker: 'attacker',
+  Defender: 'defender',
+  Draw: 'draw',
+} as const;
+
+export type BattleOutcome = (typeof BattleOutcome)[keyof typeof BattleOutcome];
 
 export interface BattleResult {
   outcome: BattleOutcome;
-  victors: Ship[]; // Empty for draw/stalemate
+  victors: Ship[];
 }
 
 export class Battle {
@@ -23,17 +29,19 @@ export class Battle {
 
       const sortedInitiatives = this.getAllInitiativesSorted();
 
-      // Missile phase
       const missileResult = this.resolveMissilePhase(sortedInitiatives);
       if (missileResult) return missileResult;
 
-      // Cannon and rift phase
       const cannonResult = this.resolveCannonPhase(sortedInitiatives);
       if (cannonResult) return cannonResult;
     }
 
-    // If we've reached max rounds, it's a stalemate
-    return { outcome: 'stalemate', victors: [] };
+    // Stalemate is effectively a victory for the defender as
+    // it results in attacker retreating.
+    return {
+      outcome: BattleOutcome.Defender,
+      victors: this.defender.getLivingShips(),
+    };
   }
 
   private getAllInitiativesSorted(): number[] {
@@ -48,22 +56,26 @@ export class Battle {
 
   private resolveMissilePhase(initiatives: number[]): BattleResult | null {
     for (const initiative of initiatives) {
-      // Defender fires missiles first
       const defenderMissiles =
         this.defender.shootMissilesForInitiative(initiative);
       this.attacker.assignDamage(defenderMissiles);
 
       if (!this.attacker.isAlive()) {
-        return { outcome: 'defender', victors: this.defender.getLivingShips() };
+        return {
+          outcome: BattleOutcome.Defender,
+          victors: this.defender.getLivingShips(),
+        };
       }
 
-      // Attacker fires missiles
       const attackerMissiles =
         this.attacker.shootMissilesForInitiative(initiative);
       this.defender.assignDamage(attackerMissiles);
 
       if (!this.defender.isAlive()) {
-        return { outcome: 'attacker', victors: this.attacker.getLivingShips() };
+        return {
+          outcome: BattleOutcome.Attacker,
+          victors: this.attacker.getLivingShips(),
+        };
       }
     }
     return null;
@@ -71,7 +83,6 @@ export class Battle {
 
   private resolveCannonPhase(initiatives: number[]): BattleResult | null {
     for (const initiative of initiatives) {
-      // Defender fires cannons and rift cannons
       const defenderResult = this.resolveFleetCannonFire(
         this.defender,
         this.attacker,
@@ -79,7 +90,6 @@ export class Battle {
       );
       if (defenderResult) return defenderResult;
 
-      // Attacker fires cannons and rift cannons
       const attackerResult = this.resolveFleetCannonFire(
         this.attacker,
         this.defender,
@@ -97,14 +107,8 @@ export class Battle {
   ): BattleResult | null {
     const cannons = firingFleet.shootCannonsForInitiative(initiative);
     const rifts = firingFleet.shootRiftCannonsForInitiative(initiative);
-
-    // Apply cannon damage to target
     targetFleet.assignDamage(cannons);
-
-    // Apply rift damage
     this.applyRiftDamage(rifts, firingFleet, targetFleet);
-
-    // Check battle outcome
     return this.checkBattleOutcome();
   }
 
@@ -117,7 +121,7 @@ export class Battle {
       if (rift.selfDamage > 0) {
         firingFleet.assignDamage([
           {
-            roll: 6, // Always hits self
+            roll: 6,
             computers: 0,
             damage: rift.selfDamage,
           },
@@ -126,7 +130,7 @@ export class Battle {
       if (rift.targetDamage > 0) {
         targetFleet.assignDamage([
           {
-            roll: 6, // Rift always hits if it does damage
+            roll: 6,
             computers: 0,
             damage: rift.targetDamage,
           },
@@ -140,13 +144,19 @@ export class Battle {
     const defenderAlive = this.defender.isAlive();
 
     if (!attackerAlive && !defenderAlive) {
-      return { outcome: 'draw', victors: [] };
+      return { outcome: BattleOutcome.Draw, victors: [] };
     }
     if (!attackerAlive) {
-      return { outcome: 'defender', victors: this.defender.getLivingShips() };
+      return {
+        outcome: BattleOutcome.Defender,
+        victors: this.defender.getLivingShips(),
+      };
     }
     if (!defenderAlive) {
-      return { outcome: 'attacker', victors: this.attacker.getLivingShips() };
+      return {
+        outcome: BattleOutcome.Attacker,
+        victors: this.attacker.getLivingShips(),
+      };
     }
 
     return null;
