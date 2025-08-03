@@ -4,7 +4,7 @@
   "description": "Battle calculator for Eclipse: Second Dawn for the Galaxy",
   "scripts": {
     "dev": "bun --hot public/index.html",
-    "build": "bun build ./public/index.html --outdir ./dist --minify",
+    "build": "bun build ./public/*.html --outdir ./dist --minify",
     "test": "bun test",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
