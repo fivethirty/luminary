@@ -19,7 +19,7 @@ export class Battle {
   constructor(
     private attacker: Fleet,
     private defender: Fleet
-  ) { }
+  ) {}
 
   fight(): BattleResult {
     let rounds = 0;
@@ -34,10 +34,15 @@ export class Battle {
 
       const cannonResult = this.resolveCannonPhase(sortedInitiatives);
       if (cannonResult) return cannonResult;
+
+      if (!this.attacker.hasCannons() && !this.defender.hasCannons()) {
+        return {
+          outcome: BattleOutcome.Defender,
+          victors: this.defender.getLivingShips(),
+        };
+      }
     }
 
-    // Stalemate is effectively a victory for the defender as
-    // it results in attacker retreating.
     return {
       outcome: BattleOutcome.Defender,
       victors: this.defender.getLivingShips(),

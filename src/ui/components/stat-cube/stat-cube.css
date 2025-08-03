@@ -1,0 +1,69 @@
+.stat-cube {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.375rem 0;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.stat-cube label {
+  font-size: 0.625rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-cube input {
+  width: 2rem;
+  height: 1.5rem;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  outline: none;
+  margin: auto 0;
+}
+
+.stat-cube input:focus {
+  color: var(--color-accent);
+}
+
+.stat-cube input::-webkit-inner-spin-button,
+.stat-cube input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stat-cube input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+calc-stat-cube[data-stat*='ion'] .stat-cube label {
+  color: #facc15;
+}
+
+calc-stat-cube[data-stat*='plasma'] .stat-cube label {
+  color: #fb923c;
+}
+
+calc-stat-cube[data-stat*='soliton'] .stat-cube label {
+  color: #60a5fa;
+}
+
+calc-stat-cube[data-stat*='antimatter'] .stat-cube label {
+  color: #ef4444;
+}
+
+calc-stat-cube[data-stat*='rift'] .stat-cube label {
+  color: #f9a8d4;
+}

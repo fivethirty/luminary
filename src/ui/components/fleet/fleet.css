@@ -1,0 +1,45 @@
+.fleet-component {
+  margin-bottom: var(--space-lg);
+}
+
+.fleet {
+  margin-bottom: var(--space-lg);
+  padding: 0;
+}
+
+.fleet-name {
+  padding-right: var(--space-md);
+}
+
+.fleet:not(:has(calc-ship-type)) .card-header {
+  border-bottom: none;
+}
+
+.ship-selector {
+  margin-left: auto;
+  margin-right: var(--space-sm);
+  width: auto;
+  font-family: inherit;
+  font-size: inherit;
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+  text-align: center;
+
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.ship-selector:hover {
+  background: var(--color-border);
+}
+
+.ship-selector:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

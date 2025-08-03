@@ -2,66 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType, Shot, WeaponDamage, WeaponType } from './ship';
 
 describe('Ship', () => {
-  describe('constructor', () => {
-    test.each([
-      {
-        type: ShipType.Interceptor,
-        expected: () => emptyShip(ShipType.Interceptor),
-      },
-      {
-        type: ShipType.Carrier,
-        expected: () => emptyShip(ShipType.Carrier),
-      },
-      {
-        type: ShipType.Dreadnaught,
-        expected: () => emptyShip(ShipType.Dreadnaught),
-      },
-      {
-        type: ShipType.Orbital,
-        expected: () => emptyShip(ShipType.Orbital),
-      },
-      {
-        type: ShipType.Starbase,
-        expected: () => emptyShip(ShipType.Starbase),
-      },
-      {
-        type: ShipType.Ancient,
-        expected: () => {
-          const ship = emptyShip(ShipType.Ancient);
-          ship.hull = 1;
-          ship.computers = 1;
-          ship.cannons.ion = 2;
-          ship.initiative = 2;
-          return ship;
-        },
-      },
-      {
-        type: ShipType.Guardian,
-        expected: () => {
-          const ship = emptyShip(ShipType.Guardian);
-          ship.hull = 2;
-          ship.computers = 2;
-          ship.cannons.ion = 3;
-          ship.initiative = 3;
-          return ship;
-        },
-      },
-      {
-        type: ShipType.GCDS,
-        expected: () => {
-          const ship = emptyShip(ShipType.GCDS);
-          ship.hull = 7;
-          ship.computers = 2;
-          ship.cannons.ion = 4;
-          return ship;
-        },
-      },
-    ])('$type', ({ type, expected }) => {
-      const ship = new Ship(type);
-      expect(ship).toMatchObject(expected());
-    });
-  });
-
   describe('isPlayerShip', () => {
     test.each([
       { type: ShipType.Interceptor, expected: true },
@@ -377,26 +317,3 @@ describe('Ship', () => {
     });
   });
 });
-
-function emptyShip(type: ShipType): Ship {
-  return {
-    type: type,
-    hull: 0,
-    computers: 0,
-    shields: 0,
-    initiative: 0,
-    missiles: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-    },
-    cannons: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-    },
-    rift: 0,
-  } as Ship;
-}

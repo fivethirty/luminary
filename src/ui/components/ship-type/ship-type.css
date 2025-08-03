@@ -1,0 +1,33 @@
+.ship-type {
+  margin: 0 0 var(--space-sm) 0;
+  padding: 0;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.ship-type:last-of-type {
+  margin-bottom: 0;
+}
+
+.ship-type > header {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.ship-type-name {
+  flex: 1;
+}
+
+.quantity {
+  margin-left: auto;
+  margin-right: var(--space-sm);
+}
+
+.ship-type .stats {
+  padding: var(--space-sm) var(--space-md);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+  gap: var(--space-xs);
+}
+

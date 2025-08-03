@@ -22,7 +22,7 @@ describe('Fleet', () => {
         name: 'two ships with different initiative',
         ships: [
           new Ship(ShipType.Interceptor, { initiative: 3 }),
-          new Ship(ShipType.Carrier, { initiative: 2 }),
+          new Ship(ShipType.Cruiser, { initiative: 2 }),
         ],
         expected: new Set<number>([3, 2]),
       },
@@ -37,7 +37,7 @@ describe('Fleet', () => {
       name: 'no ships at initiative',
       ships: [
         new Ship(ShipType.Interceptor, { initiative: 3 }),
-        new Ship(ShipType.Carrier, { initiative: 2 }),
+        new Ship(ShipType.Cruiser, { initiative: 2 }),
       ],
       initiative: 4,
       expectedShotCount: 0,
@@ -63,7 +63,7 @@ describe('Fleet', () => {
           missiles: { ion: 1 },
           cannons: { ion: 1 },
         }),
-        new Ship(ShipType.Carrier, {
+        new Ship(ShipType.Cruiser, {
           initiative: 3,
           missiles: { plasma: 2 },
           cannons: { plasma: 2 },
@@ -179,7 +179,7 @@ describe('Fleet', () => {
       {
         name: 'single ship with rift',
         ships: [
-          new Ship(ShipType.Carrier, {
+          new Ship(ShipType.Cruiser, {
             initiative: 2,
             rift: 2,
           }),
@@ -194,7 +194,7 @@ describe('Fleet', () => {
             initiative: 1,
             rift: 1,
           }),
-          new Ship(ShipType.Carrier, {
+          new Ship(ShipType.Cruiser, {
             initiative: 1,
             rift: 3,
           }),
@@ -213,7 +213,7 @@ describe('Fleet', () => {
   describe('assignDamage', () => {
     test('destroys highest priority ship it can', () => {
       const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const carrier = new Ship(ShipType.Carrier, { hull: 2 });
+      const carrier = new Ship(ShipType.Cruiser, { hull: 2 });
       const interceptor = new Ship(ShipType.Interceptor, { hull: 1 });
       const fleet = new Fleet('test', [dread, carrier, interceptor]);
 
@@ -234,7 +234,7 @@ describe('Fleet', () => {
 
     test('targets highest priority hit cannot destory', () => {
       const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const carrier = new Ship(ShipType.Carrier, { hull: 4 });
+      const carrier = new Ship(ShipType.Cruiser, { hull: 4 });
       const fleet = new Fleet('test', [carrier, dread]);
 
       const shots: Shot[] = [
@@ -273,7 +273,7 @@ describe('Fleet', () => {
 
     test('hits nothing if unable', () => {
       const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const carrier = new Ship(ShipType.Carrier, { hull: 2 });
+      const carrier = new Ship(ShipType.Cruiser, { hull: 2 });
       const interceptor = new Ship(ShipType.Interceptor, { hull: 1 });
       const fleet = new Fleet('test', [dread, carrier, interceptor]);
 
@@ -312,14 +312,14 @@ describe('Fleet', () => {
     test.each([
       {
         name: 'all ships alive',
-        ships: [new Ship(ShipType.Interceptor), new Ship(ShipType.Carrier)],
+        ships: [new Ship(ShipType.Interceptor), new Ship(ShipType.Cruiser)],
         expected: true,
       },
       {
         name: 'one ship dead, one alive',
         ships: [
           new Ship(ShipType.Interceptor, { hull: 1 }),
-          new Ship(ShipType.Carrier),
+          new Ship(ShipType.Cruiser),
         ],
         setupFleet: (fleet: Fleet) => {
           fleet['ships'][0].takeDamage(2);
@@ -330,7 +330,7 @@ describe('Fleet', () => {
         name: 'all ships dead',
         ships: [
           new Ship(ShipType.Interceptor, { hull: 1 }),
-          new Ship(ShipType.Carrier, { hull: 2 }),
+          new Ship(ShipType.Cruiser, { hull: 2 }),
         ],
         setupFleet: (fleet: Fleet) => {
           fleet['ships'][0].takeDamage(2);
@@ -349,7 +349,7 @@ describe('Fleet', () => {
   describe('getLivingShips', () => {
     test('returns all ships when all are alive', () => {
       const ship1 = new Ship(ShipType.Interceptor);
-      const ship2 = new Ship(ShipType.Carrier);
+      const ship2 = new Ship(ShipType.Cruiser);
       const fleet = new Fleet('test', [ship1, ship2]);
 
       const living = fleet.getLivingShips();
@@ -360,7 +360,7 @@ describe('Fleet', () => {
 
     test('returns only living ships', () => {
       const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });
-      const ship2 = new Ship(ShipType.Carrier);
+      const ship2 = new Ship(ShipType.Cruiser);
       const ship3 = new Ship(ShipType.Dreadnaught);
       const fleet = new Fleet('test', [ship1, ship2, ship3]);
 
@@ -376,7 +376,7 @@ describe('Fleet', () => {
 
     test('returns empty array when all ships are dead', () => {
       const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });
-      const ship2 = new Ship(ShipType.Carrier, { hull: 2 });
+      const ship2 = new Ship(ShipType.Cruiser, { hull: 2 });
       const fleet = new Fleet('test', [ship1, ship2]);
 
       ship1.takeDamage(2);
@@ -390,7 +390,7 @@ describe('Fleet', () => {
   describe('reset', () => {
     test('restores all ships', () => {
       const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });
-      const ship2 = new Ship(ShipType.Carrier, { hull: 2 });
+      const ship2 = new Ship(ShipType.Cruiser, { hull: 2 });
       const fleet = new Fleet('test', [ship1, ship2]);
 
       ship1.takeDamage(1);

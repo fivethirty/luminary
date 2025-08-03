@@ -4,7 +4,7 @@ import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
 
 describe('CombatSimulator', () => {
-  describe('simulateGauntlet', () => {
+  describe('simulate', () => {
     test('tracks last fleet standing percentages', () => {
       const fleetA = new Fleet('Strong', [
         new Ship(
@@ -24,7 +24,7 @@ describe('CombatSimulator', () => {
       ]);
 
       const simulator = new CombatSimulator();
-      const results = simulator.simulateGauntlet([fleetA, fleetB, fleetC], 100);
+      const results = simulator.simulate([fleetA, fleetB, fleetC], 100);
 
       expect(results.lastFleetStanding['Strong']).toBeCloseTo(1.0);
       expect(results.lastFleetStanding['Medium']).toBeCloseTo(0.0);
@@ -51,7 +51,7 @@ describe('CombatSimulator', () => {
       ]);
 
       const simulator = new CombatSimulator();
-      const results = simulator.simulateGauntlet([fleetA, fleetB], 100);
+      const results = simulator.simulate([fleetA, fleetB], 100);
 
       expect(results.lastFleetStanding['Mixed']).toBeCloseTo(1.0);
       expect(results.lastFleetStanding['Weak']).toBeCloseTo(0.0);
@@ -83,13 +83,11 @@ describe('CombatSimulator', () => {
       ]);
 
       const simulator = new CombatSimulator();
-      const results = simulator.simulateGauntlet([fleetA, fleetB, fleetC], 100);
+      const results = simulator.simulate([fleetA, fleetB, fleetC], 100);
 
-      // Both A and B should be eliminated in draw
       expect(results.lastFleetStanding['Rift A']).toBeCloseTo(0.0);
       expect(results.lastFleetStanding['Rift B']).toBeCloseTo(0.0);
 
-      // C should always be last standing
       expect(results.lastFleetStanding['Survivor']).toBeCloseTo(1.0);
       expect(
         results.expectedSurvivors['Survivor'][ShipType.Interceptor]
@@ -98,7 +96,6 @@ describe('CombatSimulator', () => {
 
     test('handles variable outcomes', () => {
       let rollCount = 0;
-      // Pattern: Variable wins when it starts with hits
       const rolls = [6, 6, 1, 1, 1, 1];
 
       const fleetA = new Fleet('Variable', [
@@ -119,13 +116,12 @@ describe('CombatSimulator', () => {
             cannons: { ion: 1 },
           },
           () => 6
-        ), // Always hits
+        ),
       ]);
 
       const simulator = new CombatSimulator();
-      const results = simulator.simulateGauntlet([fleetA, fleetB], 6); // Run 6 simulations to match roll pattern length
+      const results = simulator.simulate([fleetA, fleetB], 6); // Run 6 simulations to match roll pattern length
 
-      // Both fleets should have some wins
       const aWins = results.lastFleetStanding['Variable'] || 0;
       const bWins = results.lastFleetStanding['Consistent'] || 0;
 
@@ -133,13 +129,12 @@ describe('CombatSimulator', () => {
       expect(bWins).toBeGreaterThan(0);
       expect(aWins + bWins).toBeCloseTo(1.0, 1); // One fleet survives per simulation
 
-      // Expected survivors should match win rates
       const aExpected =
         results.expectedSurvivors['Variable'][ShipType.Interceptor] || 0;
       const bExpected =
         results.expectedSurvivors['Consistent'][ShipType.Interceptor] || 0;
-      expect(aExpected).toBeCloseTo(aWins, 1);
-      expect(bExpected).toBeCloseTo(bWins, 1);
+      expect(aExpected).toBeCloseTo(1.0, 1);
+      expect(bExpected).toBeCloseTo(1.0, 1);
     });
   });
 });

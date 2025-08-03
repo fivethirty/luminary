@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eclipse Combat Simulator</title>
+    <link rel="stylesheet" href="/src/app.css" />
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <h1>Eclipse Combat Simulator</h1>
+
+    <section class="fleets-section">
+      <div class="section-header">
+        <h2>Fleets</h2>
+        <button id="add-fleet-btn">+ Fleet</button>
+      </div>
+      <div id="fleets"></div>
+    </section>
+
+    <div class="controls">
+      <button id="run-simulation-btn">Simulate</button>
+      <button id="clear-all-btn" class="danger">Clear</button>
+    </div>
+
+    <section class="results-section">
+      <h2>Results</h2>
+      <div id="results-container"></div>
+    </section>
+  </body>
+</html>

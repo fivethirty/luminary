@@ -1,14 +1,14 @@
 type ValueOf<T> = T[keyof T];
 
 export const ShipType = {
-  Interceptor: 'interceptor',
-  Carrier: 'carrier',
-  Dreadnaught: 'dreadnaught',
-  Starbase: 'starbase',
-  Orbital: 'orbital',
-  Ancient: 'ancient',
-  Guardian: 'guardian',
-  GCDS: 'gcds',
+  Interceptor: 'Interceptor',
+  Cruiser: 'Cruiser',
+  Dreadnaught: 'Dreadnaught',
+  Starbase: 'Starbase',
+  Orbital: 'Orbital',
+  Ancient: 'Ancient',
+  Guardian: 'Guardian',
+  GCDS: 'GCDS',
 } as const;
 
 export type ShipType = ValueOf<typeof ShipType>;
@@ -61,7 +61,6 @@ function rollRandomD6() {
 }
 
 export class Ship {
-  // Public instance properties
   type: ShipType;
   hull: number = 0;
   computers: number = 0;
@@ -81,7 +80,6 @@ export class Ship {
   };
   rift: number = 0;
 
-  // Private instance properties
   private damage = 0;
   private rollD6: () => number;
 
@@ -92,27 +90,6 @@ export class Ship {
   ) {
     this.type = type;
     this.rollD6 = rollD6;
-
-    switch (type) {
-      case 'ancient':
-        this.hull = 1;
-        this.computers = 1;
-        this.cannons.ion = 2;
-        this.initiative = 2;
-        break;
-      case 'guardian':
-        this.hull = 2;
-        this.computers = 2;
-        this.cannons.ion = 3;
-        this.initiative = 3;
-        break;
-      case 'gcds':
-        this.hull = 7;
-        this.computers = 2;
-        this.cannons.ion = 4;
-        this.initiative = 0;
-        break;
-    }
 
     const { cannons, missiles, ...topLevel } = config;
     Object.assign(this, topLevel);
@@ -206,5 +183,13 @@ export class Ship {
 
   resetDamage(): void {
     this.damage = 0;
+  }
+
+  hasCannons(): boolean {
+    const hasRegularCannons = Object.values(this.cannons).some(
+      (count) => count > 0
+    );
+    const hasRift = this.rift > 0;
+    return hasRegularCannons || hasRift;
   }
 }

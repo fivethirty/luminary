@@ -11,11 +11,7 @@ export interface SimulationStatistics {
 }
 
 export class CombatSimulator {
-  /**
-   * Run multiple gauntlets and collect statistics
-   * Returns percentage of time each fleet is last standing and expected survivors
-   */
-  simulateGauntlet(
+  simulate(
     fleets: Fleet[],
     iterations: number
   ): {
@@ -23,7 +19,6 @@ export class CombatSimulator {
     drawPercentage: number;
     expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>; // Fleet -> ship type -> count
   } {
-    // Initialize tracking
     const wins: Record<string, number> = {};
     const survivors: Record<string, Partial<Record<ShipType, number>>> = {};
     let draws = 0;
@@ -33,12 +28,9 @@ export class CombatSimulator {
       survivors[fleet.name] = {};
     }
 
-    // Run simulations
     for (let i = 0; i < iterations; i++) {
-      // Reset all fleets
       fleets.forEach((fleet) => fleet.reset());
 
-      // Run gauntlet to completion
       const multiBattle = new MultiBattle(fleets);
       multiBattle.run();
       const remaining = multiBattle.getRemainingFleets();
@@ -57,7 +49,6 @@ export class CombatSimulator {
       }
     }
 
-    // Calculate final statistics
     const result: {
       lastFleetStanding: Record<string, number>;
       drawPercentage: number;
@@ -72,9 +63,11 @@ export class CombatSimulator {
       result.lastFleetStanding[fleet.name] = wins[fleet.name] / iterations;
 
       result.expectedSurvivors[fleet.name] = {};
-      for (const [shipType, count] of Object.entries(survivors[fleet.name])) {
-        result.expectedSurvivors[fleet.name][shipType as ShipType] =
-          count / iterations;
+      if (wins[fleet.name] > 0) {
+        for (const [shipType, count] of Object.entries(survivors[fleet.name])) {
+          result.expectedSurvivors[fleet.name][shipType as ShipType] =
+            count / wins[fleet.name];
+        }
       }
     }
 

@@ -129,8 +129,9 @@ describe('Battle', () => {
           hull: 1,
           rift: 1,
         },
+        // self damage only
         () => 5
-      ); // Roll 5 = self damage only
+      );
 
       const defender = new Ship(ShipType.Interceptor, {}, () => 1);
 

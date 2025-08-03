@@ -1,0 +1,83 @@
+calc-results {
+  display: block;
+}
+
+.results-container {
+  flex-direction: column;
+  margin-top: var(--space-lg);
+}
+
+/* Header text styling */
+.results-header h2,
+.survivors-header h3 {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+
+/* Result items */
+#win-percentage-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.result-item {
+  display: grid;
+  grid-template-columns: 9.375rem 5rem 1fr;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.result-name,
+.result-percentage,
+.ship-type,
+.ship-count {
+  font-size: var(--font-size-base);
+}
+
+.result-percentage {
+  text-align: right;
+}
+
+/* Progress bars */
+.result-bar {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  height: 1.5rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.result-bar-fill {
+  background-color: #4ade80; /* Green for success */
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.result-item.draw .result-bar-fill {
+  background-color: var(--color-text-secondary);
+}
+
+/* Survivors grid */
+#survivors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: var(--space-md);
+}
+
+.fleet-survivors {
+  padding: var(--space-md);
+}
+
+.fleet-survivors-header {
+  font-size: var(--font-size-base);
+  margin-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-xs);
+}
+
+.ship-survivors-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}

@@ -1,0 +1,44 @@
+<div class="results-container flex gap-lg">
+  <div class="results-card card">
+    <div class="results-header card-header">
+      <h2>Battle Results</h2>
+    </div>
+    <div class="results-body card-body">
+      <div id="win-percentage-grid"></div>
+    </div>
+  </div>
+
+  <div id="survivors-section" class="survivors-card card">
+    <div class="survivors-header card-header">
+      <h3>Expected Survivors</h3>
+    </div>
+    <div class="survivors-body card-body">
+      <div id="survivors-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Templates -->
+<template id="result-item-template">
+  <div class="result-item">
+    <div class="result-name text-medium"></div>
+    <div class="result-percentage text-semibold"></div>
+    <div class="result-bar">
+      <div class="result-bar-fill"></div>
+    </div>
+  </div>
+</template>
+
+<template id="fleet-survivors-template">
+  <div class="fleet-survivors">
+    <div class="fleet-survivors-header text-bold"></div>
+    <div class="ship-survivors-list"></div>
+  </div>
+</template>
+
+<template id="ship-survivor-template">
+  <div class="ship-survivor-item flex-between">
+    <span class="ship-type"></span>
+    <span class="ship-count text-medium text-secondary"></span>
+  </div>
+</template>

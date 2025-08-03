@@ -1,14 +1,14 @@
 import { RiftShot, Ship, ShipType, Shot } from './ship';
 
 const DAMAGE_PRIORTY: Record<ShipType, number> = {
-  dreadnaught: 0,
-  orbital: 1,
-  carrier: 2,
-  starbase: 3,
-  interceptor: 4,
-  gcds: 5,
-  guardian: 6,
-  ancient: 7,
+  Dreadnaught: 0,
+  Orbital: 1,
+  Cruiser: 2,
+  Starbase: 3,
+  Interceptor: 4,
+  GCDS: 5,
+  Guardian: 6,
+  Ancient: 7,
 };
 
 export class Fleet {
@@ -79,6 +79,10 @@ export class Fleet {
 
   reset() {
     this.ships.forEach((ship) => ship.resetDamage());
+  }
+
+  hasCannons(): boolean {
+    return this.getLivingShips().some((ship) => ship.hasCannons());
   }
 
   private getLivingShipsAtInitiative(initiative: number): Ship[] {
