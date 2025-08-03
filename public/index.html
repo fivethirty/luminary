@@ -1,58 +1,63 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Luminary</title>
-    <link rel="stylesheet" href="/src/app.css" />
-    <script type="module" src="/src/main.ts" defer></script>
-  </head>
-  <body>
-    <header class="main-header">
-      <h1>Luminary</h1>
-      <nav>
-        <a href="#/" class="nav-link active">Home</a>
-        <a href="#/about" class="nav-link">About</a>
-      </nav>
-    </header>
 
-    <main>
-      <div id="home-content">
-        <section class="fleets-section">
-          <div class="section-header">
-            <h2>Fleets</h2>
-            <button id="add-fleet-btn">+ Fleet</button>
-          </div>
-          <div id="fleets"></div>
-        </section>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Luminary</title>
+	<link rel="stylesheet" href="/src/app.css" />
+	<script type="module" src="/src/main.ts" defer></script>
+</head>
 
-        <div class="controls">
-          <button id="run-simulation-btn">Simulate</button>
-          <button id="clear-all-btn" class="danger">Clear</button>
-        </div>
+<body>
+	<header class="main-header">
+		<h1><a href="#/">Luminary</a></h1>
+		<nav>
+			<a href="#/" class="nav-link active">Home</a>
+			<a href="#/about" class="nav-link">About</a>
+		</nav>
+	</header>
 
-        <section class="results-section">
-          <h2>Results</h2>
-          <div id="results-container"></div>
-        </section>
-      </div>
+	<main>
+		<div id="home-content">
+			<section class="fleets-section">
+				<div class="section-header">
+					<h2>Fleets</h2>
+					<button id="add-fleet-btn">+ Fleet</button>
+				</div>
+				<div id="fleets"></div>
+			</section>
 
-      <div id="about-content" style="display: none">
-        <h2>About</h2>
-        <p>
-          Luminary is a battle calculator for Eclipse: Second Dawn for the
-          Galaxy.
-        </p>
-        <h3>Targeting</h3>
-        <p>
-          Luminary assumes that both AI and player ships follow the targeting
-          rules for AI ships. This is not always optimal and as such you should
-          take results with a grain of salt. Note that this is the strategy
-          employed by all other Eclipse calculatrs as far as I know.
-        </p>
-        <h3>Bugs</h3>
-        <p>Please file any bugs over on GitHub.</p>
-      </div>
-    </main>
-  </body>
+			<div class="controls">
+				<button id="run-simulation-btn">Simulate</button>
+				<button id="clear-all-btn" class="danger">Clear</button>
+			</div>
+
+			<section class="results-section">
+				<h2>Results</h2>
+				<div id="results-container"></div>
+			</section>
+		</div>
+
+		<div id="about-content" style="display: none">
+			<h2>About</h2>
+			<p>
+				Luminary is a battle calculator for <a
+					href="https://boardgamegeek.com/boardgame/246900/eclipse-second-dawn-for-the-galaxy" target="_blank">Eclipse:
+					Second Dawn for the
+					Galaxy</a>.
+			</p>
+			<h3>Targeting</h3>
+			<p>
+				Luminary assumes that both AI and player ships follow the targeting
+				rules for AI ships. This is not always optimal and as such you should
+				take results with a grain of salt. Note that this is the strategy
+				employed by all other Eclipse calculatrs as far as I know.
+			</p>
+			<h3>Bugs</h3>
+			<p>Please file any bugs over on GitHub.</p>
+		</div>
+	</main>
+</body>
+
 </html>
