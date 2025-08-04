@@ -34,8 +34,8 @@ export class ShipTypeElement extends HTMLElement {
       qtyInput.min = 1;
       qtyInput.max = 99;
       qtyInput.value = this.shipType.quantity;
-      qtyInput.addEventListener('change', (e) => {
-        this.shipType.quantity = (e.target as SelectorElement).value;
+      qtyInput.addEventListener('change', () => {
+        this.shipType.quantity = qtyInput.value;
         updateShipType(this.fleetId, this.shipType.id, this.shipType);
       });
     }
@@ -142,8 +142,8 @@ export class ShipTypeElement extends HTMLElement {
       if (cube) {
         cube.label = label;
         cube.value = getValue();
-        cube.addEventListener('change', (e) => {
-          setValue((e.target as StatCubeElement).value);
+        cube.addEventListener('change', () => {
+          setValue(cube.value);
           updateShipType(this.fleetId, this.shipType.id, this.shipType);
         });
       }

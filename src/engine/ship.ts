@@ -91,26 +91,14 @@ export class Ship {
     this.type = type;
     this.rollD6 = rollD6;
 
-    const propertiesToCopy = [
-      'hull',
-      'computers',
-      'shields',
-      'initiative',
-      'rift',
-    ] as const;
+    const { cannons, missiles, ...topLevel } = config;
+    Object.assign(this, topLevel);
 
-    for (const prop of propertiesToCopy) {
-      if (config[prop] !== undefined) {
-        // Ensure numeric values at runtime
-        this[prop] = Number(config[prop]);
-      }
+    if (cannons) {
+      Object.assign(this.cannons, cannons);
     }
-
-    if (config.cannons) {
-      this.cannons = { ...this.cannons, ...config.cannons };
-    }
-    if (config.missiles) {
-      this.missiles = { ...this.missiles, ...config.missiles };
+    if (missiles) {
+      Object.assign(this.missiles, missiles);
     }
   }
 
