@@ -93,13 +93,13 @@ function handleRouteChange() {
   const homeContent = document.getElementById('home-content');
   const aboutContent = document.getElementById('about-content');
   const navLinks = document.querySelectorAll('.nav-link');
-  
+
   if (!homeContent || !aboutContent) return;
-  
-  navLinks.forEach(link => {
+
+  navLinks.forEach((link) => {
     link.classList.toggle('active', link.getAttribute('href') === hash);
   });
-  
+
   if (hash === '#/about') {
     homeContent.style.display = 'none';
     aboutContent.style.display = 'block';
@@ -123,7 +123,7 @@ function init() {
   });
 
   renderFleets();
-  
+
   handleRouteChange();
   window.addEventListener('hashchange', handleRouteChange);
 }
