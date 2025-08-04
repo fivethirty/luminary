@@ -2,10 +2,10 @@ name: Deploy to GitHub Pages
 
 on:
   workflow_run:
-    workflows: ["Test"]
+    workflows: ['Test']
     types:
       - completed
-    branches: ["main"]
+    branches: ['main']
 
 permissions:
   contents: read
@@ -13,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: false
 
 jobs:
@@ -23,19 +23,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        
+
       - name: Install dependencies
         run: bun install --production
-        
+
       - name: Build
         run: bun run build
-        
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
-        
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -51,3 +51,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+

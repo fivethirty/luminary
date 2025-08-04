@@ -1,6 +1,6 @@
 # Luminary
 
-[![Tests](https://github.com/fivethirty/luminary/actions/workflows/tests.yml/badge.svg)](https://github.com/fivethirty/luminary/actions/workflows/tests.yml)
+[![Tests](https://github.com/fivethirty/luminary/actions/workflows/test.yml/badge.svg)](https://github.com/fivethirty/luminary/actions/workflows/test.yml)
 
 Luminary is a battle calculator for [Eclipse: Second Dawn for the
 Galaxy](https://boardgamegeek.com/boardgame/246900/eclipse-second-dawn-for-the-galaxy)
