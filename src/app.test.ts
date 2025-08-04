@@ -2,7 +2,7 @@ import { test, expect, beforeEach, describe } from 'bun:test';
 import '../happydom';
 import { state, resetFleets, setSimulationResults } from '@ui/state';
 import { init } from './app';
-import indexHtml from '../public/index.html' with { type: 'text' };
+import indexHtml from './index.html' with { type: 'text' };
 
 describe('App', () => {
   beforeEach(() => {
