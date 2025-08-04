@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "description": "Battle calculator for Eclipse: Second Dawn for the Galaxy",
   "scripts": {
-    "dev": "bun --hot public/index.html",
-    "build": "bun build ./public/*.html --outdir ./dist --minify",
+    "dev": "bun --hot src/index.html",
+    "build": "bun build ./src/*.html --outdir ./dist --minify && cp CNAME dist/",
     "test": "bun test",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
