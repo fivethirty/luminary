@@ -208,8 +208,8 @@ export class FleetElement extends HTMLElement {
     const shipSelector = this.querySelector(
       '.ship-selector'
     ) as HTMLSelectElement;
-    shipSelector.addEventListener('change', (e) => {
-      const value = (e.target as HTMLSelectElement).value;
+    shipSelector.addEventListener('change', () => {
+      const value = shipSelector.value;
       if (value) {
         this.addShip(value as ShipDropdownOption);
         shipSelector.value = '';
