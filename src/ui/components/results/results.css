@@ -23,7 +23,7 @@ calc-results {
 
 .result-item {
   display: grid;
-  grid-template-columns: 9.375rem 5rem 1fr;
+  grid-template-columns: auto auto 1fr;
   gap: var(--space-md);
   align-items: center;
 }

@@ -5,6 +5,7 @@ export class StatCubeElement extends HTMLElement {
   private _value: number = 0;
   private _label = '';
   private input!: HTMLInputElement;
+  private originalValue = '';
 
   get value(): number {
     return this._value;
@@ -28,6 +29,17 @@ export class StatCubeElement extends HTMLElement {
 
     this.addEventListener('click', () => {
       this.input.focus();
+    });
+
+    this.input.addEventListener('focus', () => {
+      this.originalValue = this.input.value;
+      this.input.value = '';
+    });
+
+    this.input.addEventListener('blur', () => {
+      if (this.input.value === '') {
+        this.input.value = this.originalValue;
+      }
     });
 
     this.input.addEventListener('beforeinput', (e) => {

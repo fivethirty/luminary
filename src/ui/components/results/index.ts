@@ -69,7 +69,7 @@ export class ResultsElement extends HTMLElement {
     const percentEl = clone.querySelector('.result-percentage')!;
     const fillEl = clone.querySelector('.result-bar-fill') as HTMLElement;
 
-    nameEl.textContent = name;
+    nameEl.textContent = `${name}:`;
     percentEl.textContent = `${(percentage * 100).toFixed(1)}%`;
     fillEl.style.width = `${percentage * 100}%`;
 

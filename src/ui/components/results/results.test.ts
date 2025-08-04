@@ -52,7 +52,7 @@ describe('Results', () => {
     );
 
     // Should be sorted by percentage descending
-    expect(names).toEqual(['Fleet B', 'Fleet A', 'Fleet C']);
+    expect(names).toEqual(['Fleet B:', 'Fleet A:', 'Fleet C:']);
   });
 
   test('displays percentages correctly', () => {
@@ -95,7 +95,7 @@ describe('Results', () => {
     expect(drawItem).not.toBeNull();
 
     const drawName = drawItem!.querySelector('.result-name')?.textContent;
-    expect(drawName).toBe('Draw');
+    expect(drawName).toBe('Draw:');
 
     const drawPercent =
       drawItem!.querySelector('.result-percentage')?.textContent;
