@@ -16,7 +16,8 @@ export class Fleet {
 
   constructor(
     public name: string,
-    ships: Ship[]
+    ships: Ship[],
+    public antimatterSplitter: boolean = false
   ) {
     this.ships = Array.from(ships);
   }
@@ -32,7 +33,7 @@ export class Fleet {
   }
   shootCannonsForInitiative(initiative: number): Shot[] {
     return this.getLivingShipsAtInitiative(initiative).flatMap((ship) =>
-      ship.shootCannons()
+      ship.shootCannons(this.antimatterSplitter)
     );
   }
   shootRiftCannonsForInitiative(initiative: number): RiftShot[] {

@@ -4,7 +4,7 @@ import '../ship-type';
 import type { ShipTypeElement } from '../ship-type';
 import { ShipType, ShipConfig } from '@calc/ship';
 import type { FleetState } from '@ui/state';
-import { removeFleet, addShipType } from '@ui/state';
+import { removeFleet, addShipType, toggleAntimatterSplitter } from '@ui/state';
 
 type ShipDropdownOption =
   | 'interceptor'
@@ -214,6 +214,14 @@ export class FleetElement extends HTMLElement {
         this.addShip(value as ShipDropdownOption);
         shipSelector.value = '';
       }
+    });
+
+    const antimatterCheckbox = this.querySelector(
+      '.antimatter-splitter-checkbox'
+    ) as HTMLInputElement;
+    antimatterCheckbox.checked = this.fleet.antimatterSplitter;
+    antimatterCheckbox.addEventListener('change', () => {
+      toggleAntimatterSplitter(this.fleet.id);
     });
 
     this.updateShipSelector();

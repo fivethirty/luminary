@@ -166,6 +166,46 @@ input[type='text'] {
   width: 12.5rem;
 }
 
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg-tertiary);
+  border: 2px solid var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+}
+
+input[type='checkbox']:hover {
+  border-color: var(--color-text-secondary);
+  background: var(--color-border);
+}
+
+input[type='checkbox']:checked {
+  background: var(--color-info);
+  border-color: var(--color-text-secondary);
+}
+
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.0625rem;
+  width: 0.25rem;
+  height: 0.5rem;
+  border: solid var(--color-text-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+input[type='checkbox']:focus {
+  outline: none;
+}
+
 button {
   cursor: pointer;
   background: var(--color-bg-tertiary);

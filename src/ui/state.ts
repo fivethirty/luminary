@@ -13,6 +13,7 @@ export interface FleetState {
   id: string;
   name: string;
   shipTypes: ShipTypeConfig[];
+  antimatterSplitter: boolean;
 }
 
 export interface SimulationResults {
@@ -31,11 +32,13 @@ const DEFAULT_FLEETS: FleetState[] = [
     id: 'fleet-0',
     name: 'Defender',
     shipTypes: [],
+    antimatterSplitter: false,
   },
   {
     id: 'fleet-1',
     name: 'Attacker',
     shipTypes: [],
+    antimatterSplitter: false,
   },
 ];
 
@@ -49,6 +52,7 @@ export function addFleet(): FleetState {
     id: `fleet-${nextFleetId}`,
     name: '',
     shipTypes: [],
+    antimatterSplitter: false,
   };
   nextFleetId++;
 
@@ -115,4 +119,9 @@ export function resetFleets() {
 
 export function setSimulationResults(results: SimulationResults | null) {
   state.simulationResults = results;
+}
+
+export function toggleAntimatterSplitter(fleetId: string) {
+  const fleet = getFleetById(fleetId);
+  fleet.antimatterSplitter = !fleet.antimatterSplitter;
 }

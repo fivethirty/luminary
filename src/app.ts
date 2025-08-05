@@ -62,11 +62,12 @@ function simulate() {
 
       fleet.shipTypes.forEach((shipType) => {
         for (let i = 0; i < shipType.quantity; i++) {
-          ships.push(new Ship(shipType.type, shipType.config));
+          const ship = new Ship(shipType.type, shipType.config);
+          ships.push(ship);
         }
       });
 
-      return new Fleet(fleet.name, ships);
+      return new Fleet(fleet.name, ships, fleet.antimatterSplitter);
     })
     .reverse();
 

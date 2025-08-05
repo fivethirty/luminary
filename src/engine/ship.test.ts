@@ -5,7 +5,7 @@ describe('Ship', () => {
   describe('isPlayerShip', () => {
     test.each([
       { type: ShipType.Interceptor, expected: true },
-      { type: ShipType.Carrier, expected: true },
+      { type: ShipType.Cruiser, expected: true },
       { type: ShipType.Dreadnaught, expected: true },
       { type: ShipType.Orbital, expected: true },
       { type: ShipType.Starbase, expected: true },
@@ -130,6 +130,105 @@ describe('Ship', () => {
       );
       const shots = ship.shootCannons();
       validateShots(ship.computers, ship.cannons, shots);
+    });
+  });
+
+  describe('antimatter splitter', () => {
+    test('splits antimatter cannons into 4 shots', () => {
+      const mockRoll = (() => {
+        let callCount = 0;
+        return () => {
+          callCount++;
+          return callCount === 1 ? 5 : 1;
+        };
+      })();
+
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
+          computers: 2,
+        },
+        mockRoll
+      );
+
+      const shots = ship.shootCannons(true);
+
+      expect(shots.length).toBe(4);
+      expect(shots.every((shot) => shot.roll === 5)).toBe(true);
+      expect(shots.every((shot) => shot.computers === 2)).toBe(true);
+      expect(shots.every((shot) => shot.damage === 1)).toBe(true);
+    });
+
+    test('does not split non-antimatter cannons', () => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: { ion: 1, plasma: 1, soliton: 0, antimatter: 0 },
+          computers: 1,
+        },
+        () => 6
+      );
+
+      const shots = ship.shootCannons(true);
+
+      expect(shots.length).toBe(2);
+      expect(shots[0].damage).toBe(WeaponDamage.ion);
+      expect(shots[1].damage).toBe(WeaponDamage.plasma);
+    });
+
+    test('handles multiple antimatter cannons', () => {
+      let rollCount = 0;
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 2 },
+          computers: 0,
+        },
+        () => ++rollCount
+      );
+
+      const shots = ship.shootCannons(true);
+
+      expect(shots.length).toBe(8);
+      expect(shots.slice(0, 4).every((shot) => shot.roll === 1)).toBe(true);
+      expect(shots.slice(4, 8).every((shot) => shot.roll === 2)).toBe(true);
+      expect(shots.every((shot) => shot.damage === 1)).toBe(true);
+    });
+
+    test('antimatter cannons without splitter work normally', () => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
+          computers: 3,
+        },
+        () => 4
+      );
+
+      const shots = ship.shootCannons(false);
+
+      expect(shots.length).toBe(1);
+      expect(shots[0].roll).toBe(4);
+      expect(shots[0].computers).toBe(3);
+      expect(shots[0].damage).toBe(WeaponDamage.antimatter);
+    });
+
+    test('does NOT split antimatter missiles', () => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
+          computers: 2,
+        },
+        () => 5
+      );
+
+      const shots = ship.shootMissles();
+
+      expect(shots.length).toBe(1);
+      expect(shots[0].roll).toBe(5);
+      expect(shots[0].damage).toBe(WeaponDamage.antimatter);
     });
   });
 

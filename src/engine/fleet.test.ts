@@ -405,4 +405,51 @@ describe('Fleet', () => {
       expect(ship2.remainingHP()).toBe(3);
     });
   });
+
+  describe('antimatter splitter', () => {
+    test('passes antimatter splitter flag to ships when shooting', () => {
+      let capturedSplitterFlag: boolean | undefined;
+
+      const mockShip = new Ship(
+        ShipType.Interceptor,
+        {
+          initiative: 3,
+          cannons: { antimatter: 1 },
+        },
+        () => 6
+      );
+
+      // Override shootCannons to capture the flag
+      mockShip.shootCannons = (antimatterSplitter?: boolean) => {
+        capturedSplitterFlag = antimatterSplitter;
+        return [];
+      };
+
+      const fleetWithSplitter = new Fleet('test', [mockShip], true);
+      fleetWithSplitter.shootCannonsForInitiative(3);
+      expect(capturedSplitterFlag).toBe(true);
+
+      const fleetWithoutSplitter = new Fleet('test', [mockShip], false);
+      fleetWithoutSplitter.shootCannonsForInitiative(3);
+      expect(capturedSplitterFlag).toBe(false);
+    });
+
+    test('antimatter splitter creates correct number of shots', () => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          initiative: 2,
+          cannons: { antimatter: 1 },
+        },
+        () => 5
+      );
+
+      const fleetWithSplitter = new Fleet('test', [ship], true);
+      const shots = fleetWithSplitter.shootCannonsForInitiative(2);
+
+      expect(shots.length).toBe(4);
+      expect(shots.every((shot) => shot.roll === 5)).toBe(true);
+      expect(shots.every((shot) => shot.damage === 1)).toBe(true);
+    });
+  });
 });

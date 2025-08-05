@@ -110,20 +110,37 @@ export class Ship {
     return this.rollWeapons(this.missiles);
   }
 
-  shootCannons(): Shot[] {
-    return this.rollWeapons(this.cannons);
+  shootCannons(antimatterSplitter: boolean = false): Shot[] {
+    return this.rollWeapons(this.cannons, antimatterSplitter);
   }
 
-  private rollWeapons(weapons: Record<WeaponType, number>): Shot[] {
+  private rollWeapons(
+    weapons: Record<WeaponType, number>,
+    antimatterSplitter: boolean = false
+  ): Shot[] {
     return Object.entries(weapons).flatMap(([weaponType, count]) => {
       const shots: Shot[] = [];
+      const type = weaponType as WeaponType;
+
       for (let i = 0; i < count; i++) {
         const roll = this.rollD6();
-        shots.push({
-          roll: roll,
-          computers: this.computers,
-          damage: WeaponDamage[weaponType as WeaponType],
-        });
+        const weaponDamage = WeaponDamage[type];
+
+        if (type === WeaponType.Antimatter && antimatterSplitter) {
+          for (let j = 0; j < weaponDamage; j++) {
+            shots.push({
+              roll: roll,
+              computers: this.computers,
+              damage: 1,
+            });
+          }
+        } else {
+          shots.push({
+            roll: roll,
+            computers: this.computers,
+            damage: weaponDamage,
+          });
+        }
       }
       return shots;
     });
