@@ -1,17 +1,23 @@
 :root {
-  --color-bg-primary: #0a0a0a;
-  --color-bg-secondary: #1a1a1a;
-  --color-bg-tertiary: #2a2a2a;
-  --color-border: #333;
-  --color-border-strong: #444;
-  --color-text-primary: #e0e0e0;
-  --color-text-secondary: #999;
-  --color-text-muted: #666;
+  --color-bg-primary: #151922;
+  --color-bg-secondary: #20253a;
+  --color-bg-tertiary: #323851;
+  --color-border: #404962;
+  --color-border-strong: #525d78;
+  --color-text-primary: #e8ecf2;
+  --color-text-secondary: #a0aec0;
+  --color-text-muted: #718096;
 
-  --color-success: #4caf50;
-  --color-warning: #ff9800;
-  --color-danger: #f44336;
-  --color-info: #4a9eff;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  
+  --color-stat-ion: #facc15;
+  --color-stat-plasma: #fb923c;
+  --color-stat-soliton: #60a5fa;
+  --color-stat-antimatter: #ef4444;
+  --color-stat-rift: #f9a8d4;
 
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
@@ -225,7 +231,7 @@ button.primary {
 }
 
 button.primary:hover {
-  background: #3a7edd;
+  filter: brightness(0.9);
 }
 
 button.danger {
@@ -236,7 +242,7 @@ button.danger {
 }
 
 button.danger:hover {
-  background: rgba(244, 67, 54, 0.1);
+  background: rgba(239, 68, 68, 0.1);
   color: var(--color-danger);
 }
 

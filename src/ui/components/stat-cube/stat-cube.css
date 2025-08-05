@@ -49,21 +49,21 @@
 }
 
 calc-stat-cube[data-stat*='ion'] .stat-cube label {
-  color: #facc15;
+  color: var(--color-stat-ion);
 }
 
 calc-stat-cube[data-stat*='plasma'] .stat-cube label {
-  color: #fb923c;
+  color: var(--color-stat-plasma);
 }
 
 calc-stat-cube[data-stat*='soliton'] .stat-cube label {
-  color: #60a5fa;
+  color: var(--color-stat-soliton);
 }
 
 calc-stat-cube[data-stat*='antimatter'] .stat-cube label {
-  color: #ef4444;
+  color: var(--color-stat-antimatter);
 }
 
 calc-stat-cube[data-stat*='rift'] .stat-cube label {
-  color: #f9a8d4;
+  color: var(--color-stat-rift);
 }
