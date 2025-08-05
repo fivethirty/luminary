@@ -15,8 +15,11 @@ export class MultiBattle {
     const results: BattleResult[] = [];
 
     while (this.fleets.length > 1) {
-      const attacker = this.fleets[0];
-      const defender = this.fleets[1];
+      const lastIndex = this.fleets.length - 1;
+      const secondLastIndex = this.fleets.length - 2;
+      
+      const attacker = this.fleets[lastIndex];
+      const defender = this.fleets[secondLastIndex];
 
       const battle = new Battle(attacker, defender);
       const result = battle.fight();
@@ -24,13 +27,13 @@ export class MultiBattle {
 
       switch (result.outcome) {
         case BattleOutcome.Attacker:
-          this.fleets.splice(1, 1);
+          this.fleets.splice(secondLastIndex, 1);
           break;
         case BattleOutcome.Defender:
-          this.fleets.splice(0, 1);
+          this.fleets.splice(lastIndex, 1);
           break;
         case BattleOutcome.Draw:
-          this.fleets.splice(0, 2);
+          this.fleets.splice(secondLastIndex, 2);
           break;
       }
     }

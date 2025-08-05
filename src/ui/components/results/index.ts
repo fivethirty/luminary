@@ -3,25 +3,21 @@ import './results.css';
 import { state } from '@ui/state';
 
 export class ResultsElement extends HTMLElement {
-  private resultItemTemplate!: HTMLTemplateElement;
-  private fleetSurvivorsTemplate!: HTMLTemplateElement;
-  private shipSurvivorTemplate!: HTMLTemplateElement;
+  private resultRowTemplate!: HTMLTemplateElement;
+  private survivorFleetTemplate!: HTMLTemplateElement;
 
   connectedCallback() {
     this.innerHTML = html as string;
-
-    this.resultItemTemplate = this.querySelector('#result-item-template')!;
-    this.fleetSurvivorsTemplate = this.querySelector(
-      '#fleet-survivors-template'
-    )!;
-    this.shipSurvivorTemplate = this.querySelector('#ship-survivor-template')!;
-
+    this.resultRowTemplate = this.querySelector('#result-row-template')!;
+    this.survivorFleetTemplate = this.querySelector('#survivor-fleet-template')!;
     this.render();
   }
 
   render() {
-    this.renderWinPercentages();
-    this.renderSurvivors();
+    const results = state.simulationResults!;
+    
+    this.renderWinPercentages(results);
+    this.renderSurvivors(results);
 
     setTimeout(() => {
       this.scrollIntoView({
@@ -31,113 +27,74 @@ export class ResultsElement extends HTMLElement {
     }, 100);
   }
 
-  private renderWinPercentages() {
-    const results = state.simulationResults!;
-    const winGrid = this.querySelector('#win-percentage-grid')!;
-    winGrid.innerHTML = '';
+  private renderWinPercentages(results: any) {
+    const tbody = this.querySelector('#results-tbody')!;
+    tbody.innerHTML = '';
 
-    const sortedFleets = Object.entries(results.victoryProbability).sort(
-      ([, a], [, b]) => b - a
-    );
-
-    for (const [fleetName, percentage] of sortedFleets) {
-      winGrid.appendChild(this.createResultItem(fleetName, percentage));
+    // Show fleets in their original order
+    for (const [fleetName, percentage] of Object.entries(results.victoryProbability)) {
+      tbody.appendChild(this.createResultRow(fleetName, percentage));
     }
 
     if (results.drawProbability > 0) {
-      winGrid.appendChild(
-        this.createResultItem('Draw', results.drawProbability, true)
-      );
+      tbody.appendChild(this.createResultRow('Draw', results.drawProbability, true));
     }
   }
 
-  private createResultItem(
-    name: string,
-    percentage: number,
-    isDraw = false
-  ): HTMLElement {
-    const clone = this.resultItemTemplate.content.cloneNode(
-      true
-    ) as DocumentFragment;
-    const resultItem = clone.querySelector('.result-item')!;
+  private renderSurvivors(results: any) {
+    const survivorsSection = this.querySelector('#survivors-section') as HTMLElement;
+    const grid = this.querySelector('#survivors-grid')!;
+    grid.innerHTML = '';
 
-    if (isDraw) {
-      resultItem.classList.add('draw');
-    }
-
-    const nameEl = clone.querySelector('.result-name')!;
-    const percentEl = clone.querySelector('.result-percentage')!;
-    const fillEl = clone.querySelector('.result-bar-fill') as HTMLElement;
-
-    nameEl.textContent = `${name}:`;
-    percentEl.textContent = `${(percentage * 100).toFixed(1)}%`;
-    fillEl.style.width = `${percentage * 100}%`;
-
-    if (isDraw) {
-      fillEl.classList.add('draw-fill');
-    }
-
-    return clone as unknown as HTMLElement;
-  }
-
-  private renderSurvivors() {
-    const results = state.simulationResults!;
-    const survivorsGrid = this.querySelector('#survivors-grid')!;
-    const survivorsSection = this.querySelector(
-      '#survivors-section'
-    ) as HTMLElement;
-
-    survivorsGrid.innerHTML = '';
     let hasSurvivors = false;
-
-    for (const [fleetName, survivors] of Object.entries(
-      results.expectedSurvivors
-    )) {
-      const survivorEntries = Object.entries(survivors).filter(
-        ([, count]) => count > 0
-      );
-
+    
+    // Show fleets in their original order
+    for (const [fleetName, survivors] of Object.entries(results.expectedSurvivors)) {
+      const survivorEntries = Object.entries(survivors as Record<string, number>)
+        .filter(([, count]) => count > 0);
+      
       if (survivorEntries.length > 0) {
         hasSurvivors = true;
-        survivorsGrid.appendChild(
-          this.createFleetSurvivors(fleetName, survivorEntries)
-        );
+        grid.appendChild(this.createSurvivorCard(fleetName, survivorEntries));
       }
     }
 
     survivorsSection.style.display = hasSurvivors ? 'block' : 'none';
   }
 
-  private createFleetSurvivors(
-    fleetName: string,
-    survivors: [string, number][]
-  ): HTMLElement {
-    const clone = this.fleetSurvivorsTemplate.content.cloneNode(
-      true
-    ) as DocumentFragment;
-
-    const headerEl = clone.querySelector('.fleet-survivors-header')!;
-    const shipListEl = clone.querySelector('.ship-survivors-list')!;
-
-    headerEl.textContent = fleetName;
-
-    for (const [shipType, count] of survivors) {
-      shipListEl.appendChild(this.createShipSurvivor(shipType, count));
+  private createResultRow(fleetName: string, percentage: number, isDraw = false): HTMLElement {
+    const clone = this.resultRowTemplate.content.cloneNode(true) as DocumentFragment;
+    
+    if (isDraw) {
+      const row = clone.querySelector('.result-row')!;
+      row.classList.add('draw');
     }
+    
+    const nameEl = clone.querySelector('.fleet-name')!;
+    const percentEl = clone.querySelector('.win-percentage')!;
+    const barFill = clone.querySelector('.win-bar-fill') as HTMLElement;
+
+    nameEl.textContent = fleetName;
+    percentEl.textContent = `${(percentage * 100).toFixed(1)}%`;
+    barFill.style.width = `${percentage * 100}%`;
 
     return clone as unknown as HTMLElement;
   }
 
-  private createShipSurvivor(shipType: string, count: number): HTMLElement {
-    const clone = this.shipSurvivorTemplate.content.cloneNode(
-      true
-    ) as DocumentFragment;
+  private createSurvivorCard(fleetName: string, survivors: [string, number][]): HTMLElement {
+    const clone = this.survivorFleetTemplate.content.cloneNode(true) as DocumentFragment;
+    
+    const nameEl = clone.querySelector('.survivor-fleet-name')!;
+    const tbody = clone.querySelector('.survivor-ships-tbody')!;
 
-    const typeEl = clone.querySelector('.ship-type')!;
-    const countEl = clone.querySelector('.ship-count')!;
-
-    typeEl.textContent = shipType;
-    countEl.textContent = count.toFixed(1);
+    nameEl.textContent = fleetName;
+    
+    const rows = survivors.map(([type, count]) => {
+      const countStr = count % 1 === 0 ? count.toString() : count.toFixed(1);
+      return `<tr><td>${type}</td><td>${countStr}</td></tr>`;
+    }).join('');
+    
+    tbody.innerHTML = rows;
 
     return clone as unknown as HTMLElement;
   }

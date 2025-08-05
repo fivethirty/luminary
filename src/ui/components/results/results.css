@@ -3,81 +3,130 @@ calc-results {
 }
 
 .results-container {
-  flex-direction: column;
   margin-top: var(--space-lg);
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
-/* Header text styling */
-.results-header h2,
+.results-card,
+.survivors-card {
+  flex: 1 1 0;
+  min-width: 20rem;
+}
+
+.results-header h2 {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+
+.results-body {
+  padding: 0;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.results-table td {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-base);
+}
+
+.fleet-name {
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.win-percentage {
+  white-space: nowrap;
+  text-align: right;
+  padding-right: var(--space-sm);
+}
+
+.win-bar-cell {
+  width: 100%;
+}
+
+.win-bar {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  height: 1.25rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.win-bar-fill {
+  background-color: #4ade80;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.result-row.draw .win-bar-fill {
+  background-color: var(--color-text-secondary);
+}
+
+
 .survivors-header h3 {
   margin: 0;
   font-size: var(--font-size-base);
 }
 
-/* Result items */
-#win-percentage-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
 
-.result-item {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: var(--space-md);
-  align-items: center;
-}
-
-.result-name,
-.result-percentage,
-.ship-type,
-.ship-count {
-  font-size: var(--font-size-base);
-}
-
-.result-percentage {
-  text-align: right;
-}
-
-/* Progress bars */
-.result-bar {
-  background-color: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  height: 1.5rem;
-  border-radius: var(--radius-sm);
+.survivors-body {
+  padding: var(--space-md);
   overflow: hidden;
 }
 
-.result-bar-fill {
-  background-color: #4ade80; /* Green for success */
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.result-item.draw .result-bar-fill {
-  background-color: var(--color-text-secondary);
-}
-
-/* Survivors grid */
-#survivors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
-  gap: var(--space-md);
-}
-
-.fleet-survivors {
-  padding: var(--space-md);
-}
-
-.fleet-survivors-header {
-  font-size: var(--font-size-base);
-  margin-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--space-xs);
-}
-
-.ship-survivors-list {
+.survivors-grid {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+}
+
+.survivor-fleet-card:not(:last-child) {
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-md);
+  position: relative;
+}
+
+.survivor-fleet-card:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: calc(-1 * var(--space-md));
+  right: calc(-1 * var(--space-md));
+  height: 1px;
+  background-color: var(--color-border);
+}
+
+.survivor-fleet-card:last-child {
+  padding-bottom: 0;
+}
+
+.survivor-fleet-name {
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-xs);
+}
+
+.survivor-ships-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.survivor-ships-table td {
+  padding: 0 var(--space-xs) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.survivor-ships-table td:first-child {
+  color: var(--color-text-secondary);
+}
+
+.survivor-ships-table td:last-child {
+  text-align: right;
+  padding-right: 0;
 }

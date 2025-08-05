@@ -68,8 +68,7 @@ function simulate() {
       });
 
       return new Fleet(fleet.name, ships, fleet.antimatterSplitter);
-    })
-    .reverse();
+    });
 
   const simulator = new CombatSimulator();
   const results = simulator.simulate(engineFleets, 5000);
