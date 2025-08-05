@@ -4,7 +4,7 @@
 
 Luminary is a battle calculator for [Eclipse: Second Dawn for the
 Galaxy](https://boardgamegeek.com/boardgame/246900/eclipse-second-dawn-for-the-galaxy)
-You can find it online at [https://luminary.baysoft.dev](luminary.baysoft.dev).
+You can find it online at [luminary.baysoft.dev](https://luminary.baysoft.dev).
 
 ## Dependencies
 
