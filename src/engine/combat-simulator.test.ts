@@ -36,7 +36,7 @@ describe('CombatSimulator', () => {
       const fleetA = new Fleet('Mixed', [
         new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, () => 6),
         new Ship(
-          ShipType.Carrier,
+          ShipType.Cruiser,
           { hull: 2, cannons: { plasma: 2 } },
           () => 6
         ),
@@ -59,7 +59,7 @@ describe('CombatSimulator', () => {
       expect(
         results.expectedSurvivors['Mixed'][ShipType.Interceptor]
       ).toBeCloseTo(1.0);
-      expect(results.expectedSurvivors['Mixed'][ShipType.Carrier]).toBeCloseTo(
+      expect(results.expectedSurvivors['Mixed'][ShipType.Cruiser]).toBeCloseTo(
         1.0
       );
       expect(
@@ -73,7 +73,7 @@ describe('CombatSimulator', () => {
 
     test('handles draws correctly', () => {
       const fleetA = new Fleet('Rift A', [
-        new Ship(ShipType.Carrier, { hull: 0, rift: 1 }, () => 6),
+        new Ship(ShipType.Cruiser, { hull: 0, rift: 1 }, () => 6),
       ]);
       const fleetB = new Fleet('Rift B', [
         new Ship(ShipType.Interceptor, { hull: 2 }, () => 1),
@@ -83,7 +83,7 @@ describe('CombatSimulator', () => {
       ]);
 
       const simulator = new CombatSimulator();
-      const results = simulator.simulate([fleetA, fleetB, fleetC], 100);
+      const results = simulator.simulate([fleetC, fleetB, fleetA], 100);
 
       expect(results.lastFleetStanding['Rift A']).toBeCloseTo(0.0);
       expect(results.lastFleetStanding['Rift B']).toBeCloseTo(0.0);

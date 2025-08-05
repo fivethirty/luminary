@@ -124,7 +124,7 @@ describe('Battle', () => {
 
     test('rift cannon can cause self-destruction', () => {
       const attacker = new Ship(
-        ShipType.Carrier,
+        ShipType.Cruiser,
         {
           hull: 1,
           rift: 1,
@@ -151,7 +151,7 @@ describe('Battle', () => {
       const rolls = [6, 6, 5];
 
       const attacker = new Ship(
-        ShipType.Carrier,
+        ShipType.Cruiser,
         {
           cannons: { plasma: 2 },
           rift: 1,

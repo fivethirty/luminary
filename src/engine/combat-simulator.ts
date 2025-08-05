@@ -15,9 +15,9 @@ export class CombatSimulator {
     fleets: Fleet[],
     iterations: number
   ): {
-    lastFleetStanding: Record<string, number>; // Fleet name -> percentage
+    lastFleetStanding: Record<string, number>;
     drawPercentage: number;
-    expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>; // Fleet -> ship type -> count
+    expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
   } {
     const wins: Record<string, number> = {};
     const survivors: Record<string, Partial<Record<ShipType, number>>> = {};
@@ -41,7 +41,6 @@ export class CombatSimulator {
         const winner = remaining[0];
         wins[winner.name]++;
 
-        // Count survivors by type
         for (const ship of winner.getLivingShips()) {
           survivors[winner.name][ship.type] =
             (survivors[winner.name][ship.type] || 0) + 1;

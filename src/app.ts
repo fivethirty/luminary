@@ -56,19 +56,18 @@ function simulate() {
     activeElement.blur();
   }
 
-  const engineFleets = state.fleets
-    .map((fleet) => {
-      const ships: Ship[] = [];
+  const engineFleets = state.fleets.map((fleet) => {
+    const ships: Ship[] = [];
 
-      fleet.shipTypes.forEach((shipType) => {
-        for (let i = 0; i < shipType.quantity; i++) {
-          const ship = new Ship(shipType.type, shipType.config);
-          ships.push(ship);
-        }
-      });
-
-      return new Fleet(fleet.name, ships, fleet.antimatterSplitter);
+    fleet.shipTypes.forEach((shipType) => {
+      for (let i = 0; i < shipType.quantity; i++) {
+        const ship = new Ship(shipType.type, shipType.config);
+        ships.push(ship);
+      }
     });
+
+    return new Fleet(fleet.name, ships, fleet.antimatterSplitter);
+  });
 
   const simulator = new CombatSimulator();
   const results = simulator.simulate(engineFleets, 5000);

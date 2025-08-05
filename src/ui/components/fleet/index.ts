@@ -180,7 +180,7 @@ export class FleetElement extends HTMLElement {
   fleet!: FleetState;
 
   connectedCallback() {
-    this.innerHTML = html as string;
+    this.innerHTML = html;
 
     const nameSpan = this.querySelector('.fleet-name') as HTMLSpanElement;
     nameSpan.textContent = this.fleet.name;

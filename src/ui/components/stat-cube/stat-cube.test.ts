@@ -68,7 +68,6 @@ describe('StatCubeElement', () => {
 
     const input = cube.querySelector('input') as HTMLInputElement;
 
-    // Mock focus method
     let focusCalled = false;
     input.focus = () => {
       focusCalled = true;

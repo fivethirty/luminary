@@ -13,7 +13,7 @@ export class ShipTypeElement extends HTMLElement {
   fleetId!: string;
 
   connectedCallback() {
-    this.innerHTML = html as string;
+    this.innerHTML = html;
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     removeBtn.addEventListener('click', () => {

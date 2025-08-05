@@ -26,14 +26,14 @@ describe('MultiBattle', () => {
 
   describe('run', () => {
     test('single battle between two fleets', () => {
-      const fleetA = new Fleet('A', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, () => 6),
-      ]);
-      const fleetB = new Fleet('B', [
+      const defender = new Fleet('defender', [
         new Ship(ShipType.Interceptor, { hull: 1 }, () => 1),
       ]);
+      const attacker = new Fleet('attacker', [
+        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, () => 6),
+      ]);
 
-      const multiBattle = new MultiBattle([fleetA, fleetB]);
+      const multiBattle = new MultiBattle([defender, attacker]);
       const results = multiBattle.run();
 
       expect(results).toHaveLength(1);
@@ -42,17 +42,17 @@ describe('MultiBattle', () => {
     });
 
     test('three fleets - winner faces next challenger', () => {
-      const fleetA = new Fleet('A', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, () => 1), // Weak
+      const defender = new Fleet('defender', [
+        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, () => 1),
       ]);
-      const fleetB = new Fleet('B', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, () => 6), // Strong
+      const attacker1 = new Fleet('attacker1', [
+        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, () => 6),
       ]);
-      const fleetC = new Fleet('C', [
-        new Ship(ShipType.Interceptor, { hull: 1 }, () => 1), // Weak
+      const attacker2 = new Fleet('attacker2', [
+        new Ship(ShipType.Interceptor, { hull: 1 }, () => 1),
       ]);
 
-      const multiBattle = new MultiBattle([fleetA, fleetB, fleetC]);
+      const multiBattle = new MultiBattle([defender, attacker1, attacker2]);
       const results = multiBattle.run();
 
       expect(results).toHaveLength(2);
@@ -61,38 +61,35 @@ describe('MultiBattle', () => {
     });
 
     test('stalemate is victory for defender', () => {
-      const fleetA = new Fleet('A', [
-        new Ship(ShipType.Interceptor, {}, () => 1), // No weapons
+      const defender = new Fleet('defender', [
+        new Ship(ShipType.Interceptor, {}, () => 1),
       ]);
-      const fleetB = new Fleet('B', [
-        new Ship(ShipType.Interceptor, {}, () => 1), // No weapons
-      ]);
-      const fleetC = new Fleet('C', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, () => 6),
+      const attacker = new Fleet('attacker', [
+        new Ship(ShipType.Interceptor, {}, () => 1),
       ]);
 
-      const multiBattle = new MultiBattle([fleetA, fleetB, fleetC]);
+      const multiBattle = new MultiBattle([defender, attacker]);
       const results = multiBattle.run();
 
-      expect(results).toHaveLength(2);
+      expect(results).toHaveLength(1);
       expect(results[0].outcome).toBe(BattleOutcome.Defender);
-      expect(results[1].outcome).toBe(BattleOutcome.Defender);
     });
 
     test('draw removes both fleets', () => {
-      const fleetA = new Fleet('A', [
-        new Ship(
-          ShipType.Carrier,
-          { hull: 0, rift: 1 },
-          () => 6 // Rift roll 6 = 1 self damage, 3 target damage
-        ),
-      ]);
-      const fleetB = new Fleet('B', [
+      const defender = new Fleet('defender', [new Ship(ShipType.Interceptor)]);
+      const attacker1 = new Fleet('attacker1', [
         new Ship(ShipType.Interceptor, { hull: 2 }, () => 1),
       ]);
-      const fleetC = new Fleet('C', [new Ship(ShipType.Interceptor)]);
+      const attacker2 = new Fleet('attacker2', [
+        new Ship(
+          ShipType.Cruiser,
+          { hull: 0, rift: 1 },
+          // Rift roll 6 = 1 self damage, 3 target damage
+          () => 6
+        ),
+      ]);
 
-      const multiBattle = new MultiBattle([fleetA, fleetB, fleetC]);
+      const multiBattle = new MultiBattle([defender, attacker1, attacker2]);
       const results = multiBattle.run();
 
       expect(results).toHaveLength(1);
@@ -100,21 +97,22 @@ describe('MultiBattle', () => {
 
       const remaining = multiBattle.getRemainingFleets();
       expect(remaining).toHaveLength(1);
-      expect(remaining[0]).toBe(fleetC);
+      expect(remaining[0]).toBe(defender);
     });
 
     test('winning fleet carries damage between battles', () => {
-      const shipA = new Ship(
-        ShipType.Interceptor,
-        {
-          hull: 3,
-          cannons: { ion: 2 },
-        },
-        () => 6
-      );
-      const fleetA = new Fleet('A', [shipA]);
+      const defender = new Fleet('defender', [
+        new Ship(
+          ShipType.Interceptor,
+          {
+            hull: 3,
+            cannons: { ion: 2 },
+          },
+          () => 6
+        ),
+      ]);
 
-      const fleetB = new Fleet('B', [
+      const attacker1 = new Fleet('attacker1', [
         new Ship(
           ShipType.Interceptor,
           {
@@ -125,7 +123,7 @@ describe('MultiBattle', () => {
         ),
       ]);
 
-      const fleetC = new Fleet('C', [
+      const attacker2 = new Fleet('attacker2', [
         new Ship(
           ShipType.Interceptor,
           {
@@ -136,7 +134,7 @@ describe('MultiBattle', () => {
         ),
       ]);
 
-      const multiBattle = new MultiBattle([fleetA, fleetB, fleetC]);
+      const multiBattle = new MultiBattle([defender, attacker1, attacker2]);
       const results = multiBattle.run();
 
       expect(results).toHaveLength(2);
@@ -145,14 +143,14 @@ describe('MultiBattle', () => {
     });
 
     test('empty result when all fleets eliminated', () => {
-      const fleetA = new Fleet('A', [
-        new Ship(ShipType.Interceptor, { hull: 1, rift: 1 }, () => 5), // Self-destructs
-      ]);
-      const fleetB = new Fleet('B', [
+      const defender = new Fleet('defender', [
         new Ship(ShipType.Interceptor, { hull: 1 }, () => 1),
       ]);
+      const attacker = new Fleet('attacker', [
+        new Ship(ShipType.Interceptor, { hull: 1, rift: 1 }, () => 5), // Self-destructs
+      ]);
 
-      const multiBattle = new MultiBattle([fleetA, fleetB]);
+      const multiBattle = new MultiBattle([defender, attacker]);
       const results = multiBattle.run();
 
       expect(results).toHaveLength(1);
@@ -162,29 +160,8 @@ describe('MultiBattle', () => {
       expect(remaining).toHaveLength(1);
     });
 
-    test('complex multi-fleet scenario', () => {
+    test('battles all fleets', () => {
       const fleets = [
-        new Fleet('Attacker1', [
-          new Ship(
-            ShipType.Interceptor,
-            { initiative: 2, cannons: { ion: 1 } },
-            () => 6
-          ),
-        ]),
-        new Fleet('Attacker2', [
-          new Ship(
-            ShipType.Carrier,
-            { initiative: 1, hull: 2, missiles: { plasma: 2 } },
-            () => 6
-          ),
-        ]),
-        new Fleet('Attacker3', [
-          new Ship(
-            ShipType.Dreadnaught,
-            { initiative: 1, hull: 3, cannons: { antimatter: 2 } },
-            () => 6
-          ),
-        ]),
         new Fleet('Defender', [
           new Ship(
             ShipType.Interceptor,
@@ -194,6 +171,27 @@ describe('MultiBattle', () => {
           new Ship(
             ShipType.Interceptor,
             { initiative: 3, cannons: { ion: 1 } },
+            () => 6
+          ),
+        ]),
+        new Fleet('Attacker1', [
+          new Ship(
+            ShipType.Interceptor,
+            { initiative: 2, cannons: { ion: 1 } },
+            () => 6
+          ),
+        ]),
+        new Fleet('Attacker2', [
+          new Ship(
+            ShipType.Cruiser,
+            { initiative: 1, hull: 2, missiles: { plasma: 2 } },
+            () => 6
+          ),
+        ]),
+        new Fleet('Attacker3', [
+          new Ship(
+            ShipType.Dreadnaught,
+            { initiative: 1, hull: 3, cannons: { antimatter: 2 } },
             () => 6
           ),
         ]),
@@ -212,10 +210,10 @@ describe('MultiBattle', () => {
 
   describe('getRemainingFleets', () => {
     test('returns copy of remaining fleets', () => {
-      const fleetA = new Fleet('A', [new Ship(ShipType.Interceptor)]);
-      const fleetB = new Fleet('B', [new Ship(ShipType.Interceptor)]);
+      const defender = new Fleet('defender', [new Ship(ShipType.Interceptor)]);
+      const attacker = new Fleet('attacker', [new Ship(ShipType.Interceptor)]);
 
-      const multiBattle = new MultiBattle([fleetA, fleetB]);
+      const multiBattle = new MultiBattle([defender, attacker]);
 
       const remaining1 = multiBattle.getRemainingFleets();
       expect(remaining1).toHaveLength(2);

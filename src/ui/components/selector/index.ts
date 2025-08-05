@@ -19,7 +19,7 @@ export class SelectorElement extends HTMLElement {
   }
 
   connectedCallback() {
-    this.innerHTML = html as string;
+    this.innerHTML = html;
 
     this.valueDiv = this.querySelector('.selector > div')!;
     const buttons = this.querySelectorAll('button');

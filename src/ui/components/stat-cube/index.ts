@@ -19,7 +19,7 @@ export class StatCubeElement extends HTMLElement {
   }
 
   connectedCallback() {
-    this.innerHTML = html as string;
+    this.innerHTML = html;
 
     this.input = this.querySelector('input') as HTMLInputElement;
     const label = this.querySelector('label') as HTMLElement;

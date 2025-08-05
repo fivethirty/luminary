@@ -11,7 +11,6 @@ describe('Results', () => {
   });
 
   test('component renders when simulation results exist', () => {
-    // Set up simulation results
     setSimulationResults({
       victoryProbability: {
         Defender: 0.6,
@@ -24,15 +23,13 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    // Should be visible
     expect(element.style.display).not.toBe('none');
 
-    // Should render victory probabilities
-    const resultItems = element.querySelectorAll('.result-item');
+    const resultItems = element.querySelectorAll('.result-row');
     expect(resultItems.length).toBe(2);
   });
 
-  test('displays fleets sorted by win percentage', () => {
+  test('displays fleets in their original order', () => {
     setSimulationResults({
       victoryProbability: {
         'Fleet A': 0.3,
@@ -46,13 +43,12 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const resultItems = element.querySelectorAll('.result-item');
+    const resultItems = element.querySelectorAll('.result-row');
     const names = Array.from(resultItems).map(
-      (item) => item.querySelector('.result-name')?.textContent
+      (item) => item.querySelector('.fleet-name')?.textContent
     );
 
-    // Should be sorted by percentage descending
-    expect(names).toEqual(['Fleet B:', 'Fleet A:', 'Fleet C:']);
+    expect(names).toEqual(['Fleet A', 'Fleet B', 'Fleet C']);
   });
 
   test('displays percentages correctly', () => {
@@ -69,7 +65,7 @@ describe('Results', () => {
     document.body.appendChild(element);
 
     const percentages = Array.from(
-      element.querySelectorAll('.result-percentage')
+      element.querySelectorAll('.win-percentage')
     ).map((el) => el.textContent);
 
     expect(percentages).toEqual(['75.3%', '24.7%']);
@@ -88,17 +84,16 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const resultItems = element.querySelectorAll('.result-item');
+    const resultItems = element.querySelectorAll('.result-row');
     expect(resultItems.length).toBe(3); // 2 fleets + draw
 
-    const drawItem = element.querySelector('.result-item.draw');
+    const drawItem = element.querySelector('.result-row.draw');
     expect(drawItem).not.toBeNull();
 
-    const drawName = drawItem!.querySelector('.result-name')?.textContent;
-    expect(drawName).toBe('Draw:');
+    const drawName = drawItem!.querySelector('.fleet-name')?.textContent;
+    expect(drawName).toBe('Draw');
 
-    const drawPercent =
-      drawItem!.querySelector('.result-percentage')?.textContent;
+    const drawPercent = drawItem!.querySelector('.win-percentage')?.textContent;
     expect(drawPercent).toBe('25.0%');
   });
 
@@ -115,7 +110,7 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const drawItem = element.querySelector('.result-item.draw');
+    const drawItem = element.querySelector('.result-row.draw');
     expect(drawItem).toBeNull();
   });
 
@@ -140,16 +135,16 @@ describe('Results', () => {
     ) as HTMLElement;
     expect(survivorsSection.style.display).toBe('block');
 
-    const fleetSurvivors = element.querySelectorAll('.fleet-survivors');
+    const fleetSurvivors = element.querySelectorAll('.survivor-fleet-card');
     expect(fleetSurvivors.length).toBe(1);
 
-    const shipItems = element.querySelectorAll('.ship-survivor-item');
+    const shipItems = element.querySelectorAll('.survivor-ships-tbody tr');
     expect(shipItems.length).toBe(3);
 
     // Check ship counts are formatted correctly
-    const shipCounts = Array.from(element.querySelectorAll('.ship-count')).map(
-      (el) => el.textContent
-    );
+    const shipCounts = Array.from(
+      element.querySelectorAll('.survivor-ships-tbody td:nth-child(2)')
+    ).map((el) => el.textContent);
     expect(shipCounts).toEqual(['2.5', '1.2', '0.8']);
   });
 
@@ -179,7 +174,7 @@ describe('Results', () => {
       expectedSurvivors: {
         Fleet: {
           Interceptor: 2.0,
-          Cruiser: 0, // Should not be displayed
+          Cruiser: 0,
           Dreadnaught: 1.0,
         },
       },
@@ -188,12 +183,12 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const shipItems = element.querySelectorAll('.ship-survivor-item');
-    expect(shipItems.length).toBe(2); // Only 2 ships with non-zero survivors
+    const shipItems = element.querySelectorAll('.survivor-ships-tbody tr');
+    expect(shipItems.length).toBe(2);
 
-    const shipTypes = Array.from(element.querySelectorAll('.ship-type')).map(
-      (el) => el.textContent
-    );
+    const shipTypes = Array.from(
+      element.querySelectorAll('.survivor-ships-tbody td:nth-child(1)')
+    ).map((el) => el.textContent);
     expect(shipTypes).toEqual(['Interceptor', 'Dreadnaught']);
   });
 
@@ -211,7 +206,7 @@ describe('Results', () => {
     document.body.appendChild(element);
 
     const bars = element.querySelectorAll(
-      '.result-bar-fill'
+      '.win-bar-fill'
     ) as NodeListOf<HTMLElement>;
     expect(bars[0].style.width).toBe('75%');
     expect(bars[1].style.width).toBe('25%');

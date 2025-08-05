@@ -17,7 +17,7 @@ export class MultiBattle {
     while (this.fleets.length > 1) {
       const lastIndex = this.fleets.length - 1;
       const secondLastIndex = this.fleets.length - 2;
-      
+
       const attacker = this.fleets[lastIndex];
       const defender = this.fleets[secondLastIndex];
 

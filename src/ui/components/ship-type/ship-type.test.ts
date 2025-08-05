@@ -8,12 +8,10 @@ import { ShipType } from '@calc/ship';
 describe('ShipType', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    // Reset state
     resetFleets();
   });
 
   test('displays ship data', async () => {
-    // Create ship config
     const shipTypeConfig = {
       id: 'test-ship',
       type: ShipType.Cruiser,
@@ -34,20 +32,16 @@ describe('ShipType', () => {
 
     document.body.appendChild(element);
 
-    // Wait for selectors to be ready
     await customElements.whenDefined('calc-selector');
 
-    // Check ship name
     const nameSpan = element.querySelector('.ship-type-name');
     expect(nameSpan?.textContent).toBe('Cruiser');
 
-    // Check quantity
     const qtySelector = element.querySelector(
       'calc-selector'
     ) as SelectorElement;
     expect(qtySelector.value).toBe(3);
 
-    // Check hull value
     const hullSelector = element.querySelector(
       '[data-stat="hull"]'
     ) as SelectorElement;
@@ -55,7 +49,6 @@ describe('ShipType', () => {
   });
 
   test('updates state on change', async () => {
-    // Add ship to state
     const shipTypeConfig = {
       id: 'test-ship-2',
       type: ShipType.Interceptor,
@@ -73,21 +66,17 @@ describe('ShipType', () => {
 
     await customElements.whenDefined('calc-selector');
 
-    // Simulate quantity change
     const qtySelector = element.querySelector(
       'calc-selector'
     ) as SelectorElement;
 
-    // Click increment button
     const incrementBtn = qtySelector.querySelectorAll('button')[1];
     incrementBtn.click();
 
-    // Check that state was updated
     expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
   });
 
   test('removes itself from state', () => {
-    // Add ship to state
     const shipTypeConfig = {
       id: 'test-ship-3',
       type: ShipType.Cruiser,
@@ -108,9 +97,7 @@ describe('ShipType', () => {
     const removeBtn = element.querySelector('.remove-btn') as HTMLButtonElement;
     removeBtn.click();
 
-    // Should remove from state
     expect(state.fleets[0].shipTypes.length).toBe(0);
-    // Should remove from DOM
     expect(element.parentNode).toBe(null);
   });
 });
