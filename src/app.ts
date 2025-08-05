@@ -51,6 +51,11 @@ function clearAll() {
 }
 
 function simulate() {
+  const activeElement = document.activeElement as HTMLElement;
+  if (activeElement && activeElement.blur) {
+    activeElement.blur();
+  }
+
   const engineFleets = state.fleets
     .map((fleet) => {
       const ships: Ship[] = [];
