@@ -88,21 +88,24 @@ export class ShipTypeElement extends HTMLElement {
       },
     ];
 
-    const weaponTypes: Array<{
-      type: WeaponType;
-      label: string;
-      missileLabel?: string;
-    }> = [
-      { type: 'ion', label: 'Ion', missileLabel: 'I/F M' },
-      { type: 'plasma', label: 'Pls' },
-      { type: 'soliton', label: 'Sol' },
-      { type: 'antimatter', label: 'Ant' },
+    const cannonTypes: Array<{ type: WeaponType; label: string }> = [
+      { type: 'ion', label: 'Ion C' },
+      { type: 'plasma', label: 'Pls C' },
+      { type: 'soliton', label: 'Sol C' },
+      { type: 'antimatter', label: 'Ant C' },
     ];
 
-    weaponTypes.forEach(({ type, label }) => {
+    const missileTypes: Array<{ type: WeaponType; label: string }> = [
+      { type: 'ion', label: 'Flux M' },
+      { type: 'plasma', label: 'Pls M' },
+      { type: 'soliton', label: 'Sol M' },
+      { type: 'antimatter', label: 'Ant M' },
+    ];
+
+    cannonTypes.forEach(({ type, label }) => {
       statConfigs.push({
         stat: `${type}-cannon`,
-        label: `${label} C`,
+        label: label,
         getValue: () => this.shipType.config.cannons?.[type] || 0,
         setValue: (value) => {
           if (!this.shipType.config.cannons) {
@@ -119,11 +122,10 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     // Add missiles
-    weaponTypes.forEach(({ type, label }) => {
-      const missileLabel = type === 'ion' ? 'I/F M' : `${label} M`;
+    missileTypes.forEach(({ type, label }) => {
       statConfigs.push({
         stat: `${type}-missile`,
-        label: missileLabel,
+        label: label,
         getValue: () => this.shipType.config.missiles?.[type] || 0,
         setValue: (value) => {
           if (!this.shipType.config.missiles) {
