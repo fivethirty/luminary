@@ -22,15 +22,14 @@ export class Battle {
   ) {}
 
   fight(): BattleResult {
-    let rounds = 0;
+    const sortedInitiatives = this.getAllInitiativesSorted();
 
+    const missileResult = this.resolveMissilePhase(sortedInitiatives);
+    if (missileResult) return missileResult;
+
+    let rounds = 0;
     while (rounds < MAX_ROUNDS) {
       rounds++;
-
-      const sortedInitiatives = this.getAllInitiativesSorted();
-
-      const missileResult = this.resolveMissilePhase(sortedInitiatives);
-      if (missileResult) return missileResult;
 
       const cannonResult = this.resolveCannonPhase(sortedInitiatives);
       if (cannonResult) return cannonResult;
