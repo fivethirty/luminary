@@ -3,6 +3,11 @@ import { MultiBattle } from './multi-battle';
 import { BattleOutcome } from './battle';
 import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
+import {
+  GUARANTEED_HIT,
+  GUARANTEED_MISS,
+  RIFT_SELF_DAMAGE,
+} from 'src/constants';
 
 describe('MultiBattle', () => {
   describe('constructor', () => {
@@ -27,10 +32,10 @@ describe('MultiBattle', () => {
   describe('run', () => {
     test('single battle between two fleets', () => {
       const defender = new Fleet('defender', [
-        new Ship(ShipType.Interceptor, { hull: 1 }, () => 1),
+        new Ship(ShipType.Interceptor, { hull: 1 }, GUARANTEED_MISS),
       ]);
       const attacker = new Fleet('attacker', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, () => 6),
+        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, GUARANTEED_HIT),
       ]);
 
       const multiBattle = new MultiBattle([defender, attacker]);
@@ -43,13 +48,17 @@ describe('MultiBattle', () => {
 
     test('three fleets - winner faces next challenger', () => {
       const defender = new Fleet('defender', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, () => 1),
+        new Ship(
+          ShipType.Interceptor,
+          { cannons: { ion: 1 } },
+          GUARANTEED_MISS
+        ),
       ]);
       const attacker1 = new Fleet('attacker1', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, () => 6),
+        new Ship(ShipType.Interceptor, { cannons: { ion: 2 } }, GUARANTEED_HIT),
       ]);
       const attacker2 = new Fleet('attacker2', [
-        new Ship(ShipType.Interceptor, { hull: 1 }, () => 1),
+        new Ship(ShipType.Interceptor, { hull: 1 }, GUARANTEED_MISS),
       ]);
 
       const multiBattle = new MultiBattle([defender, attacker1, attacker2]);
@@ -62,10 +71,10 @@ describe('MultiBattle', () => {
 
     test('stalemate is victory for defender', () => {
       const defender = new Fleet('defender', [
-        new Ship(ShipType.Interceptor, {}, () => 1),
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
       ]);
       const attacker = new Fleet('attacker', [
-        new Ship(ShipType.Interceptor, {}, () => 1),
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
       ]);
 
       const multiBattle = new MultiBattle([defender, attacker]);
@@ -78,14 +87,14 @@ describe('MultiBattle', () => {
     test('draw removes both fleets', () => {
       const defender = new Fleet('defender', [new Ship(ShipType.Interceptor)]);
       const attacker1 = new Fleet('attacker1', [
-        new Ship(ShipType.Interceptor, { hull: 2 }, () => 1),
+        new Ship(ShipType.Interceptor, { hull: 2 }, GUARANTEED_MISS),
       ]);
       const attacker2 = new Fleet('attacker2', [
         new Ship(
           ShipType.Cruiser,
           { hull: 0, rift: 1 },
-          // Rift roll 6 = 1 self damage, 3 target damage
-          () => 6
+          // Rift roll 1 self damage, 3 target damage
+          GUARANTEED_HIT
         ),
       ]);
 
@@ -108,7 +117,7 @@ describe('MultiBattle', () => {
             hull: 3,
             cannons: { ion: 2 },
           },
-          () => 6
+          GUARANTEED_HIT
         ),
       ]);
 
@@ -119,7 +128,7 @@ describe('MultiBattle', () => {
             hull: 1,
             cannons: { ion: 1 },
           },
-          () => 6
+          GUARANTEED_HIT
         ),
       ]);
 
@@ -130,7 +139,7 @@ describe('MultiBattle', () => {
             hull: 2,
             cannons: { ion: 2 },
           },
-          () => 6
+          GUARANTEED_HIT
         ),
       ]);
 
@@ -144,10 +153,10 @@ describe('MultiBattle', () => {
 
     test('empty result when all fleets eliminated', () => {
       const defender = new Fleet('defender', [
-        new Ship(ShipType.Interceptor, { hull: 1 }, () => 1),
+        new Ship(ShipType.Interceptor, { hull: 1 }, GUARANTEED_MISS),
       ]);
       const attacker = new Fleet('attacker', [
-        new Ship(ShipType.Interceptor, { hull: 1, rift: 1 }, () => 5), // Self-destructs
+        new Ship(ShipType.Interceptor, { hull: 1, rift: 1 }, RIFT_SELF_DAMAGE), // Self-destructs
       ]);
 
       const multiBattle = new MultiBattle([defender, attacker]);
@@ -166,33 +175,33 @@ describe('MultiBattle', () => {
           new Ship(
             ShipType.Interceptor,
             { initiative: 3, cannons: { ion: 1 } },
-            () => 6
+            GUARANTEED_HIT
           ),
           new Ship(
             ShipType.Interceptor,
             { initiative: 3, cannons: { ion: 1 } },
-            () => 6
+            GUARANTEED_HIT
           ),
         ]),
         new Fleet('Attacker1', [
           new Ship(
             ShipType.Interceptor,
             { initiative: 2, cannons: { ion: 1 } },
-            () => 6
+            GUARANTEED_HIT
           ),
         ]),
         new Fleet('Attacker2', [
           new Ship(
             ShipType.Cruiser,
             { initiative: 1, hull: 2, missiles: { plasma: 2 } },
-            () => 6
+            GUARANTEED_HIT
           ),
         ]),
         new Fleet('Attacker3', [
           new Ship(
             ShipType.Dreadnaught,
             { initiative: 1, hull: 3, cannons: { antimatter: 2 } },
-            () => 6
+            GUARANTEED_HIT
           ),
         ]),
       ];

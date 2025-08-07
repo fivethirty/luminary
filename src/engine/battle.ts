@@ -1,3 +1,4 @@
+import { DICE_VALUES } from 'src/constants';
 import { Fleet } from './fleet';
 import { RiftShot, Ship } from './ship';
 
@@ -125,7 +126,7 @@ export class Battle {
       if (rift.selfDamage > 0) {
         firingFleet.assignDamage([
           {
-            roll: 6,
+            roll: DICE_VALUES.HIT,
             computers: 0,
             damage: rift.selfDamage,
           },
@@ -134,7 +135,7 @@ export class Battle {
       if (rift.targetDamage > 0) {
         targetFleet.assignDamage([
           {
-            roll: 6,
+            roll: DICE_VALUES.HIT,
             computers: 0,
             damage: rift.targetDamage,
           },
