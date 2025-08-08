@@ -36,6 +36,7 @@ function createEmptyConfig(initiative: number): Required<ShipConfig> {
     cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
     missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
     rift: 0,
+    heal: 0,
   };
 }
 
@@ -73,6 +74,7 @@ function getDefaultShipConfig(
         cannons: { ion: 2, plasma: 0, soliton: 0, antimatter: 0 },
         missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     'ancient-adv': {
@@ -85,6 +87,7 @@ function getDefaultShipConfig(
         cannons: { ion: 0, plasma: 1, soliton: 0, antimatter: 0 },
         missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     'ancient-wa': {
@@ -97,6 +100,7 @@ function getDefaultShipConfig(
         cannons: { ion: 1, plasma: 0, soliton: 0, antimatter: 0 },
         missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     guardian: {
@@ -109,6 +113,7 @@ function getDefaultShipConfig(
         cannons: { ion: 3, plasma: 0, soliton: 0, antimatter: 0 },
         missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     'guardian-adv': {
@@ -121,6 +126,7 @@ function getDefaultShipConfig(
         cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
         missiles: { ion: 0, plasma: 2, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     'guardian-wa': {
@@ -133,6 +139,7 @@ function getDefaultShipConfig(
         cannons: { ion: 0, plasma: 2, soliton: 0, antimatter: 0 },
         missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     gcds: {
@@ -145,6 +152,7 @@ function getDefaultShipConfig(
         cannons: { ion: 4, plasma: 0, soliton: 0, antimatter: 0 },
         missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     'gcds-adv': {
@@ -157,6 +165,7 @@ function getDefaultShipConfig(
         cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
         missiles: { ion: 4, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
     'gcds-wa': {
@@ -169,6 +178,7 @@ function getDefaultShipConfig(
         cannons: { ion: 0, plasma: 2, soliton: 0, antimatter: 0 },
         missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
         rift: 0,
+        heal: 0,
       },
     },
   };
