@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType, Shot, WeaponDamage, WeaponType } from './ship';
+import { DICE_VALUES, GUARANTEED_HIT } from 'src/constants';
 
 describe('Ship', () => {
   describe('isPlayerShip', () => {
@@ -91,7 +92,7 @@ describe('Ship', () => {
       [WeaponDamage.antimatter]: 0,
     };
     shots.forEach((shot) => {
-      expect(shot.roll).toEqual(6);
+      expect(shot.roll).toEqual(DICE_VALUES.HIT);
       expect(shot.computers).toEqual(computers);
       shotCountByDamage[shot.damage]++;
     });
@@ -111,7 +112,7 @@ describe('Ship', () => {
           missiles: weapons,
           computers: 1,
         },
-        () => 6
+        GUARANTEED_HIT
       );
       const shots = ship.shootMissles();
       validateShots(ship.computers, ship.missiles, shots);
@@ -126,7 +127,7 @@ describe('Ship', () => {
           cannons: weapons,
           computers: 1,
         },
-        () => 6
+        GUARANTEED_HIT
       );
       const shots = ship.shootCannons();
       validateShots(ship.computers, ship.cannons, shots);
@@ -209,7 +210,7 @@ describe('Ship', () => {
           cannons: { ion: 1, plasma: 1, soliton: 0, antimatter: 0 },
           computers: 1,
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const shots = ship.shootCannons(true);
@@ -220,12 +221,12 @@ describe('Ship', () => {
     });
 
     test('handles multiple antimatter cannons', () => {
-      let rollCount = 0;
+      let rollCount = DICE_VALUES.HIT - 2;
       const ship = new Ship(
         ShipType.Interceptor,
         {
           cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 2 },
-          computers: 0,
+          computers: 1,
         },
         () => ++rollCount
       );
@@ -233,8 +234,12 @@ describe('Ship', () => {
       const shots = ship.shootCannons(true);
 
       expect(shots.length).toBe(8);
-      expect(shots.slice(0, 4).every((shot) => shot.roll === 1)).toBe(true);
-      expect(shots.slice(4, 8).every((shot) => shot.roll === 2)).toBe(true);
+      expect(
+        shots.slice(0, 4).every((shot) => shot.roll === DICE_VALUES.HIT - 1)
+      ).toBe(true);
+      expect(
+        shots.slice(4, 8).every((shot) => shot.roll === DICE_VALUES.HIT)
+      ).toBe(true);
       expect(shots.every((shot) => shot.damage === 1)).toBe(true);
     });
 
@@ -263,13 +268,13 @@ describe('Ship', () => {
           missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
           computers: 2,
         },
-        () => 5
+        () => DICE_VALUES.HIT - 1
       );
 
       const shots = ship.shootMissles();
 
       expect(shots.length).toBe(1);
-      expect(shots[0].roll).toBe(5);
+      expect(shots[0].roll).toBe(DICE_VALUES.HIT - 1);
       expect(shots[0].damage).toBe(WeaponDamage.antimatter);
     });
   });
@@ -277,42 +282,34 @@ describe('Ship', () => {
   describe('shootRiftCannon', () => {
     test.each([
       {
-        roll: 1,
-        expected: {
-          selfDamage: 0,
-          targetDamage: 0,
-        },
-      },
-      {
-        roll: 2,
-        expected: {
-          selfDamage: 0,
-          targetDamage: 0,
-        },
-      },
-      {
-        roll: 3,
-        expected: {
-          selfDamage: 0,
-          targetDamage: 1,
-        },
-      },
-      {
-        roll: 4,
-        expected: {
-          selfDamage: 0,
-          targetDamage: 2,
-        },
-      },
-      {
-        roll: 5,
+        roll: DICE_VALUES.RIFT_SELF_DAMAGE,
         expected: {
           selfDamage: 1,
           targetDamage: 0,
         },
       },
       {
-        roll: 6,
+        roll: 2,
+      },
+      {
+        roll: 3,
+      },
+      {
+        roll: 4,
+        expected: {
+          selfDamage: 0,
+          targetDamage: 1,
+        },
+      },
+      {
+        roll: 5,
+        expected: {
+          selfDamage: 0,
+          targetDamage: 2,
+        },
+      },
+      {
+        roll: DICE_VALUES.HIT,
         expected: {
           selfDamage: 1,
           targetDamage: 3,
@@ -327,12 +324,16 @@ describe('Ship', () => {
         () => roll
       );
       const riftShots = ship.shootRiftCannon();
-      expect(riftShots.length).toEqual(1);
-      expect(riftShots[0]).toEqual(expected);
+      if (expected) {
+        expect(riftShots.length).toEqual(1);
+        expect(riftShots[0]).toEqual(expected);
+      } else {
+        expect(riftShots.length).toEqual(0);
+      }
     });
 
     test('shoots the right number of shots', () => {
-      const ship = new Ship(ShipType.Interceptor, { rift: 3 });
+      const ship = new Ship(ShipType.Interceptor, { rift: 3 }, GUARANTEED_HIT);
       const riftShots = ship.shootRiftCannon();
       expect(riftShots.length).toEqual(3);
     });
@@ -393,7 +394,7 @@ describe('Ship', () => {
       {
         name: '6 hits',
         shot: {
-          roll: 6,
+          roll: DICE_VALUES.HIT,
           computers: 0,
           damage: 1,
         },
@@ -403,7 +404,7 @@ describe('Ship', () => {
       {
         name: '5 hits with computers',
         shot: {
-          roll: 6,
+          roll: DICE_VALUES.HIT,
           computers: 1,
           damage: 1,
         },
@@ -413,7 +414,7 @@ describe('Ship', () => {
       {
         name: '5 misses with computers and shields',
         shot: {
-          roll: 0,
+          roll: DICE_VALUES.MISS,
           computers: 1,
           damage: 1,
         },
@@ -455,6 +456,74 @@ describe('Ship', () => {
       ship.takeDamage(10);
       expect(ship.remainingHP()).toEqual(0);
       expect(ship.isAlive()).toEqual(false);
+    });
+  });
+
+  describe('hasCannons', () => {
+    test('detects when cannons present', () => {
+      const ship = new Ship(ShipType.Interceptor, { cannons: { ion: 1 } });
+      expect(ship.hasCannons()).toEqual(true);
+    });
+
+    test('detects when no cannons present', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        missiles: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+      });
+      expect(ship.hasCannons()).toEqual(false);
+    });
+
+    test('detects when multiple cannons present', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        cannons: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+      });
+      expect(ship.hasCannons()).toEqual(true);
+    });
+
+    test('detects when rift cannons present', () => {
+      const ship = new Ship(ShipType.Interceptor, { rift: 1 });
+      expect(ship.hasCannons()).toEqual(true);
+    });
+
+    test('detects when cannons and missiles present', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        cannons: { ion: 1 },
+        missiles: { ion: 1 },
+      });
+      expect(ship.hasCannons()).toEqual(true);
+    });
+  });
+
+  describe('hasMissiles', () => {
+    test('detects when missiles present', () => {
+      const ship = new Ship(ShipType.Interceptor, { missiles: { ion: 1 } });
+      expect(ship.hasMissiles()).toEqual(true);
+    });
+
+    test('detects when no missiles present', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        cannons: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+      });
+      expect(ship.hasMissiles()).toEqual(false);
+    });
+
+    test('detects when multiple missiles present', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        missiles: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+      });
+      expect(ship.hasMissiles()).toEqual(true);
+    });
+
+    test('detects when false when only rift present', () => {
+      const ship = new Ship(ShipType.Interceptor, { rift: 1 });
+      expect(ship.hasMissiles()).toEqual(false);
+    });
+
+    test('detects when cannons and missiles present', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        cannons: { ion: 1 },
+        missiles: { ion: 1 },
+      });
+      expect(ship.hasMissiles()).toEqual(true);
     });
   });
 });

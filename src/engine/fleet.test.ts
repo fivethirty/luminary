@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType, Shot } from './ship';
 import { Fleet } from './fleet';
+import { DICE_VALUES, GUARANTEED_HIT, RIFT_MISS } from 'src/constants';
 
 describe('Fleet', () => {
   describe('getInitiatives', () => {
@@ -45,11 +46,15 @@ describe('Fleet', () => {
     {
       name: 'single ship with weapons',
       ships: [
-        new Ship(ShipType.Interceptor, {
-          initiative: 3,
-          missiles: { ion: 2 },
-          cannons: { plasma: 1 },
-        }),
+        new Ship(
+          ShipType.Interceptor,
+          {
+            initiative: 3,
+            missiles: { ion: 2 },
+            cannons: { plasma: 1 },
+          },
+          GUARANTEED_HIT
+        ),
       ],
       initiative: 3,
       expectedMissileCount: 2,
@@ -58,21 +63,33 @@ describe('Fleet', () => {
     {
       name: 'multiple ships at same initiative',
       ships: [
-        new Ship(ShipType.Interceptor, {
-          initiative: 3,
-          missiles: { ion: 1 },
-          cannons: { ion: 1 },
-        }),
-        new Ship(ShipType.Cruiser, {
-          initiative: 3,
-          missiles: { plasma: 2 },
-          cannons: { plasma: 2 },
-        }),
-        new Ship(ShipType.Dreadnaught, {
-          initiative: 2,
-          missiles: { antimatter: 1 },
-          cannons: { antimatter: 1 },
-        }),
+        new Ship(
+          ShipType.Interceptor,
+          {
+            initiative: 3,
+            missiles: { ion: 1 },
+            cannons: { ion: 1 },
+          },
+          GUARANTEED_HIT
+        ),
+        new Ship(
+          ShipType.Cruiser,
+          {
+            initiative: 3,
+            missiles: { plasma: 2 },
+            cannons: { plasma: 2 },
+          },
+          GUARANTEED_HIT
+        ),
+        new Ship(
+          ShipType.Dreadnaught,
+          {
+            initiative: 2,
+            missiles: { antimatter: 1 },
+            cannons: { antimatter: 1 },
+          },
+          GUARANTEED_HIT
+        ),
       ],
       initiative: 3,
       expectedMissileCount: 3,
@@ -81,12 +98,16 @@ describe('Fleet', () => {
     {
       name: 'dead ships dont shoot',
       ships: [
-        new Ship(ShipType.Interceptor, {
-          initiative: 3,
-          missiles: { ion: 2 },
-          cannons: { ion: 2 },
-          hull: 1,
-        }),
+        new Ship(
+          ShipType.Interceptor,
+          {
+            initiative: 3,
+            missiles: { ion: 2 },
+            cannons: { ion: 2 },
+            hull: 1,
+          },
+          GUARANTEED_HIT
+        ),
       ],
       initiative: 3,
       setupFleet: (fleet: Fleet) => {
@@ -116,11 +137,15 @@ describe('Fleet', () => {
     );
 
     test('only shoots missiles', () => {
-      const ship = new Ship(ShipType.Interceptor, {
-        initiative: 3,
-        missiles: { ion: 2 },
-        cannons: { plasma: 3 },
-      });
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          initiative: 3,
+          missiles: { ion: 2 },
+          cannons: { plasma: 3 },
+        },
+        GUARANTEED_HIT
+      );
       const fleet = new Fleet('test', [ship]);
 
       const shots = fleet.shootMissilesForInitiative(3);
@@ -152,11 +177,15 @@ describe('Fleet', () => {
     );
 
     test('only shoots cannons', () => {
-      const ship = new Ship(ShipType.Interceptor, {
-        initiative: 3,
-        missiles: { ion: 2 },
-        cannons: { plasma: 3 },
-      });
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          initiative: 3,
+          missiles: { ion: 2 },
+          cannons: { plasma: 3 },
+        },
+        GUARANTEED_HIT
+      );
       const fleet = new Fleet('test', [ship]);
 
       const shots = fleet.shootCannonsForInitiative(3);
@@ -179,10 +208,14 @@ describe('Fleet', () => {
       {
         name: 'single ship with rift',
         ships: [
-          new Ship(ShipType.Cruiser, {
-            initiative: 2,
-            rift: 2,
-          }),
+          new Ship(
+            ShipType.Cruiser,
+            {
+              initiative: 2,
+              rift: 2,
+            },
+            GUARANTEED_HIT
+          ),
         ],
         initiative: 2,
         expectedShotCount: 2,
@@ -190,14 +223,30 @@ describe('Fleet', () => {
       {
         name: 'multiple ships with rift',
         ships: [
-          new Ship(ShipType.Dreadnaught, {
-            initiative: 1,
-            rift: 1,
-          }),
-          new Ship(ShipType.Cruiser, {
-            initiative: 1,
-            rift: 3,
-          }),
+          new Ship(
+            ShipType.Dreadnaught,
+            {
+              initiative: 1,
+              rift: 1,
+            },
+            GUARANTEED_HIT
+          ),
+          new Ship(
+            ShipType.Cruiser,
+            {
+              initiative: 1,
+              rift: 3,
+            },
+            GUARANTEED_HIT
+          ),
+          new Ship(
+            ShipType.Cruiser,
+            {
+              initiative: 1,
+              rift: 3,
+            },
+            RIFT_MISS
+          ),
         ],
         initiative: 1,
         expectedShotCount: 4,
@@ -244,7 +293,7 @@ describe('Fleet', () => {
 
       const shots: Shot[] = [
         {
-          roll: 6,
+          roll: DICE_VALUES.HIT,
           computers: 0,
           damage: 3,
         },
@@ -264,7 +313,7 @@ describe('Fleet', () => {
 
       const shots: Shot[] = [
         {
-          roll: 6,
+          roll: DICE_VALUES.HIT,
           computers: 0,
           damage: 1,
         },
@@ -284,7 +333,7 @@ describe('Fleet', () => {
 
       const shots: Shot[] = [
         {
-          roll: 6,
+          roll: DICE_VALUES.HIT,
           computers: 0,
           damage: 1,
         },
@@ -322,8 +371,8 @@ describe('Fleet', () => {
       const fleet = new Fleet('test', [ship1, ship2]);
 
       const shots: Shot[] = [
-        { roll: 6, computers: 0, damage: 2 },
-        { roll: 6, computers: 0, damage: 2 },
+        { roll: DICE_VALUES.HIT, computers: 0, damage: 2 },
+        { roll: DICE_VALUES.HIT, computers: 0, damage: 2 },
       ];
 
       fleet.assignDamage(shots);
@@ -441,7 +490,7 @@ describe('Fleet', () => {
           initiative: 3,
           cannons: { antimatter: 1 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       // Override shootCannons to capture the flag
@@ -466,14 +515,14 @@ describe('Fleet', () => {
           initiative: 2,
           cannons: { antimatter: 1 },
         },
-        () => 5
+        GUARANTEED_HIT
       );
 
       const fleetWithSplitter = new Fleet('test', [ship], true);
       const shots = fleetWithSplitter.shootCannonsForInitiative(2);
 
       expect(shots.length).toBe(4);
-      expect(shots.every((shot) => shot.roll === 5)).toBe(true);
+      expect(shots.every((shot) => shot.roll === DICE_VALUES.HIT)).toBe(true);
       expect(shots.every((shot) => shot.damage === 1)).toBe(true);
     });
   });

@@ -1,3 +1,5 @@
+import { DICE_VALUES, HIT_AFTER_MODIFIERS } from 'src/constants';
+
 type ValueOf<T> = T[keyof T];
 
 export const ShipType = {
@@ -108,8 +110,8 @@ export class Ship {
     return !npcTypes.includes(this.type);
   }
 
-  shootMissles(): Shot[] {
-    return this.rollWeapons(this.missiles);
+  shootMissles(antimatterSplitter: boolean = false): Shot[] {
+    return this.rollWeapons(this.missiles, antimatterSplitter);
   }
 
   shootCannons(antimatterSplitter: boolean = false): Shot[] {
@@ -126,6 +128,9 @@ export class Ship {
 
       for (let i = 0; i < count; i++) {
         const roll = this.rollD6();
+        if (roll + this.computers < 6) {
+          continue;
+        }
         const weaponDamage = WeaponDamage[type];
 
         if (type === WeaponType.Antimatter && antimatterSplitter) {
@@ -153,36 +158,24 @@ export class Ship {
 
     for (let i = 0; i < this.rift; i++) {
       const roll = this.rollD6();
-      let selfDamage = 0;
-      let targetDamage = 0;
-      switch (roll) {
-        case 3:
-          targetDamage = 1;
-          break;
-        case 4:
-          targetDamage = 2;
-          break;
-        case 5:
-          selfDamage = 1;
-          break;
-        case 6:
-          selfDamage = 1;
-          targetDamage = 3;
-          break;
+      const selfDamage =
+        roll === 6 || roll === DICE_VALUES.RIFT_SELF_DAMAGE ? 1 : 0;
+      const targetDamage = Math.max(0, roll - 3);
+      if (selfDamage > 0 || targetDamage > 0) {
+        shots.push({ selfDamage, targetDamage });
       }
-      shots.push({ selfDamage, targetDamage });
     }
     return shots;
   }
 
   shotHits(shot: Shot): boolean {
-    if (shot.roll === 1) {
+    if (shot.roll === DICE_VALUES.MISS) {
       return false;
     }
-    if (shot.roll === 6) {
+    if (shot.roll === DICE_VALUES.HIT) {
       return true;
     }
-    return shot.roll + shot.computers - this.shields >= 6;
+    return shot.roll + shot.computers - this.shields >= HIT_AFTER_MODIFIERS;
   }
 
   shotKills(shot: Shot): boolean {
@@ -217,5 +210,9 @@ export class Ship {
     );
     const hasRift = this.rift > 0;
     return hasRegularCannons || hasRift;
+  }
+
+  hasMissiles(): boolean {
+    return Object.values(this.missiles).some((count) => count > 0);
   }
 }

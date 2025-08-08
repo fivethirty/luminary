@@ -2,6 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { Battle, BattleOutcome } from './battle';
 import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
+import {
+  DICE_VALUES,
+  GUARANTEED_HIT,
+  GUARANTEED_MISS,
+  RIFT_SELF_DAMAGE,
+} from 'src/constants';
 
 describe('Battle', () => {
   describe('fight', () => {
@@ -12,7 +18,7 @@ describe('Battle', () => {
           initiative: 3,
           cannons: { plasma: 1 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const defender = new Ship(
@@ -21,7 +27,7 @@ describe('Battle', () => {
           initiative: 3,
           cannons: { plasma: 1 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const battle = new Battle(
@@ -41,7 +47,7 @@ describe('Battle', () => {
           initiative: 3,
           missiles: { plasma: 1 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const defender = new Ship(
@@ -50,7 +56,7 @@ describe('Battle', () => {
           initiative: 3,
           missiles: { plasma: 1 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const battle = new Battle(
@@ -70,7 +76,7 @@ describe('Battle', () => {
           initiative: 3,
           missiles: { ion: 2 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const defender = new Ship(
@@ -79,7 +85,7 @@ describe('Battle', () => {
           initiative: 3,
           cannons: { antimatter: 4 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const battle = new Battle(
@@ -100,7 +106,7 @@ describe('Battle', () => {
           hull: 1,
           cannons: { plasma: 1 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const defender = new Ship(
@@ -109,7 +115,7 @@ describe('Battle', () => {
           initiative: 3,
           cannons: { plasma: 1 },
         },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const battle = new Battle(
@@ -130,10 +136,10 @@ describe('Battle', () => {
           rift: 1,
         },
         // self damage only
-        () => 5
+        RIFT_SELF_DAMAGE
       );
 
-      const defender = new Ship(ShipType.Interceptor, {}, () => 1);
+      const defender = new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS);
 
       const battle = new Battle(
         new Fleet('Attacker', [attacker]),
@@ -148,7 +154,11 @@ describe('Battle', () => {
     test('rift cannon can cause draws', () => {
       let rollCount = 0;
       // cannon hit, cannon hit, rift roll = 5, self damage only
-      const rolls = [6, 6, 5];
+      const rolls = [
+        DICE_VALUES.HIT,
+        DICE_VALUES.HIT,
+        DICE_VALUES.RIFT_SELF_DAMAGE,
+      ];
 
       const attacker = new Ship(
         ShipType.Cruiser,
@@ -163,7 +173,7 @@ describe('Battle', () => {
         {
           hull: 3,
         },
-        () => 1
+        GUARANTEED_MISS
       );
 
       const battle = new Battle(
@@ -176,10 +186,44 @@ describe('Battle', () => {
       expect(result.victors).toEqual([]);
     });
 
-    test('stalemate when no damage can be dealt', () => {
-      const attacker = new Ship(ShipType.Interceptor, {}, () => 6);
+    test('antimatter splitter works', () => {
+      const attacker = new Ship(
+        ShipType.Cruiser,
+        {
+          cannons: { antimatter: 1 },
+          initiative: 6,
+        },
+        GUARANTEED_HIT
+      );
+      const defender1 = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: { ion: 1 },
+        },
+        GUARANTEED_HIT
+      );
+      const defender2 = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: { ion: 1 },
+        },
+        GUARANTEED_HIT
+      );
 
-      const defender = new Ship(ShipType.Interceptor, {}, () => 6);
+      const battle = new Battle(
+        new Fleet('Attacker', [attacker], true),
+        new Fleet('Defender', [defender1, defender2])
+      );
+
+      const result = battle.fight();
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
+      expect(result.victors).toEqual([attacker]);
+    });
+
+    test('stalemate when no damage can be dealt', () => {
+      const attacker = new Ship(ShipType.Interceptor, {}, GUARANTEED_HIT);
+
+      const defender = new Ship(ShipType.Interceptor, {}, GUARANTEED_HIT);
 
       const battle = new Battle(
         new Fleet('Attacker', [attacker]),
@@ -196,19 +240,19 @@ describe('Battle', () => {
         new Ship(
           ShipType.Interceptor,
           { hull: 1, cannons: { plasma: 1 }, initiative: 1 },
-          () => 6
+          GUARANTEED_HIT
         ),
         new Ship(
           ShipType.Interceptor,
           { hull: 1, cannons: { plasma: 1 }, initiative: 2 },
-          () => 6
+          GUARANTEED_HIT
         ),
       ];
 
       const defender = new Ship(
         ShipType.Interceptor,
         { cannons: { antimatter: 1 }, initiative: 2 },
-        () => 6
+        GUARANTEED_HIT
       );
 
       const battle = new Battle(
@@ -229,7 +273,7 @@ describe('Battle', () => {
           hull: 5,
           cannons: { ion: 1 },
         },
-        () => (hitRoll++ % 2 === 0 ? 6 : 1)
+        () => (hitRoll++ % 2 === 0 ? DICE_VALUES.HIT : DICE_VALUES.MISS)
       );
 
       const defender = new Ship(
@@ -238,7 +282,7 @@ describe('Battle', () => {
           hull: 4,
           cannons: { ion: 1 },
         },
-        () => 1
+        GUARANTEED_MISS
       );
 
       const battle = new Battle(

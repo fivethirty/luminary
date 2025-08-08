@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { CombatSimulator } from './combat-simulator';
 import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
+import { DICE_VALUES, GUARANTEED_HIT, GUARANTEED_MISS } from 'src/constants';
 
 describe('CombatSimulator', () => {
   describe('simulate', () => {
@@ -13,14 +14,14 @@ describe('CombatSimulator', () => {
             hull: 5,
             cannons: { plasma: 3 },
           },
-          () => 6
+          GUARANTEED_HIT
         ),
       ]);
       const fleetB = new Fleet('Medium', [
-        new Ship(ShipType.Interceptor, { hull: 1 }, () => 1),
+        new Ship(ShipType.Interceptor, { hull: 1 }, GUARANTEED_MISS),
       ]);
       const fleetC = new Fleet('Weak', [
-        new Ship(ShipType.Interceptor, {}, () => 1),
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
       ]);
 
       const simulator = new CombatSimulator();
@@ -34,20 +35,20 @@ describe('CombatSimulator', () => {
 
     test('tracks expected survivors by type', () => {
       const fleetA = new Fleet('Mixed', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, () => 6),
+        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, GUARANTEED_HIT),
         new Ship(
           ShipType.Cruiser,
           { hull: 2, cannons: { plasma: 2 } },
-          () => 6
+          GUARANTEED_HIT
         ),
         new Ship(
           ShipType.Dreadnaught,
           { hull: 3, cannons: { antimatter: 2 } },
-          () => 6
+          GUARANTEED_HIT
         ),
       ]);
       const fleetB = new Fleet('Weak', [
-        new Ship(ShipType.Interceptor, {}, () => 1),
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
       ]);
 
       const simulator = new CombatSimulator();
@@ -73,13 +74,13 @@ describe('CombatSimulator', () => {
 
     test('handles draws correctly', () => {
       const fleetA = new Fleet('Rift A', [
-        new Ship(ShipType.Cruiser, { hull: 0, rift: 1 }, () => 6),
+        new Ship(ShipType.Cruiser, { hull: 0, rift: 1 }, GUARANTEED_HIT),
       ]);
       const fleetB = new Fleet('Rift B', [
-        new Ship(ShipType.Interceptor, { hull: 2 }, () => 1),
+        new Ship(ShipType.Interceptor, { hull: 2 }, GUARANTEED_MISS),
       ]);
       const fleetC = new Fleet('Survivor', [
-        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, () => 6),
+        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, GUARANTEED_HIT),
       ]);
 
       const simulator = new CombatSimulator();
@@ -96,7 +97,8 @@ describe('CombatSimulator', () => {
 
     test('handles variable outcomes', () => {
       let rollCount = 0;
-      const rolls = [6, 6, 1, 1, 1, 1];
+      const { HIT, MISS } = DICE_VALUES;
+      const rolls = [HIT, HIT, MISS, MISS, MISS, MISS];
 
       const fleetA = new Fleet('Variable', [
         new Ship(
@@ -115,7 +117,7 @@ describe('CombatSimulator', () => {
             hull: 1,
             cannons: { ion: 1 },
           },
-          () => 6
+          GUARANTEED_HIT
         ),
       ]);
 
