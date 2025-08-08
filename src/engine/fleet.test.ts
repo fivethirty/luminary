@@ -130,7 +130,7 @@ describe('Fleet', () => {
         const fleet = new Fleet('test fleet', ships);
         if (setupFleet) setupFleet(fleet);
 
-        const shots = fleet.shootMissilesForInitiative(initiative);
+        const shots = fleet.shootMissilesForInitiative(initiative, 0);
         const expected = expectedShotCount ?? expectedMissileCount ?? 0;
         expect(shots.length).toEqual(expected);
       }
@@ -148,7 +148,7 @@ describe('Fleet', () => {
       );
       const fleet = new Fleet('test', [ship]);
 
-      const shots = fleet.shootMissilesForInitiative(3);
+      const shots = fleet.shootMissilesForInitiative(3, 0);
       expect(shots.length).toBe(2);
 
       shots.forEach((shot) => {
@@ -170,7 +170,7 @@ describe('Fleet', () => {
         const fleet = new Fleet('test fleet', ships);
         if (setupFleet) setupFleet(fleet);
 
-        const shots = fleet.shootCannonsForInitiative(initiative);
+        const shots = fleet.shootCannonsForInitiative(initiative, 0);
         const expected = expectedShotCount ?? expectedCannonCount ?? 0;
         expect(shots.length).toEqual(expected);
       }
@@ -188,7 +188,7 @@ describe('Fleet', () => {
       );
       const fleet = new Fleet('test', [ship]);
 
-      const shots = fleet.shootCannonsForInitiative(3);
+      const shots = fleet.shootCannonsForInitiative(3, 0);
       expect(shots.length).toBe(3);
 
       shots.forEach((shot) => {
@@ -283,8 +283,8 @@ describe('Fleet', () => {
 
     test('targets highest priority hit cannot destory', () => {
       const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const carrier = new Ship(ShipType.Cruiser, { hull: 4 });
-      const fleet = new Fleet('test', [carrier, dread]);
+      const cruiser = new Ship(ShipType.Cruiser, { hull: 4 });
+      const fleet = new Fleet('test', [cruiser, dread]);
 
       const shots: Shot[] = [
         {
@@ -297,27 +297,21 @@ describe('Fleet', () => {
       fleet.assignDamage(shots);
 
       expect(dread.remainingHP()).toBe(3);
-      expect(carrier.remainingHP()).toBe(5);
+      expect(cruiser.remainingHP()).toBe(5);
     });
 
     test('targets lowest hp ship if same priority', () => {
       const dread1 = new Ship(ShipType.Dreadnaught, { hull: 3 });
       const dread2 = new Ship(ShipType.Dreadnaught, { hull: 3 });
       const fleet = new Fleet('test', [dread1, dread2]);
-      dread2.takeDamage(1);
 
-      const shots: Shot[] = [
-        {
-          roll: DICE_VALUES.HIT,
-          computers: 0,
-          damage: 1,
-        },
-      ];
+      const shot = { roll: DICE_VALUES.HIT, computers: 0, damage: 1 };
+      const shots: Shot[] = [shot, shot];
 
       fleet.assignDamage(shots);
 
-      expect(dread1.remainingHP()).toBe(4);
-      expect(dread2.remainingHP()).toBe(2);
+      expect(dread1.remainingHP()).toBe(2);
+      expect(dread2.remainingHP()).toBe(4);
     });
 
     test('hits nothing if unable', () => {
@@ -367,8 +361,8 @@ describe('Fleet', () => {
       {
         name: 'one ship dead, one alive',
         ships: [
-          new Ship(ShipType.Interceptor, { hull: 1 }),
           new Ship(ShipType.Cruiser),
+          new Ship(ShipType.Interceptor, { hull: 1 }),
         ],
         setupFleet: (fleet: Fleet) => {
           fleet['ships'][0].takeDamage(2);
@@ -378,12 +372,12 @@ describe('Fleet', () => {
       {
         name: 'all ships dead',
         ships: [
-          new Ship(ShipType.Interceptor, { hull: 1 }),
           new Ship(ShipType.Cruiser, { hull: 2 }),
+          new Ship(ShipType.Interceptor, { hull: 1 }),
         ],
         setupFleet: (fleet: Fleet) => {
-          fleet['ships'][0].takeDamage(2);
-          fleet['ships'][1].takeDamage(3);
+          fleet['ships'][0].takeDamage(3);
+          fleet['ships'][1].takeDamage(2);
         },
         expected: false,
       },
@@ -469,17 +463,20 @@ describe('Fleet', () => {
       );
 
       // Override shootCannons to capture the flag
-      mockShip.shootCannons = (antimatterSplitter?: boolean) => {
+      mockShip.shootCannons = (
+        _minShields: number,
+        antimatterSplitter?: boolean
+      ) => {
         capturedSplitterFlag = antimatterSplitter;
         return [];
       };
 
       const fleetWithSplitter = new Fleet('test', [mockShip], true);
-      fleetWithSplitter.shootCannonsForInitiative(3);
+      fleetWithSplitter.shootCannonsForInitiative(3, 0);
       expect(capturedSplitterFlag).toBe(true);
 
       const fleetWithoutSplitter = new Fleet('test', [mockShip], false);
-      fleetWithoutSplitter.shootCannonsForInitiative(3);
+      fleetWithoutSplitter.shootCannonsForInitiative(3, 0);
       expect(capturedSplitterFlag).toBe(false);
     });
 
@@ -494,7 +491,7 @@ describe('Fleet', () => {
       );
 
       const fleetWithSplitter = new Fleet('test', [ship], true);
-      const shots = fleetWithSplitter.shootCannonsForInitiative(2);
+      const shots = fleetWithSplitter.shootCannonsForInitiative(2, 0);
 
       expect(shots.length).toBe(4);
       expect(shots.every((shot) => shot.roll === DICE_VALUES.HIT)).toBe(true);

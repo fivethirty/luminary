@@ -108,16 +108,20 @@ export class Ship {
     return !npcTypes.includes(this.type);
   }
 
-  shootMissles(antimatterSplitter: boolean = false): Shot[] {
-    return this.rollWeapons(this.missiles, antimatterSplitter);
+  shootMissles(minShields: number): Shot[] {
+    return this.rollWeapons(this.missiles, minShields);
   }
 
-  shootCannons(antimatterSplitter: boolean = false): Shot[] {
-    return this.rollWeapons(this.cannons, antimatterSplitter);
+  shootCannons(
+    minShields: number,
+    antimatterSplitter: boolean = false
+  ): Shot[] {
+    return this.rollWeapons(this.cannons, minShields, antimatterSplitter);
   }
 
   private rollWeapons(
     weapons: Record<WeaponType, number>,
+    minShields: number,
     antimatterSplitter: boolean = false
   ): Shot[] {
     return Object.entries(weapons).flatMap(([weaponType, count]) => {
@@ -126,7 +130,10 @@ export class Ship {
 
       for (let i = 0; i < count; i++) {
         const roll = this.rollD6();
-        if (roll + this.computers < 6) {
+        if (
+          roll !== DICE_VALUES.HIT &&
+          roll + this.computers - minShields < 6
+        ) {
           continue;
         }
         const weaponDamage = WeaponDamage[type];

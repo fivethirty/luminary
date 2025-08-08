@@ -25,8 +25,10 @@ export class Battle {
   fight(): BattleResult {
     const sortedInitiatives = this.getAllInitiativesSorted();
 
-    const missileResult = this.resolveMissilePhase(sortedInitiatives);
-    if (missileResult) return missileResult;
+    if (this.attacker.hasMissiles() || this.defender.hasMissiles()) {
+      const missileResult = this.resolveMissilePhase(sortedInitiatives);
+      if (missileResult) return missileResult;
+    }
 
     let rounds = 0;
     while (rounds < MAX_ROUNDS) {
@@ -61,8 +63,10 @@ export class Battle {
 
   private resolveMissilePhase(initiatives: number[]): BattleResult | null {
     for (const initiative of initiatives) {
-      const defenderMissiles =
-        this.defender.shootMissilesForInitiative(initiative);
+      const defenderMissiles = this.defender.shootMissilesForInitiative(
+        initiative,
+        this.attacker.getMinShield()
+      );
       this.attacker.assignDamage(defenderMissiles);
 
       if (!this.attacker.isAlive()) {
@@ -72,8 +76,10 @@ export class Battle {
         };
       }
 
-      const attackerMissiles =
-        this.attacker.shootMissilesForInitiative(initiative);
+      const attackerMissiles = this.attacker.shootMissilesForInitiative(
+        initiative,
+        this.defender.getMinShield()
+      );
       this.defender.assignDamage(attackerMissiles);
 
       if (!this.defender.isAlive()) {
@@ -110,7 +116,10 @@ export class Battle {
     targetFleet: Fleet,
     initiative: number
   ): BattleResult | null {
-    const cannons = firingFleet.shootCannonsForInitiative(initiative);
+    const cannons = firingFleet.shootCannonsForInitiative(
+      initiative,
+      targetFleet.getMinShield()
+    );
     const rifts = firingFleet.shootRiftCannonsForInitiative(initiative);
     targetFleet.assignDamage(cannons);
     this.applyRiftDamage(rifts, firingFleet, targetFleet);
