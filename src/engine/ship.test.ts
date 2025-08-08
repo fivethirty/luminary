@@ -133,6 +133,48 @@ describe('Ship', () => {
     });
   });
 
+  describe('healing', () => {
+    test('ship heals damage', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        hull: 2,
+        heal: 1,
+      });
+
+      ship.takeDamage(2);
+      expect(ship.remainingHP()).toBe(1);
+
+      ship.applyHealing();
+      expect(ship.remainingHP()).toBe(2);
+    });
+
+    test('cannot heal beyond max hull', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        hull: 2,
+        heal: 1,
+      });
+
+      ship.takeDamage(1);
+      ship.applyHealing();
+      expect(ship.remainingHP()).toBe(3);
+
+      ship.applyHealing();
+      expect(ship.remainingHP()).toBe(3);
+    });
+
+    test('dead ships do not heal', () => {
+      const ship = new Ship(ShipType.Interceptor, {
+        hull: 1,
+        heal: 1,
+      });
+
+      ship.takeDamage(3);
+      expect(ship.isAlive()).toBe(false);
+
+      ship.applyHealing();
+      expect(ship.isAlive()).toBe(false);
+    });
+  });
+
   describe('antimatter splitter', () => {
     test('splits antimatter cannons into 4 shots', () => {
       const mockRoll = (() => {

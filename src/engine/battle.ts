@@ -34,6 +34,9 @@ export class Battle {
       const cannonResult = this.resolveCannonPhase(sortedInitiatives);
       if (cannonResult) return cannonResult;
 
+      this.attacker.heal();
+      this.defender.heal();
+
       if (!this.attacker.hasCannons() && !this.defender.hasCannons()) {
         return {
           outcome: BattleOutcome.Defender,

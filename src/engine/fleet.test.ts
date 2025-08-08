@@ -210,6 +210,31 @@ describe('Fleet', () => {
     });
   });
 
+  describe('heal', () => {
+    test('all living ships in fleet heal', () => {
+      const ship1 = new Ship(ShipType.Interceptor, {
+        hull: 2,
+        heal: 1,
+      });
+      const ship2 = new Ship(ShipType.Cruiser, {
+        hull: 3,
+        heal: 1,
+      });
+
+      const fleet = new Fleet('Test Fleet', [ship1, ship2]);
+
+      ship1.takeDamage(2);
+      ship2.takeDamage(2);
+      expect(ship1.remainingHP()).toBe(1);
+      expect(ship2.remainingHP()).toBe(2);
+
+      fleet.heal();
+
+      expect(ship1.remainingHP()).toBe(2);
+      expect(ship2.remainingHP()).toBe(3);
+    });
+  });
+
   describe('assignDamage', () => {
     test('destroys highest priority ship it can', () => {
       const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });

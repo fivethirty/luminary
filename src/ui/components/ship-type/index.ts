@@ -79,6 +79,14 @@ export class ShipTypeElement extends HTMLElement {
         },
       },
       {
+        stat: 'heal',
+        label: 'Heal',
+        getValue: () => this.shipType.config.heal || 0,
+        setValue: (value) => {
+          this.shipType.config.heal = value;
+        },
+      },
+      {
         stat: 'rift-cannon',
         label: 'Rift C',
         getValue: () => this.shipType.config.rift || 0,

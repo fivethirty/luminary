@@ -92,6 +92,10 @@ export class Fleet {
     );
   }
 
+  heal(): void {
+    this.ships.forEach((ship) => ship.applyHealing());
+  }
+
   private sortShips() {
     this.ships.sort((a, b) => {
       const priorityDiff = DAMAGE_PRIORTY[a.type] - DAMAGE_PRIORTY[b.type];

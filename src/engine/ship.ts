@@ -54,6 +54,7 @@ export interface ShipConfig {
   cannons?: Partial<Record<WeaponType, number>>;
   missiles?: Partial<Record<WeaponType, number>>;
   rift?: number;
+  heal?: number;
 }
 
 function rollRandomD6() {
@@ -79,6 +80,7 @@ export class Ship {
     antimatter: 0,
   };
   rift: number = 0;
+  heal: number = 0;
 
   private damage = 0;
   private rollD6: () => number;
@@ -201,6 +203,12 @@ export class Ship {
 
   resetDamage(): void {
     this.damage = 0;
+  }
+
+  applyHealing(): void {
+    if (this.heal > 0 && this.isAlive()) {
+      this.damage = Math.max(0, this.damage - this.heal);
+    }
   }
 
   hasCannons(): boolean {
