@@ -25,6 +25,10 @@ calc-results {
   padding: 0;
 }
 
+.results-time {
+  padding: var(--space-sm) var(--space-md);
+}
+
 .results-table {
   width: 100%;
   border-collapse: collapse;

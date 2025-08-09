@@ -114,8 +114,22 @@ describe('Ship', () => {
         },
         GUARANTEED_HIT
       );
-      const shots = ship.shootMissles();
+      const shots = ship.shootMissles(0);
       validateShots(ship.computers, ship.missiles, shots);
+    });
+
+    test('factors minShields into missile shots', () => {
+      const rolls = [4, 5, DICE_VALUES.HIT];
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          missiles: { ion: 3 },
+          computers: 2,
+        },
+        () => rolls.shift() || DICE_VALUES.HIT
+      );
+      const shots = ship.shootMissles(1);
+      expect(shots.length).toBe(2); // All shots should miss due to minShields
     });
   });
 
@@ -129,8 +143,22 @@ describe('Ship', () => {
         },
         GUARANTEED_HIT
       );
-      const shots = ship.shootCannons();
+      const shots = ship.shootCannons(0);
       validateShots(ship.computers, ship.cannons, shots);
+    });
+
+    test('factors minShields into cannon shots', () => {
+      const rolls = [4, 5, DICE_VALUES.HIT];
+      const ship = new Ship(
+        ShipType.Interceptor,
+        {
+          cannons: { ion: 3 },
+          computers: 2,
+        },
+        () => rolls.shift() || DICE_VALUES.HIT
+      );
+      const shots = ship.shootCannons(1);
+      expect(shots.length).toBe(2); // All shots should miss due to minShields
     });
   });
 
@@ -195,7 +223,7 @@ describe('Ship', () => {
         mockRoll
       );
 
-      const shots = ship.shootCannons(true);
+      const shots = ship.shootCannons(0, true);
 
       expect(shots.length).toBe(4);
       expect(shots.every((shot) => shot.roll === 5)).toBe(true);
@@ -213,7 +241,7 @@ describe('Ship', () => {
         GUARANTEED_HIT
       );
 
-      const shots = ship.shootCannons(true);
+      const shots = ship.shootCannons(0, true);
 
       expect(shots.length).toBe(2);
       expect(shots[0].damage).toBe(WeaponDamage.ion);
@@ -231,7 +259,7 @@ describe('Ship', () => {
         () => ++rollCount
       );
 
-      const shots = ship.shootCannons(true);
+      const shots = ship.shootCannons(0, true);
 
       expect(shots.length).toBe(8);
       expect(
@@ -253,7 +281,7 @@ describe('Ship', () => {
         () => 4
       );
 
-      const shots = ship.shootCannons(false);
+      const shots = ship.shootCannons(0);
 
       expect(shots.length).toBe(1);
       expect(shots[0].roll).toBe(4);
@@ -271,7 +299,7 @@ describe('Ship', () => {
         () => DICE_VALUES.HIT - 1
       );
 
-      const shots = ship.shootMissles();
+      const shots = ship.shootMissles(0);
 
       expect(shots.length).toBe(1);
       expect(shots[0].roll).toBe(DICE_VALUES.HIT - 1);

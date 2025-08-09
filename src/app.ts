@@ -76,6 +76,7 @@ function simulate() {
     victoryProbability: results.lastFleetStanding,
     drawProbability: results.drawPercentage,
     expectedSurvivors: results.expectedSurvivors,
+    timeTaken: results.timeTaken,
   });
 
   renderResults();

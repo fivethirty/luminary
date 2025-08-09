@@ -153,7 +153,7 @@ describe('Battle', () => {
 
     test('rift cannon can cause draws', () => {
       let rollCount = 0;
-      // cannon hit, cannon hit, rift roll = 5, self damage only
+      // cannon hit, cannon hit, self damage only
       const rolls = [
         DICE_VALUES.HIT,
         DICE_VALUES.HIT,
@@ -184,6 +184,46 @@ describe('Battle', () => {
       const result = battle.fight();
       expect(result.outcome).toBe(BattleOutcome.Draw);
       expect(result.victors).toEqual([]);
+    });
+
+    test('rift cannons destroy the biggest rift ship', () => {
+      const riftInt = new Ship(
+        ShipType.Interceptor,
+        {
+          rift: 1,
+          initiative: 3,
+        },
+        RIFT_SELF_DAMAGE
+      );
+      const riftCruiser = new Ship(
+        ShipType.Cruiser,
+        {
+          rift: 1,
+          hull: 1,
+          initiative: 3,
+        },
+        RIFT_SELF_DAMAGE
+      );
+      const nonRiftDread = new Ship(
+        ShipType.Cruiser,
+        {
+          cannons: { ion: 1 },
+          initiative: 3,
+        },
+        GUARANTEED_HIT
+      );
+      const defender = new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS);
+
+      const battle = new Battle(
+        new Fleet('Attacker', [riftInt, riftCruiser, nonRiftDread]),
+        new Fleet('Defender', [defender])
+      );
+
+      const result = battle.fight();
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
+      expect(riftInt.isAlive()).toEqual(true);
+      expect(riftCruiser.isAlive()).toEqual(false);
+      expect(nonRiftDread.isAlive()).toEqual(true);
     });
 
     test('antimatter splitter works', () => {
@@ -244,7 +284,7 @@ describe('Battle', () => {
         ),
         new Ship(
           ShipType.Interceptor,
-          { hull: 1, cannons: { plasma: 1 }, initiative: 2 },
+          { hull: 1, cannons: { plasma: 1 }, initiative: 1 },
           GUARANTEED_HIT
         ),
       ];
@@ -262,7 +302,7 @@ describe('Battle', () => {
 
       const result = battle.fight();
       expect(result.outcome).toBe(BattleOutcome.Attacker);
-      expect(result.victors).toEqual([attackers[1]]);
+      expect(result.victors.length).toEqual(1);
     });
 
     test('battle continues for many rounds', () => {

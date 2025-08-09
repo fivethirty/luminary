@@ -23,6 +23,8 @@ export class ResultsElement extends HTMLElement {
   }
 
   private renderWinPercentages(results: SimulationResults) {
+    const resultsTime = this.querySelector('.results-time')!;
+    resultsTime.innerHTML = `Simulation Time: ${results.timeTaken} ms`;
     const tbody = this.querySelector('#results-tbody')!;
     tbody.innerHTML = '';
 

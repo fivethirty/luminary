@@ -20,6 +20,7 @@ export interface SimulationResults {
   victoryProbability: Record<string, number>;
   drawProbability: number;
   expectedSurvivors: Record<string, Record<string, number>>;
+  timeTaken: number;
 }
 
 export interface State {
