@@ -191,8 +191,12 @@ export class Ship {
     this.damage += amount;
   }
 
+  maxHP(): number {
+    return this.hull + 1;
+  }
+
   remainingHP(): number {
-    return Math.max(0, this.hull + 1 - this.damage);
+    return Math.max(0, this.maxHP() - this.damage);
   }
 
   isAlive(): boolean {
@@ -203,12 +207,16 @@ export class Ship {
     this.damage = 0;
   }
 
+  hasRiftCannons(): boolean {
+    const hasRift = this.rift > 0;
+    return hasRift;
+  }
+
   hasCannons(): boolean {
     const hasRegularCannons = Object.values(this.cannons).some(
       (count) => count > 0
     );
-    const hasRift = this.rift > 0;
-    return hasRegularCannons || hasRift;
+    return hasRegularCannons || this.hasRiftCannons();
   }
 
   hasMissiles(): boolean {

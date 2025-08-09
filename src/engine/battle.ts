@@ -1,6 +1,6 @@
 import { DICE_VALUES } from 'src/constants';
 import { Fleet } from './fleet';
-import { RiftShot, Ship } from './ship';
+import { RiftShot, Ship, Shot } from './ship';
 
 const MAX_ROUNDS: number = 100;
 export const BattleOutcome = {
@@ -121,36 +121,24 @@ export class Battle {
       targetFleet.getMinShield()
     );
     const rifts = firingFleet.shootRiftCannonsForInitiative(initiative);
-    targetFleet.assignDamage(cannons);
-    this.applyRiftDamage(rifts, firingFleet, targetFleet);
+    const riftTargetShots = this.convertRiftShotsToShots(rifts, 'targetDamage');
+    const riftSelfShots = this.convertRiftShotsToShots(rifts, 'selfDamage');
+    targetFleet.assignDamage([...cannons, ...riftTargetShots]);
+    firingFleet.assignDamage(riftSelfShots, firingFleet.getLivingRiftShips());
     return this.checkBattleOutcome();
   }
 
-  private applyRiftDamage(
+  private convertRiftShotsToShots(
     rifts: RiftShot[],
-    firingFleet: Fleet,
-    targetFleet: Fleet
-  ): void {
-    for (const rift of rifts) {
-      if (rift.selfDamage > 0) {
-        firingFleet.assignDamage([
-          {
-            roll: DICE_VALUES.HIT,
-            computers: 0,
-            damage: rift.selfDamage,
-          },
-        ]);
-      }
-      if (rift.targetDamage > 0) {
-        targetFleet.assignDamage([
-          {
-            roll: DICE_VALUES.HIT,
-            computers: 0,
-            damage: rift.targetDamage,
-          },
-        ]);
-      }
-    }
+    field: 'targetDamage' | 'selfDamage'
+  ): Shot[] {
+    return rifts
+      .filter((rift) => rift[field] > 0)
+      .map((rift) => ({
+        damage: rift[field],
+        computers: 0,
+        roll: DICE_VALUES.HIT,
+      }));
   }
 
   private checkBattleOutcome(): BattleResult | null {

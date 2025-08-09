@@ -1,15 +1,6 @@
-import { RiftShot, Ship, ShipType, Shot } from './ship';
-
-const DAMAGE_PRIORTY: Record<ShipType, number> = {
-  Dreadnaught: 0,
-  Orbital: 1,
-  Cruiser: 2,
-  Starbase: 3,
-  Interceptor: 4,
-  GCDS: 5,
-  Guardian: 6,
-  Ancient: 7,
-};
+import { RiftShot, Ship, Shot } from './ship';
+import { BinnedDamageAssignmentHelper } from './binnedDamageAssignmentHelper';
+import { ShotByShotDamageAssignmentHelper } from './shotByShotDamageAssignment';
 
 export class Fleet {
   private readonly ships: Ship[];
@@ -18,19 +9,15 @@ export class Fleet {
   private readonly startsWithMixedShields: boolean;
   private readonly minShields: number;
   private readonly initiatives: Set<number>;
+  private readonly binnedDamageAssignment = new BinnedDamageAssignmentHelper();
+  private readonly shotByShotDamageAssignment =
+    new ShotByShotDamageAssignmentHelper();
 
   constructor(
     public name: string,
     ships: Ship[],
     public antimatterSplitter: boolean = false
   ) {
-    ships.sort((a, b) => {
-      const priorityDiff = DAMAGE_PRIORTY[a.type] - DAMAGE_PRIORTY[b.type];
-      if (priorityDiff !== 0) {
-        return priorityDiff;
-      }
-      return a.remainingHP() - b.remainingHP();
-    });
     this.ships = Array.from(ships);
     this.startsWithMissiles = this.ships.some((ship) => ship.hasMissiles());
     const types = new Set(this.ships.map((ship) => ship.type));
@@ -61,28 +48,9 @@ export class Fleet {
     );
   }
 
-  assignDamage(shots: Shot[]) {
-    const sortedShips = this.getLivingShips();
-    for (const shot of shots) {
-      let destoyedShip: boolean = false;
-      for (const ship of sortedShips) {
-        if (ship.shotHits(shot) && ship.remainingHP() <= shot.damage) {
-          destoyedShip = true;
-          sortedShips.splice(sortedShips.indexOf(ship), 1);
-          ship.takeDamage(shot.damage);
-          break;
-        }
-      }
-      if (destoyedShip) {
-        continue;
-      }
-      for (const ship of sortedShips) {
-        if (ship.shotHits(shot)) {
-          ship.takeDamage(shot.damage);
-          break;
-        }
-      }
-    }
+  assignDamage(shots: Shot[], ships?: Ship[]) {
+    const livingShips = ships || this.getLivingShips();
+    return this.binnedDamageAssignment.assignDamage(shots, livingShips);
   }
 
   isAlive(): boolean {
@@ -91,6 +59,10 @@ export class Fleet {
 
   getLivingShips(): Ship[] {
     return this.ships.filter((ship) => ship.isAlive());
+  }
+
+  getLivingRiftShips(): Ship[] {
+    return this.ships.filter((ship) => ship.isAlive() && ship.hasRiftCannons());
   }
 
   reset() {

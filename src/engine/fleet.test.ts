@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { Ship, ShipType, Shot } from './ship';
+import { Ship, ShipType } from './ship';
 import { Fleet } from './fleet';
 import { DICE_VALUES, GUARANTEED_HIT, RIFT_MISS } from 'src/constants';
 
@@ -256,98 +256,6 @@ describe('Fleet', () => {
 
       const shots = fleet.shootRiftCannonsForInitiative(initiative);
       expect(shots.length).toEqual(expectedShotCount);
-    });
-  });
-
-  describe('assignDamage', () => {
-    test('destroys highest priority ship it can', () => {
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const carrier = new Ship(ShipType.Cruiser, { hull: 2 });
-      const interceptor = new Ship(ShipType.Interceptor, { hull: 1 });
-      const fleet = new Fleet('test', [dread, carrier, interceptor]);
-
-      const shots: Shot[] = [
-        {
-          roll: DICE_VALUES.HIT,
-          computers: 0,
-          damage: 3,
-        },
-      ];
-
-      fleet.assignDamage(shots);
-
-      expect(interceptor.remainingHP()).toBe(2);
-      expect(carrier.isAlive()).toBe(false);
-      expect(dread.remainingHP()).toBe(4);
-    });
-
-    test('targets highest priority hit cannot destory', () => {
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const cruiser = new Ship(ShipType.Cruiser, { hull: 4 });
-      const fleet = new Fleet('test', [cruiser, dread]);
-
-      const shots: Shot[] = [
-        {
-          roll: DICE_VALUES.HIT,
-          computers: 0,
-          damage: 1,
-        },
-      ];
-
-      fleet.assignDamage(shots);
-
-      expect(dread.remainingHP()).toBe(3);
-      expect(cruiser.remainingHP()).toBe(5);
-    });
-
-    test('targets lowest hp ship if same priority', () => {
-      const dread1 = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const dread2 = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const fleet = new Fleet('test', [dread1, dread2]);
-
-      const shot = { roll: DICE_VALUES.HIT, computers: 0, damage: 1 };
-      const shots: Shot[] = [shot, shot];
-
-      fleet.assignDamage(shots);
-
-      expect(dread1.remainingHP()).toBe(2);
-      expect(dread2.remainingHP()).toBe(4);
-    });
-
-    test('hits nothing if unable', () => {
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const carrier = new Ship(ShipType.Cruiser, { hull: 2 });
-      const interceptor = new Ship(ShipType.Interceptor, { hull: 1 });
-      const fleet = new Fleet('test', [dread, carrier, interceptor]);
-
-      const shots: Shot[] = [
-        {
-          roll: 1,
-          computers: 0,
-          damage: 3,
-        },
-      ];
-
-      fleet.assignDamage(shots);
-      expect(dread.remainingHP()).toBe(4);
-      expect(carrier.remainingHP()).toBe(3);
-      expect(interceptor.remainingHP()).toBe(2);
-    });
-
-    test('processes multiple shots', () => {
-      const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });
-      const ship2 = new Ship(ShipType.Interceptor, { hull: 1 });
-      const fleet = new Fleet('test', [ship1, ship2]);
-
-      const shots: Shot[] = [
-        { roll: DICE_VALUES.HIT, computers: 0, damage: 2 },
-        { roll: DICE_VALUES.HIT, computers: 0, damage: 2 },
-      ];
-
-      fleet.assignDamage(shots);
-
-      expect(ship1.isAlive()).toBe(false);
-      expect(ship2.isAlive()).toBe(false);
     });
   });
 
