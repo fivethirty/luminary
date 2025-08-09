@@ -1,6 +1,5 @@
 import { RiftShot, Ship, Shot } from './ship';
 import { BinnedDamageAssignmentHelper } from './binnedDamageAssignmentHelper';
-import { ShotByShotDamageAssignmentHelper } from './shotByShotDamageAssignment';
 
 export class Fleet {
   private readonly ships: Ship[];
@@ -10,8 +9,6 @@ export class Fleet {
   private readonly minShields: number;
   private readonly initiatives: Set<number>;
   private readonly binnedDamageAssignment = new BinnedDamageAssignmentHelper();
-  private readonly shotByShotDamageAssignment =
-    new ShotByShotDamageAssignmentHelper();
 
   constructor(
     public name: string,
