@@ -47,6 +47,7 @@ describe('App', () => {
       victoryProbability: { Defender: 0.5, 'Attacker 1': 0.5 },
       drawProbability: 0,
       expectedSurvivors: {},
+      timeTaken: 1000,
     });
 
     const clearBtn = document.getElementById(

@@ -129,6 +129,7 @@ describe('State', () => {
         victoryProbability: { Defender: 0.6, Attacker: 0.4 },
         drawProbability: 0,
         expectedSurvivors: {},
+        timeTaken: 0,
       };
 
       setSimulationResults(results);
@@ -141,6 +142,7 @@ describe('State', () => {
         victoryProbability: {},
         drawProbability: 0,
         expectedSurvivors: {},
+        timeTaken: 1000,
       });
 
       setSimulationResults(null);
