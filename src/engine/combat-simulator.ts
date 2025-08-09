@@ -18,7 +18,9 @@ export class CombatSimulator {
     lastFleetStanding: Record<string, number>;
     drawPercentage: number;
     expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
+    timeTaken: number;
   } {
+    const startTime = Date.now();
     const wins: Record<string, number> = {};
     const survivors: Record<string, Partial<Record<ShipType, number>>> = {};
     let draws = 0;
@@ -48,14 +50,18 @@ export class CombatSimulator {
       }
     }
 
+    const endTime = Date.now();
+
     const result: {
       lastFleetStanding: Record<string, number>;
       drawPercentage: number;
       expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
+      timeTaken: number;
     } = {
       lastFleetStanding: {},
       drawPercentage: draws / iterations,
       expectedSurvivors: {},
+      timeTaken: endTime - startTime,
     };
 
     for (const fleet of fleets) {
