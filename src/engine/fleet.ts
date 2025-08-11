@@ -1,5 +1,6 @@
 import { RiftShot, Ship, Shot } from './ship';
 import { BinnedDamageAssignmentHelper } from './binnedDamageAssignmentHelper';
+import { DamageType } from 'src/constants';
 
 export class Fleet {
   private readonly ships: Ship[];
@@ -45,9 +46,13 @@ export class Fleet {
     );
   }
 
-  assignDamage(shots: Shot[], ships?: Ship[]) {
+  assignDamage(shots: Shot[], damageType: DamageType, ships?: Ship[]) {
     const livingShips = ships || this.getLivingShips();
-    return this.binnedDamageAssignment.assignDamage(shots, livingShips);
+    return this.binnedDamageAssignment.assignDamage(
+      shots,
+      livingShips,
+      damageType
+    );
   }
 
   isAlive(): boolean {
@@ -60,6 +65,17 @@ export class Fleet {
 
   getLivingRiftShips(): Ship[] {
     return this.ships.filter((ship) => ship.isAlive() && ship.hasRiftCannons());
+  }
+
+  isPlayerFleet(): boolean {
+    return this.ships.some((ship) => ship.isPlayerShip());
+  }
+
+  getDamageType(): DamageType {
+    if (this.isPlayerFleet()) {
+      return DamageType.DPS;
+    }
+    return DamageType.NPC;
   }
 
   reset() {

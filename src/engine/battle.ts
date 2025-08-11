@@ -1,4 +1,4 @@
-import { DICE_VALUES } from 'src/constants';
+import { DamageType, DICE_VALUES } from 'src/constants';
 import { Fleet } from './fleet';
 import { RiftShot, Ship, Shot } from './ship';
 
@@ -70,7 +70,10 @@ export class Battle {
         initiative,
         this.attacker.getMinShield()
       );
-      this.attacker.assignDamage(defenderMissiles);
+      this.attacker.assignDamage(
+        defenderMissiles,
+        this.defender.getDamageType()
+      );
 
       if (!this.attacker.isAlive()) {
         return {
@@ -83,7 +86,10 @@ export class Battle {
         initiative,
         this.defender.getMinShield()
       );
-      this.defender.assignDamage(attackerMissiles);
+      this.defender.assignDamage(
+        attackerMissiles,
+        this.attacker.getDamageType()
+      );
 
       if (!this.defender.isAlive()) {
         return {
@@ -126,8 +132,15 @@ export class Battle {
     const rifts = firingFleet.shootRiftCannonsForInitiative(initiative);
     const riftTargetShots = this.convertRiftShotsToShots(rifts, 'targetDamage');
     const riftSelfShots = this.convertRiftShotsToShots(rifts, 'selfDamage');
-    targetFleet.assignDamage([...cannons, ...riftTargetShots]);
-    firingFleet.assignDamage(riftSelfShots, firingFleet.getLivingRiftShips());
+    targetFleet.assignDamage(
+      [...cannons, ...riftTargetShots],
+      firingFleet.getDamageType()
+    );
+    firingFleet.assignDamage(
+      riftSelfShots,
+      DamageType.NPC,
+      firingFleet.getLivingRiftShips()
+    ); // Rifts only use NPC logic to assign self damage
     return this.checkBattleOutcome();
   }
 
