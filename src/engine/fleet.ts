@@ -1,5 +1,5 @@
 import { RiftShot, Ship, Shot } from './ship';
-import { BinnedDamageAssignmentHelper } from './binnedDamageAssignmentHelper';
+import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
 
 export class Fleet {
   private readonly ships: Ship[];
