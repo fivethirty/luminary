@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType, Shot } from './ship';
 import { DICE_VALUES } from 'src/constants';
-import { BinnedDamageAssignmentHelper } from './binnedDamageAssignmentHelper';
+import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
 
 describe('BinnedDamageAssignment', () => {
   describe('assignDamage', () => {
