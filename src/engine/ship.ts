@@ -110,16 +110,20 @@ export class Ship {
     return !npcTypes.includes(this.type);
   }
 
-  shootMissles(antimatterSplitter: boolean = false): Shot[] {
-    return this.rollWeapons(this.missiles, antimatterSplitter);
+  shootMissles(minShields: number): Shot[] {
+    return this.rollWeapons(this.missiles, minShields);
   }
 
-  shootCannons(antimatterSplitter: boolean = false): Shot[] {
-    return this.rollWeapons(this.cannons, antimatterSplitter);
+  shootCannons(
+    minShields: number,
+    antimatterSplitter: boolean = false
+  ): Shot[] {
+    return this.rollWeapons(this.cannons, minShields, antimatterSplitter);
   }
 
   private rollWeapons(
     weapons: Record<WeaponType, number>,
+    minShields: number,
     antimatterSplitter: boolean = false
   ): Shot[] {
     return Object.entries(weapons).flatMap(([weaponType, count]) => {
@@ -128,7 +132,10 @@ export class Ship {
 
       for (let i = 0; i < count; i++) {
         const roll = this.rollD6();
-        if (roll + this.computers < 6) {
+        if (
+          roll !== DICE_VALUES.HIT &&
+          roll + this.computers - minShields < 6
+        ) {
           continue;
         }
         const weaponDamage = WeaponDamage[type];
@@ -186,8 +193,12 @@ export class Ship {
     this.damage += amount;
   }
 
+  maxHP(): number {
+    return this.hull + 1;
+  }
+
   remainingHP(): number {
-    return Math.max(0, this.hull + 1 - this.damage);
+    return Math.max(0, this.maxHP() - this.damage);
   }
 
   isAlive(): boolean {
@@ -204,12 +215,16 @@ export class Ship {
     }
   }
 
+  hasRiftCannons(): boolean {
+    const hasRift = this.rift > 0;
+    return hasRift;
+  }
+
   hasCannons(): boolean {
     const hasRegularCannons = Object.values(this.cannons).some(
       (count) => count > 0
     );
-    const hasRift = this.rift > 0;
-    return hasRegularCannons || hasRift;
+    return hasRegularCannons || this.hasRiftCannons();
   }
 
   hasMissiles(): boolean {

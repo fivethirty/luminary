@@ -18,6 +18,7 @@ describe('Results', () => {
       },
       drawProbability: 0,
       expectedSurvivors: {},
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -38,6 +39,7 @@ describe('Results', () => {
       },
       drawProbability: 0,
       expectedSurvivors: {},
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -59,6 +61,7 @@ describe('Results', () => {
       },
       drawProbability: 0,
       expectedSurvivors: {},
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -79,6 +82,7 @@ describe('Results', () => {
       },
       drawProbability: 0.25,
       expectedSurvivors: {},
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -105,6 +109,7 @@ describe('Results', () => {
       },
       drawProbability: 0,
       expectedSurvivors: {},
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -125,6 +130,7 @@ describe('Results', () => {
           Dreadnaught: 0.8,
         },
       },
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -156,6 +162,7 @@ describe('Results', () => {
         'Fleet A': {},
         'Fleet B': {},
       },
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -178,6 +185,7 @@ describe('Results', () => {
           Dreadnaught: 1.0,
         },
       },
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -200,6 +208,7 @@ describe('Results', () => {
       },
       drawProbability: 0,
       expectedSurvivors: {},
+      timeTaken: 1000,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
