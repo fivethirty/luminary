@@ -4,7 +4,6 @@ import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
 import { DamageType } from 'src/constants';
 import { DpsRemovalDamagePlanner } from './dps-removal-damage-planner';
 import { Phase } from './battle';
-import { InitiativeDamagePlanner } from './initiative-damage-planner';
 
 export class BinnedDamageAssignmentHelper {
   private readonly npcDamagePlanner: AbstractDamagePlanner =
