@@ -1,8 +1,10 @@
 import { Ship, Shot } from './ship';
-import { NpcDamagePlanner } from './npcDamagePlanner';
-import { AbstractDamagePlanner, Plan } from './abstractDamagePlanner';
+import { NpcDamagePlanner } from './npc-damage-planner';
+import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
 import { DamageType } from 'src/constants';
-import { DpsRemovalDamagePlanner } from './dpsRemovalDamagePlanner';
+import { DpsRemovalDamagePlanner } from './dps-removal-damage-planner';
+import { Phase } from './battle';
+import { InitiativeDamagePlanner } from './initiative-damage-planner';
 
 export class BinnedDamageAssignmentHelper {
   private readonly npcDamagePlanner: AbstractDamagePlanner =
@@ -12,11 +14,16 @@ export class BinnedDamageAssignmentHelper {
 
   assignDamage(
     shots: Shot[],
-    ships: Ship[],
+    targetShips: Ship[],
     damageType: DamageType,
-    hasMissiles: boolean = false
+    upcomingPhases: Phase[] = []
   ) {
-    return this.assignBinnedDamage(shots, ships, damageType, hasMissiles);
+    return this.assignBinnedDamage(
+      shots,
+      targetShips,
+      damageType,
+      upcomingPhases
+    );
   }
 
   private memoKey(
@@ -40,7 +47,7 @@ export class BinnedDamageAssignmentHelper {
     canDamage: number[][],
     damageAssignments: number[],
     damagePlanner: AbstractDamagePlanner,
-    hasMissiles: boolean,
+    upcomingPhases: Phase[],
     remainingHp: number[],
     maxScore: number,
     memo: Map<string, Plan>,
@@ -51,7 +58,7 @@ export class BinnedDamageAssignmentHelper {
         ships,
         remainingHp,
         damageAssignments,
-        hasMissiles
+        upcomingPhases
       );
     }
     const key = this.memoKey(shotIdx, damageAssignments, ships);
@@ -74,7 +81,7 @@ export class BinnedDamageAssignmentHelper {
         canDamage,
         damageAssignments,
         damagePlanner,
-        hasMissiles,
+        upcomingPhases,
         remainingHp,
         maxScore,
         memo,
@@ -109,13 +116,13 @@ export class BinnedDamageAssignmentHelper {
     shots: Shot[],
     ships: Ship[],
     damageType: DamageType,
-    hasMissiles: boolean
+    upcomingPhases: Phase[]
   ) {
     if (ships.length === 0 || shots.length === 0) return;
 
     const damagePlanner = this.getDamagePlanner(damageType);
 
-    const sortedShips = damagePlanner.optimallySortShips(ships, hasMissiles);
+    const sortedShips = damagePlanner.optimallySortShips(ships, upcomingPhases);
     const sortedShots = damagePlanner.optimallySortShots(shots);
 
     // Precompute: can this shot hit that ship?
@@ -129,7 +136,7 @@ export class BinnedDamageAssignmentHelper {
       sortedShips,
       sortedShots,
       remainingHp,
-      hasMissiles
+      upcomingPhases
     );
     if (maxScore === 0) {
       return;
@@ -144,7 +151,7 @@ export class BinnedDamageAssignmentHelper {
       canDamage,
       damageAssignements,
       damagePlanner,
-      hasMissiles,
+      upcomingPhases,
       remainingHp,
       maxScore,
       memo,

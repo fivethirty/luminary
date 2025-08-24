@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { NpcDamagePlanner } from './npcDamagePlanner';
+import { NpcDamagePlanner } from './npc-damage-planner';
 import { Ship, ShipType, Shot, WeaponDamage } from './ship';
 import { DICE_VALUES } from 'src/constants';
 
@@ -143,7 +143,7 @@ describe('NpcDamagePlanner', () => {
         [ship],
         [],
         [1],
-        false
+        []
       );
       expect(maxScore).toBe(0);
     });
@@ -153,7 +153,7 @@ describe('NpcDamagePlanner', () => {
         [ship],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.ion }],
         [1],
-        false
+        []
       );
       expect(maxScore).toBeGreaterThan(0);
     });
@@ -165,13 +165,13 @@ describe('NpcDamagePlanner', () => {
         [ship1, ship2],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.ion }],
         [1, 1],
-        false
+        []
       );
       const result2 = damagePlanner.calculateMaxScore(
         [ship1, ship2],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.ion }],
         [2, 1],
-        false
+        []
       );
       expect(result1).toBeGreaterThan(result2);
     });
@@ -183,7 +183,7 @@ describe('NpcDamagePlanner', () => {
         [ship1, ship2],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.plasma }],
         [1, 1],
-        false
+        []
       );
       const result2 = damagePlanner.calculateMaxScore(
         [ship1, ship2],
@@ -195,7 +195,7 @@ describe('NpcDamagePlanner', () => {
           },
         ],
         [1, 2],
-        false
+        []
       );
       expect(result1).toBe(result2);
     });

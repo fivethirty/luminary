@@ -1,6 +1,7 @@
 import { RiftShot, Ship, Shot } from './ship';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
 import { DamageType } from 'src/constants';
+import { Phase } from './battle';
 
 export class Fleet {
   private readonly ships: Ship[];
@@ -46,12 +47,20 @@ export class Fleet {
     );
   }
 
-  assignDamage(shots: Shot[], damageType: DamageType, ships?: Ship[]) {
-    const livingShips = ships || this.getLivingShips();
+  assignDamage(shots: Shot[], targetShips: Ship[], upcomingPhases: Phase[]) {
     return this.binnedDamageAssignment.assignDamage(
       shots,
-      livingShips,
-      damageType
+      targetShips,
+      this.getDamageType(),
+      upcomingPhases
+    );
+  }
+
+  assignRiftSelfDamage(shots: Shot[]) {
+    return this.binnedDamageAssignment.assignDamage(
+      shots,
+      this.getLivingRiftShips(),
+      DamageType.NPC
     );
   }
 
@@ -116,7 +125,27 @@ export class Fleet {
     return Math.min(...this.getLivingShips().map((ship) => ship.shields));
   }
 
-  private getLivingShipsAtInitiative(initiative: number): Ship[] {
+  getFleetHP(): number {
+    return this.getLivingShips().reduce(
+      (sum, ship) => sum + ship.remainingHP(),
+      0
+    );
+  }
+
+  getWeightedShields(): { [shields: number]: number } {
+    const fleetHP = this.getFleetHP();
+    const weightedShields: { [shields: number]: number } = {};
+    this.getLivingShips().forEach((ship) => {
+      const shields = ship.shields;
+      if (!weightedShields[shields]) {
+        weightedShields[shields] = 0;
+      }
+      weightedShields[shields] += ship.remainingHP() / fleetHP;
+    });
+    return weightedShields;
+  }
+
+  getLivingShipsAtInitiative(initiative: number): Ship[] {
     return this.ships.filter(
       (ship) => ship.isAlive() && ship.initiative === initiative
     );

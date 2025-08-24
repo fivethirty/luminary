@@ -1,5 +1,6 @@
 import { DICE_VALUES } from 'src/constants';
 import { Ship, Shot } from './ship';
+import { Phase } from './battle';
 
 export type Plan = {
   score: number;
@@ -12,10 +13,10 @@ export abstract class AbstractDamagePlanner {
     ships: Ship[],
     remainingHp: number[],
     damageAssignments: number[],
-    hasMissiles: boolean
+    upcomingPhases: Phase[]
   ): Plan;
 
-  abstract optimallySortShips(ships: Ship[], hasMissiles: boolean): Ship[];
+  abstract optimallySortShips(ships: Ship[], upcomingPhases: Phase[]): Ship[];
 
   optimallySortShots(shots: Shot[]): Shot[] {
     const sortedArr = shots.slice().sort((a, b) => {
@@ -40,7 +41,7 @@ export abstract class AbstractDamagePlanner {
     sortedShips: Ship[],
     shots: Shot[],
     remainingHp: number[],
-    hasMissiles: boolean
+    upcomingPhases: Phase[]
   ): number {
     let maxDamage = shots.reduce((sum, shot) => sum + shot.damage, 0);
     const minDamageAmt = Math.min(...shots.map((shot) => shot.damage));
@@ -73,7 +74,7 @@ export abstract class AbstractDamagePlanner {
       sortedShips,
       remainingHp,
       damageAssignments,
-      hasMissiles
+      upcomingPhases
     ).score;
   }
 }

@@ -1,5 +1,5 @@
 import { Ship, ShipType } from './ship';
-import { AbstractDamagePlanner, Plan } from './abstractDamagePlanner';
+import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
 
 const DAMAGE_PRIORTY: Record<ShipType, number> = {
   Dreadnaught: 0,

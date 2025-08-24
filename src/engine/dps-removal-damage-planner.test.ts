@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { DpsRemovalDamagePlanner } from './dpsRemovalDamagePlanner';
+import { DpsRemovalDamagePlanner } from './dps-removal-damage-planner';
 import { Ship, ShipType, Shot, WeaponDamage } from './ship';
 import { DICE_VALUES } from 'src/constants';
+import { Phase } from './battle';
+import { Fleet } from './fleet';
 
 describe('DpsRemovalDamagePlanner', () => {
   describe('optimallySortsDice', () => {
@@ -118,7 +120,7 @@ describe('DpsRemovalDamagePlanner', () => {
 
       const sortedShips = new DpsRemovalDamagePlanner().optimallySortShips(
         ships,
-        false
+        []
       );
       expect(sortedShips[0]).toBe(int);
       expect(sortedShips[1]).toBe(cruiser);
@@ -141,7 +143,7 @@ describe('DpsRemovalDamagePlanner', () => {
 
       const sortedShips = new DpsRemovalDamagePlanner().optimallySortShips(
         ships,
-        false
+        []
       );
       expect(sortedShips[0]).toBe(cruiser);
       expect(sortedShips[1]).toBe(intDamaged);
@@ -150,7 +152,7 @@ describe('DpsRemovalDamagePlanner', () => {
     test('handles no ships', () => {
       const sortedShips = new DpsRemovalDamagePlanner().optimallySortShips(
         [],
-        false
+        []
       );
       expect(sortedShips.length).toBe(0);
     });
@@ -163,7 +165,7 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship],
         [],
         [1],
-        false
+        []
       );
       expect(maxScore).toBe(0);
     });
@@ -173,7 +175,7 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.ion }],
         [1],
-        false
+        []
       );
       expect(maxScore).toBeGreaterThan(0);
     });
@@ -188,13 +190,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship1, ship2],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.ion }],
         [1, 1],
-        false
+        []
       );
       const result2 = damagePlanner.calculateMaxScore(
         [ship1, ship2],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.ion }],
         [2, 1],
-        false
+        []
       );
       expect(result1).toBeGreaterThan(result2);
     });
@@ -206,7 +208,7 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship1, ship2],
         [{ roll: DICE_VALUES.HIT, computers: 0, damage: WeaponDamage.plasma }],
         [1, 1],
-        false
+        []
       );
       const result2 = damagePlanner.calculateMaxScore(
         [ship1, ship2],
@@ -218,7 +220,7 @@ describe('DpsRemovalDamagePlanner', () => {
           },
         ],
         [1, 2],
-        false
+        []
       );
       expect(result1).toBe(result2);
     });
@@ -231,13 +233,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship],
         [1],
         [1],
-        false
+        []
       );
       expect(result.allDestroyed).toBe(true);
       expect(result.score).toBeGreaterThan(0);
     });
     test('returns a score of 0 when no ships are present', () => {
-      const result = new DpsRemovalDamagePlanner().evaluate([], [], [], false);
+      const result = new DpsRemovalDamagePlanner().evaluate([], [], [], []);
       expect(result.allDestroyed).toBe(true);
       expect(result.score).toBe(0);
     });
@@ -247,7 +249,7 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship],
         [1],
         [0],
-        false
+        []
       );
       expect(result.allDestroyed).toBe(false);
       expect(result.score).toBe(0);
@@ -258,13 +260,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship],
         [1],
         [1],
-        false
+        []
       );
       const result2 = new DpsRemovalDamagePlanner().evaluate(
         [ship],
         [1],
         [2],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(true);
       expect(result2.allDestroyed).toBe(true);
@@ -277,13 +279,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship1, ship2],
         [1, 1],
         [0, 1],
-        false
+        []
       );
       const result2 = new DpsRemovalDamagePlanner().evaluate(
         [ship1, ship2],
         [1, 1],
         [1, 0],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
@@ -295,13 +297,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship],
         [3],
         [1],
-        false
+        []
       );
       const result2 = new DpsRemovalDamagePlanner().evaluate(
         [ship],
         [3],
         [2],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
@@ -314,13 +316,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship1, ship2],
         [2, 3],
         [1, 0],
-        false
+        []
       );
       const result2 = new DpsRemovalDamagePlanner().evaluate(
         [ship1, ship2],
         [2, 3],
         [0, 1],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
@@ -333,13 +335,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship1, ship2],
         [1, 2],
         [1, 0],
-        false
+        []
       );
       const result2 = new DpsRemovalDamagePlanner().evaluate(
         [ship1, ship2],
         [1, 2],
         [0, 1],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
@@ -361,13 +363,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [ship3, ship2, ship1],
         [3, 2, 1],
         [1, 1, 1],
-        false
+        []
       );
       const result2 = new DpsRemovalDamagePlanner().evaluate(
         [ship3, ship2, ship1],
         [3, 2, 1],
         [0, 3, 0],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
@@ -390,13 +392,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [dread, ...Array(4).fill(cruiser), ...Array(8).fill(int)],
         [3, ...Array(12).fill(1)],
         [0, ...Array(12).fill(1)],
-        false
+        []
       );
       const result2 = damagePlanner.evaluate(
         [dread, ...Array(4).fill(cruiser), ...Array(8).fill(int)],
         [3, ...Array(12).fill(1)],
         [3, ...Array(12).fill(0)],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
@@ -420,13 +422,13 @@ describe('DpsRemovalDamagePlanner', () => {
         [dread, ...Array(4).fill(cruiser), ...Array(8).fill(int)],
         [3, ...Array(12).fill(2)],
         [0, ...Array(12).fill(1)],
-        false
+        []
       );
       const result2 = damagePlanner.evaluate(
         [dread, ...Array(4).fill(cruiser), ...Array(8).fill(int)],
         [4, ...Array(12).fill(2)],
         [1, ...Array(12).fill(0)],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
@@ -442,17 +444,67 @@ describe('DpsRemovalDamagePlanner', () => {
         [dread, cruiser, int],
         [3, 2, 1],
         [0, 0, 1],
-        false
+        []
       );
       const result2 = damagePlanner.evaluate(
         [dread, cruiser, int],
         [3, 2, 1],
         [0, 1, 0],
-        false
+        []
       );
       expect(result1.allDestroyed).toBe(false);
       expect(result2.allDestroyed).toBe(false);
       expect(result1.score).toBeGreaterThan(result2.score);
+    });
+
+    test('returns a higher score for destroying a ship with missiles left to fire than a ship that has fired all its missiles', () => {
+      const int = new Ship(ShipType.Interceptor, {
+        missiles: { plasma: 2 },
+        initiative: 3,
+      });
+      const cruiser = new Ship(ShipType.Cruiser, {
+        initiative: 1,
+        missiles: { ion: 1 },
+        cannons: { ion: 1 },
+      });
+      const dread = new Ship(ShipType.Dreadnaught, {
+        initiative: 2,
+        missiles: { ion: 1 },
+      });
+      const shootingFleet = new Fleet('Shooting', [dread]);
+      const targetFleet = new Fleet('Target', [int, cruiser]);
+      const upcomingPhases: Phase[] = [
+        {
+          ships: [cruiser],
+          missilePhase: true,
+          initiative: 1,
+          shootingFleet: targetFleet,
+          targetFleet: shootingFleet,
+        },
+        {
+          ships: [cruiser],
+          missilePhase: false,
+          initiative: 1,
+          shootingFleet: targetFleet,
+          targetFleet: shootingFleet,
+        },
+      ];
+      const damagePlanner = new DpsRemovalDamagePlanner();
+      const result1 = damagePlanner.evaluate(
+        [cruiser, int],
+        [1, 1],
+        [0, 1],
+        upcomingPhases
+      );
+      const result2 = damagePlanner.evaluate(
+        [cruiser, int],
+        [1, 1],
+        [1, 0],
+        upcomingPhases
+      );
+      expect(result1.allDestroyed).toBe(false);
+      expect(result2.allDestroyed).toBe(false);
+      expect(result2.score).toBeGreaterThan(result1.score);
     });
   });
 });

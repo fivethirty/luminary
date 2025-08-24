@@ -1,6 +1,7 @@
 import { Ship, ShipType, WeaponDamage } from './ship';
-import { AbstractDamagePlanner, Plan } from './abstractDamagePlanner';
+import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
 import { TOTAL_RIFT_DIE_DAMAGE } from 'src/constants';
+import { Phase } from './battle';
 
 const DAMAGE_PRIORTY: Record<ShipType, number> = {
   Dreadnaught: 0,
@@ -15,12 +16,14 @@ const DAMAGE_PRIORTY: Record<ShipType, number> = {
 
 const KILL_WEIGHT = 10_000;
 
+const MIN_PRIORITY = 0.1;
+
 export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
   private shipPriority: Partial<
     Record<ShipType, { total: number; cannons: number }>
   > = {};
 
-  private getShipPriority(ship: Ship, includeMissiles: boolean): number {
+  private getShipPriority(ship: Ship, upcomingPhases: Phase[]): number {
     let priority = this.shipPriority[ship.type];
     if (!priority) {
       const riftDamage = ship.rift * TOTAL_RIFT_DIE_DAMAGE;
@@ -38,13 +41,18 @@ export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
           ship.missiles.plasma * WeaponDamage.plasma +
           ship.missiles.ion * WeaponDamage.ion);
       priority = {
-        total: riftDamage + cannonDamage + missileDamage + 1,
-        cannons: riftDamage + cannonDamage + 1,
+        total: riftDamage + cannonDamage + missileDamage,
+        cannons: riftDamage + cannonDamage,
       };
       this.shipPriority[ship.type] = priority;
     }
-    if (includeMissiles) {
-      return priority.total;
+    for (const phase of upcomingPhases) {
+      if (!phase.missilePhase) {
+        return priority.cannons;
+      }
+      if (phase.ships.includes(ship)) {
+        return priority.total;
+      }
     }
     return priority.cannons;
   }
@@ -53,14 +61,17 @@ export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
     ships: Ship[],
     remainingHp: number[],
     damageAssignments: number[],
-    hasMissiles: boolean
+    upcomingPhases: Phase[]
   ): Plan {
     let allDestroyed = true;
     let score = 0;
     for (let i = 0; i < ships.length; i++) {
       const ship = ships[i];
       const remainingShipHp = remainingHp[i];
-      const priorityWeight = this.getShipPriority(ship, hasMissiles);
+      const priorityWeight = Math.max(
+        MIN_PRIORITY,
+        this.getShipPriority(ship, upcomingPhases)
+      );
       const damage = damageAssignments[i];
       if (damage === 0) {
         allDestroyed = false;
@@ -78,11 +89,11 @@ export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
     return { score, allDestroyed, damageAssignments };
   }
 
-  optimallySortShips(ships: Ship[], hasMissiles: boolean): Ship[] {
+  optimallySortShips(ships: Ship[], upcomingPhases: Phase[]): Ship[] {
     const sortedArr = ships.slice().sort((a, b) => {
       const priorityDiff =
-        this.getShipPriority(b, hasMissiles) -
-        this.getShipPriority(a, hasMissiles);
+        this.getShipPriority(b, upcomingPhases) -
+        this.getShipPriority(a, upcomingPhases);
       if (priorityDiff !== 0) {
         return priorityDiff;
       }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType, Shot } from './ship';
-import { DICE_VALUES } from 'src/constants';
+import { DamageType, DICE_VALUES } from 'src/constants';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
 
 describe('BinnedDamageAssignment', () => {
@@ -19,7 +19,11 @@ describe('BinnedDamageAssignment', () => {
         },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(interceptor.remainingHP()).toBe(2);
       expect(cruiser.isAlive()).toBe(false);
@@ -39,7 +43,11 @@ describe('BinnedDamageAssignment', () => {
         },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(dread.remainingHP()).toBe(3);
       expect(cruiser.remainingHP()).toBe(5);
@@ -53,7 +61,11 @@ describe('BinnedDamageAssignment', () => {
       const shot = { roll: DICE_VALUES.HIT, computers: 0, damage: 1 };
       const shots: Shot[] = [shot, shot];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       const hpPool = new Set()
         .add(dread1.remainingHP())
@@ -76,7 +88,11 @@ describe('BinnedDamageAssignment', () => {
         },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
       expect(dread.remainingHP()).toBe(4);
       expect(carrier.remainingHP()).toBe(3);
       expect(interceptor.remainingHP()).toBe(2);
@@ -92,7 +108,11 @@ describe('BinnedDamageAssignment', () => {
         { roll: DICE_VALUES.HIT, computers: 0, damage: 2 },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(ship1.isAlive()).toBe(false);
       expect(ship2.isAlive()).toBe(false);
@@ -109,7 +129,11 @@ describe('BinnedDamageAssignment', () => {
         { roll: DICE_VALUES.HIT, computers: 0, damage: 2 },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(ship1.isAlive()).toBe(true);
       expect(ship2.isAlive()).toBe(true);
@@ -127,7 +151,11 @@ describe('BinnedDamageAssignment', () => {
         { roll: DICE_VALUES.HIT, computers: 0, damage: 4 },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(ship1.isAlive()).toBe(false);
       expect(ship2.isAlive()).toBe(false);
@@ -143,7 +171,11 @@ describe('BinnedDamageAssignment', () => {
         { roll: DICE_VALUES.HIT - 1, computers: 2, damage: 2 },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(ship1.isAlive()).toBe(false);
       expect(ship2.isAlive()).toBe(false);
@@ -160,7 +192,11 @@ describe('BinnedDamageAssignment', () => {
         { roll: DICE_VALUES.HIT - 1, computers: 2, damage: 2 },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(ship1.isAlive()).toBe(false);
       expect(ship2.isAlive()).toBe(false);
@@ -177,7 +213,11 @@ describe('BinnedDamageAssignment', () => {
         { roll: DICE_VALUES.HIT, computers: 0, damage: 1 },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(ship1.isAlive()).toBe(true);
       expect(ship1.remainingHP()).toBe(1);
@@ -195,7 +235,11 @@ describe('BinnedDamageAssignment', () => {
         { roll: DICE_VALUES.HIT, computers: 0, damage: 1 },
       ];
 
-      new BinnedDamageAssignmentHelper().assignDamage(shots, ships);
+      new BinnedDamageAssignmentHelper().assignDamage(
+        shots,
+        ships,
+        DamageType.NPC
+      );
 
       expect(ship1.isAlive()).toBe(true);
       expect(ship1.remainingHP()).toBe(2);
