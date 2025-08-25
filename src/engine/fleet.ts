@@ -102,47 +102,11 @@ export class Fleet {
     return this.getLivingShips().some((ship) => ship.hasMissiles());
   }
 
-  hasMixedShipTypes(): boolean {
-    if (!this.startsWithMixedTypes) {
-      return false;
-    }
-    const types = new Set(this.getLivingShips().map((ship) => ship.type));
-    return types.size > 1;
-  }
-
-  hasMixedShields(): boolean {
-    if (!this.startsWithMixedShields) {
-      return false;
-    }
-    const shields = new Set(this.getLivingShips().map((ship) => ship.shields));
-    return shields.size > 1;
-  }
-
   getMinShield(): number {
     if (!this.startsWithMixedShields) {
       return this.minShields;
     }
     return Math.min(...this.getLivingShips().map((ship) => ship.shields));
-  }
-
-  getFleetHP(): number {
-    return this.getLivingShips().reduce(
-      (sum, ship) => sum + ship.remainingHP(),
-      0
-    );
-  }
-
-  getWeightedShields(): { [shields: number]: number } {
-    const fleetHP = this.getFleetHP();
-    const weightedShields: { [shields: number]: number } = {};
-    this.getLivingShips().forEach((ship) => {
-      const shields = ship.shields;
-      if (!weightedShields[shields]) {
-        weightedShields[shields] = 0;
-      }
-      weightedShields[shields] += ship.remainingHP() / fleetHP;
-    });
-    return weightedShields;
   }
 
   getLivingShipsAtInitiative(initiative: number): Ship[] {
