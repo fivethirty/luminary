@@ -1,5 +1,7 @@
 import { RiftShot, Ship, Shot } from './ship';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
+import { DamageType } from 'src/constants';
+import { Phase } from './battle';
 
 export class Fleet {
   private readonly ships: Ship[];
@@ -45,9 +47,21 @@ export class Fleet {
     );
   }
 
-  assignDamage(shots: Shot[], ships?: Ship[]) {
-    const livingShips = ships || this.getLivingShips();
-    return this.binnedDamageAssignment.assignDamage(shots, livingShips);
+  assignDamage(shots: Shot[], targetShips: Ship[], upcomingPhases: Phase[]) {
+    return this.binnedDamageAssignment.assignDamage(
+      shots,
+      targetShips,
+      this.getDamageType(),
+      upcomingPhases
+    );
+  }
+
+  assignRiftSelfDamage(shots: Shot[]) {
+    return this.binnedDamageAssignment.assignDamage(
+      shots,
+      this.getLivingRiftShips(),
+      DamageType.NPC
+    );
   }
 
   isAlive(): boolean {
@@ -60,6 +74,17 @@ export class Fleet {
 
   getLivingRiftShips(): Ship[] {
     return this.ships.filter((ship) => ship.isAlive() && ship.hasRiftCannons());
+  }
+
+  isPlayerFleet(): boolean {
+    return this.ships.some((ship) => ship.isPlayerShip());
+  }
+
+  getDamageType(): DamageType {
+    if (this.isPlayerFleet()) {
+      return DamageType.DPS;
+    }
+    return DamageType.NPC;
   }
 
   reset() {
@@ -77,22 +102,6 @@ export class Fleet {
     return this.getLivingShips().some((ship) => ship.hasMissiles());
   }
 
-  hasMixedShipTypes(): boolean {
-    if (!this.startsWithMixedTypes) {
-      return false;
-    }
-    const types = new Set(this.getLivingShips().map((ship) => ship.type));
-    return types.size > 1;
-  }
-
-  hasMixedShields(): boolean {
-    if (!this.startsWithMixedShields) {
-      return false;
-    }
-    const shields = new Set(this.getLivingShips().map((ship) => ship.shields));
-    return shields.size > 1;
-  }
-
   getMinShield(): number {
     if (!this.startsWithMixedShields) {
       return this.minShields;
@@ -100,7 +109,7 @@ export class Fleet {
     return Math.min(...this.getLivingShips().map((ship) => ship.shields));
   }
 
-  private getLivingShipsAtInitiative(initiative: number): Ship[] {
+  getLivingShipsAtInitiative(initiative: number): Ship[] {
     return this.ships.filter(
       (ship) => ship.isAlive() && ship.initiative === initiative
     );
