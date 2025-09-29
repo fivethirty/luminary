@@ -11,7 +11,7 @@
     "lint:fix": "eslint src --fix"
   },
   "devDependencies": {
-    "@happy-dom/global-registrator": "^18.0.1",
+    "@happy-dom/global-registrator": "^19.0.1",
     "@types/bun": "latest",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
