@@ -1,0 +1,11 @@
+name = "luminary"
+compatibility_date = "2025-11-13"
+
+[assets]
+directory = "dist"
+# SPA mode - all 404s serve index.html for client-side routing
+not_found_handling = "single-page-app"
+
+[[routes]]
+pattern = "luminary-new.baysoft.dev"
+custom_domain = true
