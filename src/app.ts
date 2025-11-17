@@ -94,24 +94,32 @@ function renderResults() {
 }
 
 function handleRouteChange() {
-  const hash = window.location.hash || '#/';
+  const path = window.location.pathname;
   const homeContent = document.getElementById('home-content');
   const aboutContent = document.getElementById('about-content');
   const navLinks = document.querySelectorAll('.nav-link');
 
   if (!homeContent || !aboutContent) return;
 
-  navLinks.forEach((link) => {
-    link.classList.toggle('active', link.getAttribute('href') === hash);
-  });
-
-  if (hash === '#/about') {
-    homeContent.style.display = 'none';
-    aboutContent.style.display = 'block';
-  } else {
-    homeContent.style.display = 'block';
-    aboutContent.style.display = 'none';
+  switch (path) {
+    case '/':
+      homeContent.style.display = 'block';
+      aboutContent.style.display = 'none';
+      break;
+    case '/about':
+      homeContent.style.display = 'none';
+      aboutContent.style.display = 'block';
+      break;
+    default:
+      window.history.replaceState(null, '', '/');
+      homeContent.style.display = 'block';
+      aboutContent.style.display = 'none';
+      break;
   }
+
+  navLinks.forEach((link) => {
+    link.classList.toggle('active', link.getAttribute('href') === path);
+  });
 }
 
 function init() {
@@ -127,10 +135,21 @@ function init() {
     renderFleets();
   });
 
+  document.querySelectorAll('.nav-link').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = (e.currentTarget as HTMLAnchorElement).getAttribute('href');
+      if (href && href !== window.location.pathname) {
+        window.history.pushState(null, '', href);
+        handleRouteChange();
+      }
+    });
+  });
+
   renderFleets();
 
   handleRouteChange();
-  window.addEventListener('hashchange', handleRouteChange);
+  window.addEventListener('popstate', handleRouteChange);
 }
 
 export { init };
