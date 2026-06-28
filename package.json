@@ -4,19 +4,20 @@
   "description": "Battle calculator for Eclipse: Second Dawn for the Galaxy",
   "scripts": {
     "dev": "bun --hot src/index.html",
-    "build": "bun build ./src/*.html --outdir ./dist --minify && cp CNAME dist/",
+    "build": "bun build ./src/*.html --outdir ./dist --minify",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
   "devDependencies": {
-    "@happy-dom/global-registrator": "^18.0.1",
+    "@eslint/js": "^10.0.0",
+    "@happy-dom/global-registrator": "^20.0.0",
     "@types/bun": "latest",
-    "eslint": "^9.32.0",
+    "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
     "prettier": "^3.6.2",
-    "typescript-eslint": "^8.38.0"
+    "typescript-eslint": "^8.59.3"
   }
 }

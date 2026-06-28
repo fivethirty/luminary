@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- License: MIT. Made by michaelampr: https://github.com/michaelampr/jam -->
-<svg width="800px" height="800px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<svg width="48" height="48" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
   <g transform="translate(2, 2)">
     <rect fill="#fb923c" stroke="#f97316" stroke-width="0.5" x="0" y="0" width="20" height="20" rx="3" ry="3"/>
     <circle fill="#0a0a0a" cx="6" cy="6" r="1.8"/>
