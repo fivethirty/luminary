@@ -207,7 +207,7 @@ describe('Results', () => {
           Defender: {
             Interceptor: 2.5,
             Cruiser: 1.2,
-            Dreadnaught: 0.8,
+            Dreadnought: 0.8,
           },
         },
       })
@@ -262,7 +262,7 @@ describe('Results', () => {
           Fleet: {
             Interceptor: 2.0,
             Cruiser: 0,
-            Dreadnaught: 1.0,
+            Dreadnought: 1.0,
           },
         },
       })
@@ -277,7 +277,7 @@ describe('Results', () => {
     const shipTypes = Array.from(
       element.querySelectorAll('.survivor-ships-tbody td:nth-child(1)')
     ).map((el) => el.textContent);
-    expect(shipTypes).toEqual(['Interceptor', 'Dreadnaught']);
+    expect(shipTypes).toEqual(['Interceptor', 'Dreadnought']);
   });
 
   test('displays progress bars with correct widths', () => {

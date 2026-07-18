@@ -9,7 +9,7 @@ describe('CombatSimulator', () => {
     test('tracks last fleet standing percentages', () => {
       const fleetA = new Fleet('Strong', [
         new Ship(
-          ShipType.Dreadnaught,
+          ShipType.Dreadnought,
           {
             hull: 5,
             cannons: { plasma: 3 },
@@ -42,7 +42,7 @@ describe('CombatSimulator', () => {
           GUARANTEED_HIT
         ),
         new Ship(
-          ShipType.Dreadnaught,
+          ShipType.Dreadnought,
           { hull: 3, cannons: { antimatter: 2 } },
           GUARANTEED_HIT
         ),
@@ -64,7 +64,7 @@ describe('CombatSimulator', () => {
         1.0
       );
       expect(
-        results.expectedSurvivors['Mixed'][ShipType.Dreadnaught]
+        results.expectedSurvivors['Mixed'][ShipType.Dreadnought]
       ).toBeCloseTo(1.0);
 
       expect(results.expectedSurvivors['Weak'][ShipType.Interceptor] || 0).toBe(

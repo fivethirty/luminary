@@ -15,7 +15,7 @@ import {
 type ShipDropdownOption =
   | 'interceptor'
   | 'cruiser'
-  | 'dreadnaught'
+  | 'dreadnought'
   | 'starbase'
   | 'orbital'
   | 'ancient'
@@ -58,8 +58,8 @@ function getDefaultShipConfig(
       type: ShipType.Cruiser,
       config: createEmptyConfig(2),
     },
-    dreadnaught: {
-      type: ShipType.Dreadnaught,
+    dreadnought: {
+      type: ShipType.Dreadnought,
       config: createEmptyConfig(1),
     },
     starbase: {

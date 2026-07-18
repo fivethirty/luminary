@@ -100,7 +100,7 @@ describe('NpcDamagePlanner', () => {
       const cruiser = new Ship(ShipType.Cruiser, {
         initiative: 2,
       });
-      const dread = new Ship(ShipType.Dreadnaught, {
+      const dread = new Ship(ShipType.Dreadnought, {
         initiative: 3,
       });
 
@@ -289,7 +289,7 @@ describe('NpcDamagePlanner', () => {
     test('returns a higher score for destroying ships with higher priority', () => {
       const ship1 = new Ship(ShipType.Interceptor);
       const ship2 = new Ship(ShipType.Cruiser, { hull: 1 });
-      const ship3 = new Ship(ShipType.Dreadnaught, { hull: 2 });
+      const ship3 = new Ship(ShipType.Dreadnought, { hull: 2 });
       const result1 = new NpcDamagePlanner().evaluate(
         [ship3, ship2, ship1],
         [3, 2, 1],
@@ -307,7 +307,7 @@ describe('NpcDamagePlanner', () => {
     test('returns a higher score for destroying a ship with higher priority than many ships of lower priority', () => {
       const int = new Ship(ShipType.Interceptor);
       const cruiser = new Ship(ShipType.Cruiser);
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 2 });
+      const dread = new Ship(ShipType.Dreadnought, { hull: 2 });
       const damagePlanner = new NpcDamagePlanner();
       const result1 = damagePlanner.evaluate(
         [dread, ...Array(4).fill(cruiser), ...Array(8).fill(int)],
@@ -327,7 +327,7 @@ describe('NpcDamagePlanner', () => {
     test('returns a higher score for damaging a ship with higher priority than many ships of lower priority', () => {
       const int = new Ship(ShipType.Interceptor);
       const cruiser = new Ship(ShipType.Cruiser);
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 2 });
+      const dread = new Ship(ShipType.Dreadnought, { hull: 2 });
       const damagePlanner = new NpcDamagePlanner();
       const result1 = damagePlanner.evaluate(
         [dread, ...Array(4).fill(cruiser), ...Array(8).fill(int)],
@@ -347,7 +347,7 @@ describe('NpcDamagePlanner', () => {
     test('returns a higher score for destroying a smaller ship than damaging a bigger ship', () => {
       const int = new Ship(ShipType.Interceptor);
       const cruiser = new Ship(ShipType.Cruiser, { hull: 2 });
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
+      const dread = new Ship(ShipType.Dreadnought, { hull: 3 });
       const damagePlanner = new NpcDamagePlanner();
       const result1 = damagePlanner.evaluate(
         [dread, cruiser, int],

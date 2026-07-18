@@ -196,7 +196,7 @@ describe('Fleet', () => {
       expect(shipOption(element, defenderOnly)?.disabled).toBe(true);
     }
     // Player options remain available.
-    for (const player of ['interceptor', 'cruiser', 'dreadnaught']) {
+    for (const player of ['interceptor', 'cruiser', 'dreadnought']) {
       expect(shipOption(element, player)?.hidden).toBe(false);
     }
   });
