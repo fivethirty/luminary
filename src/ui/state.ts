@@ -17,8 +17,8 @@ export interface FleetState {
   shipTypes: ShipTypeConfig[];
   antimatterSplitter: boolean;
   // How this (player) fleet plans damage assignment:
-  //  - 'dps': remove the most enemy firepower per assignment (default)
-  //  - 'optimal': play the exactly-solved optimal assignment
+  //  - 'dps': remove the most enemy firepower per assignment
+  //  - 'optimal': play the exactly-solved optimal assignment (default)
   plannerType: PlannerType;
 }
 
@@ -58,14 +58,14 @@ const DEFAULT_FLEETS: FleetState[] = [
     name: 'Defender',
     shipTypes: [],
     antimatterSplitter: false,
-    plannerType: 'dps',
+    plannerType: 'optimal',
   },
   {
     id: 'fleet-1',
     name: 'Attacker',
     shipTypes: [],
     antimatterSplitter: false,
-    plannerType: 'dps',
+    plannerType: 'optimal',
   },
 ];
 
@@ -80,7 +80,7 @@ export function addFleet(): FleetState {
     name: '',
     shipTypes: [],
     antimatterSplitter: false,
-    plannerType: 'dps',
+    plannerType: 'optimal',
   };
   nextFleetId++;
 

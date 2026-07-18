@@ -152,7 +152,7 @@ describe('Fleet', () => {
     const select = plannerSelect(element);
     select.dispatchEvent(new Event('change'));
 
-    expect(state.fleets[0].plannerType).toBe('dps');
+    expect(state.fleets[0].plannerType).toBe('optimal');
     expect(select.value).toBe('npc');
   });
 
