@@ -128,6 +128,34 @@ describe('Results', () => {
     expect(names).toEqual(['Defender', 'Attacker']);
   });
 
+  test('keeps unknown fleet names in insertion order after known fleets', () => {
+    setSimulationResults({
+      victoryProbability: {
+        'Detached Fleet B': 0.1,
+        Attacker: 0.3,
+        'Detached Fleet A': 0.2,
+        Defender: 0.4,
+      },
+      drawProbability: 0,
+      expectedSurvivors: {},
+      timeTaken: 10,
+      method: 'exact' as const,
+    });
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const names = Array.from(element.querySelectorAll('.result-row')).map(
+      (row) => row.querySelector('.fleet-name')?.textContent
+    );
+    expect(names).toEqual([
+      'Defender',
+      'Attacker',
+      'Detached Fleet B',
+      'Detached Fleet A',
+    ]);
+  });
+
   test('labels exact results as deterministic', () => {
     setSimulationResults({
       victoryProbability: { 'Fleet A': 0.6, 'Fleet B': 0.4 },

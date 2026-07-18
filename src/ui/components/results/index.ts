@@ -78,9 +78,13 @@ export class ResultsElement extends HTMLElement {
       const idx = fleetOrder.indexOf(name);
       return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
     };
-    return Object.entries(byName).sort(
-      (a, b) => position(a[0]) - position(b[0])
-    );
+    return Object.entries(byName)
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => {
+        const positionDelta = position(a.entry[0]) - position(b.entry[0]);
+        return positionDelta || a.index - b.index;
+      })
+      .map(({ entry }) => entry);
   }
 
   private createResultRow(
