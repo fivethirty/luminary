@@ -199,7 +199,7 @@ describe('MultiBattle', () => {
         ]),
         new Fleet('Attacker3', [
           new Ship(
-            ShipType.Dreadnaught,
+            ShipType.Dreadnought,
             { initiative: 1, hull: 3, cannons: { antimatter: 2 } },
             GUARANTEED_HIT
           ),

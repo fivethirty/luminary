@@ -6,7 +6,7 @@ import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper'
 describe('BinnedDamageAssignment', () => {
   describe('assignDamage', () => {
     test('destroys highest priority ship it can', () => {
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
+      const dread = new Ship(ShipType.Dreadnought, { hull: 3 });
       const cruiser = new Ship(ShipType.Cruiser, { hull: 2 });
       const interceptor = new Ship(ShipType.Interceptor, { hull: 1 });
       const ships = [dread, cruiser, interceptor];
@@ -31,7 +31,7 @@ describe('BinnedDamageAssignment', () => {
     });
 
     test('targets highest priority hit cannot destroy', () => {
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
+      const dread = new Ship(ShipType.Dreadnought, { hull: 3 });
       const cruiser = new Ship(ShipType.Cruiser, { hull: 4 });
       const ships = [cruiser, dread];
 
@@ -54,8 +54,8 @@ describe('BinnedDamageAssignment', () => {
     });
 
     test('targets lowest hp ship if same priority', () => {
-      const dread1 = new Ship(ShipType.Dreadnaught, { hull: 3 });
-      const dread2 = new Ship(ShipType.Dreadnaught, { hull: 3 });
+      const dread1 = new Ship(ShipType.Dreadnought, { hull: 3 });
+      const dread2 = new Ship(ShipType.Dreadnought, { hull: 3 });
       const ships = [dread1, dread2];
 
       const shot = { roll: DICE_VALUES.HIT, computers: 0, damage: 1 };
@@ -75,7 +75,7 @@ describe('BinnedDamageAssignment', () => {
     });
 
     test('hits nothing if unable', () => {
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
+      const dread = new Ship(ShipType.Dreadnought, { hull: 3 });
       const carrier = new Ship(ShipType.Cruiser, { hull: 2 });
       const interceptor = new Ship(ShipType.Interceptor, { hull: 1 });
       const ships = [dread, carrier, interceptor];

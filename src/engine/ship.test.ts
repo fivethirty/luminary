@@ -7,7 +7,7 @@ describe('Ship', () => {
     test.each([
       { type: ShipType.Interceptor, expected: true },
       { type: ShipType.Cruiser, expected: true },
-      { type: ShipType.Dreadnaught, expected: true },
+      { type: ShipType.Dreadnought, expected: true },
       { type: ShipType.Orbital, expected: true },
       { type: ShipType.Starbase, expected: true },
       { type: ShipType.Ancient, expected: false },
@@ -585,7 +585,7 @@ describe('Ship', () => {
     });
 
     test('copies weapon and stat configuration', () => {
-      const ship = new Ship(ShipType.Dreadnaught, {
+      const ship = new Ship(ShipType.Dreadnought, {
         hull: 3,
         computers: 2,
         shields: 1,

@@ -23,8 +23,10 @@ describe('State', () => {
       expect(state.fleets).toHaveLength(2);
       expect(state.fleets[0].id).toBe('fleet-0');
       expect(state.fleets[0].name).toBe('Defender');
+      expect(state.fleets[0].plannerType).toBe('optimal');
       expect(state.fleets[1].id).toBe('fleet-1');
       expect(state.fleets[1].name).toBe('Attacker');
+      expect(state.fleets[1].plannerType).toBe('optimal');
     });
 
     test('has no simulation results', () => {
@@ -39,6 +41,7 @@ describe('State', () => {
       expect(newFleet.shipTypes).toEqual([]);
       expect(newFleet.name).toBe('');
       expect(newFleet.id).toBe('fleet-2');
+      expect(newFleet.plannerType).toBe('optimal');
     });
 
     test('returns a newly created fleet', () => {

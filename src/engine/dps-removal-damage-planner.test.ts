@@ -109,7 +109,7 @@ describe('DpsRemovalDamagePlanner', () => {
           ion: 1,
         },
       });
-      const dread = new Ship(ShipType.Dreadnaught, {
+      const dread = new Ship(ShipType.Dreadnought, {
         initiative: 3,
         cannons: {
           ion: 1,
@@ -354,7 +354,7 @@ describe('DpsRemovalDamagePlanner', () => {
         computers: 1,
         cannons: { ion: 1 },
       });
-      const ship3 = new Ship(ShipType.Dreadnaught, {
+      const ship3 = new Ship(ShipType.Dreadnought, {
         hull: 2,
         computers: 2,
         cannons: { ion: 1 },
@@ -382,7 +382,7 @@ describe('DpsRemovalDamagePlanner', () => {
         computers: 1,
         cannons: { ion: 1 },
       });
-      const dread = new Ship(ShipType.Dreadnaught, {
+      const dread = new Ship(ShipType.Dreadnought, {
         hull: 2,
         computers: 2,
         cannons: { ion: 1 },
@@ -412,7 +412,7 @@ describe('DpsRemovalDamagePlanner', () => {
         computers: 1,
         cannons: { ion: 1 },
       });
-      const dread = new Ship(ShipType.Dreadnaught, {
+      const dread = new Ship(ShipType.Dreadnought, {
         hull: 2,
         computers: 2,
         cannons: { ion: 1 },
@@ -438,7 +438,7 @@ describe('DpsRemovalDamagePlanner', () => {
     test('returns a higher score for destroying a smaller ship than damaging a bigger ship', () => {
       const int = new Ship(ShipType.Interceptor);
       const cruiser = new Ship(ShipType.Cruiser, { hull: 2 });
-      const dread = new Ship(ShipType.Dreadnaught, { hull: 3 });
+      const dread = new Ship(ShipType.Dreadnought, { hull: 3 });
       const damagePlanner = new DpsRemovalDamagePlanner();
       const result1 = damagePlanner.evaluate(
         [dread, cruiser, int],
@@ -467,7 +467,7 @@ describe('DpsRemovalDamagePlanner', () => {
         missiles: { ion: 1 },
         cannons: { ion: 1 },
       });
-      const dread = new Ship(ShipType.Dreadnaught, {
+      const dread = new Ship(ShipType.Dreadnought, {
         initiative: 2,
         missiles: { ion: 1 },
       });

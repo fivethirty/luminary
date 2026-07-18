@@ -76,6 +76,45 @@ describe('ShipType', () => {
     expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
   });
 
+  test.each([
+    [ShipType.Interceptor, 8],
+    [ShipType.Cruiser, 4],
+    [ShipType.Dreadnought, 2],
+    [ShipType.Orbital, 1],
+    [ShipType.Starbase, 4],
+    [ShipType.Ancient, 2],
+    [ShipType.Guardian, 1],
+    [ShipType.GCDS, 1],
+  ])('caps %s quantity at %i', async (type, max) => {
+    const shipTypeConfig = {
+      id: `test-${type}`,
+      type,
+      quantity: max,
+      config: {},
+    };
+
+    state.fleets[0].shipTypes.push(shipTypeConfig);
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    await customElements.whenDefined('calc-selector');
+
+    const qtySelector = element.querySelector(
+      'calc-selector'
+    ) as SelectorElement;
+    const incrementBtn = qtySelector.querySelectorAll('button')[1];
+
+    expect(qtySelector.max).toBe(max);
+    expect(incrementBtn.disabled).toBe(true);
+    incrementBtn.click();
+
+    expect(state.fleets[0].shipTypes[0].quantity).toBe(max);
+  });
+
   test('removes itself from state', () => {
     const shipTypeConfig = {
       id: 'test-ship-3',

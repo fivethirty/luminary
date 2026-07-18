@@ -5,7 +5,7 @@ type ValueOf<T> = T[keyof T];
 export const ShipType = {
   Interceptor: 'Interceptor',
   Cruiser: 'Cruiser',
-  Dreadnaught: 'Dreadnaught',
+  Dreadnought: 'Dreadnought',
   Starbase: 'Starbase',
   Orbital: 'Orbital',
   Ancient: 'Ancient',

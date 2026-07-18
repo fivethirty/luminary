@@ -222,11 +222,11 @@ describe('computeExactBattle', () => {
       }),
     ];
     const aiFleet = () => [
-      new Ship(ShipType.Guardian, {
-        hull: 2,
+      new Ship(ShipType.Ancient, {
+        hull: 1,
         computers: 2,
         initiative: 3,
-        cannons: { ion: 3 },
+        cannons: { ion: 1 },
       }),
       new Ship(ShipType.Ancient, {
         hull: 1,

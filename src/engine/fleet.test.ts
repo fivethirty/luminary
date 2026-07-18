@@ -82,7 +82,7 @@ describe('Fleet', () => {
           GUARANTEED_HIT
         ),
         new Ship(
-          ShipType.Dreadnaught,
+          ShipType.Dreadnought,
           {
             initiative: 2,
             missiles: { antimatter: 1 },
@@ -224,7 +224,7 @@ describe('Fleet', () => {
         name: 'multiple ships with rift',
         ships: [
           new Ship(
-            ShipType.Dreadnaught,
+            ShipType.Dreadnought,
             {
               initiative: 1,
               rift: 1,
@@ -337,7 +337,7 @@ describe('Fleet', () => {
     test('returns only living ships', () => {
       const ship1 = new Ship(ShipType.Interceptor, { hull: 1 });
       const ship2 = new Ship(ShipType.Cruiser);
-      const ship3 = new Ship(ShipType.Dreadnaught);
+      const ship3 = new Ship(ShipType.Dreadnought);
       const fleet = new Fleet('test', [ship1, ship2, ship3]);
 
       // Kill ship1

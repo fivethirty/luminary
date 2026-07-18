@@ -15,7 +15,7 @@ import {
 type ShipDropdownOption =
   | 'interceptor'
   | 'cruiser'
-  | 'dreadnaught'
+  | 'dreadnought'
   | 'starbase'
   | 'orbital'
   | 'ancient'
@@ -58,8 +58,8 @@ function getDefaultShipConfig(
       type: ShipType.Cruiser,
       config: createEmptyConfig(2),
     },
-    dreadnaught: {
-      type: ShipType.Dreadnaught,
+    dreadnought: {
+      type: ShipType.Dreadnought,
       config: createEmptyConfig(1),
     },
     starbase: {
@@ -300,16 +300,22 @@ export class FleetElement extends HTMLElement {
     const variantData = getDefaultShipConfig(dropdownOption);
     const newIsPlayer = isPlayerShipType(variantData.type);
 
-    // A fleet can't mix AI and player ships: adding one class evicts the other.
-    const opposite = this.fleet.shipTypes.filter(
-      (st) => isPlayerShipType(st.type) !== newIsPlayer
+    if (this.fleet.shipTypes.some((st) => st.type === variantData.type)) {
+      return;
+    }
+
+    // A fleet can't mix player ships with NPC ships, or multiple NPC types.
+    const incompatible = this.fleet.shipTypes.filter(
+      (st) =>
+        isPlayerShipType(st.type) !== newIsPlayer ||
+        (!newIsPlayer && st.type !== variantData.type)
     );
-    opposite.forEach((st) => removeShipType(this.fleet.id, st.id));
+    incompatible.forEach((st) => removeShipType(this.fleet.id, st.id));
 
     const newShip = addShipType(this.fleet.id, variantData.type);
     newShip.config = variantData.config;
 
-    if (opposite.length > 0) {
+    if (incompatible.length > 0) {
       // Some ship elements were removed; rebuild the list from state.
       this.renderShips();
     } else {

@@ -2,7 +2,7 @@ import { Ship, ShipType } from './ship';
 import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
 
 const DAMAGE_PRIORTY: Record<ShipType, number> = {
-  Dreadnaught: 0,
+  Dreadnought: 0,
   Orbital: 1,
   Cruiser: 3,
   Starbase: 5,

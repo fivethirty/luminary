@@ -4,7 +4,7 @@ import { TOTAL_RIFT_DIE_DAMAGE } from 'src/constants';
 import { Phase } from './battle';
 
 const DAMAGE_PRIORTY: Record<ShipType, number> = {
-  Dreadnaught: 0,
+  Dreadnought: 0,
   GCDS: 1,
   Cruiser: 2,
   Guardian: 3,
