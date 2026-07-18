@@ -87,9 +87,8 @@ function simulate() {
 
   // Two-fleet battles are solved exactly: every dice outcome's probability is
   // propagated through the state graph instead of sampled, so the numbers are
-  // noise-free and identical on every run. Battles the solver can't handle
-  // (3+ fleets, two optimal fleets, or a state graph over budget) fall back to
-  // Monte Carlo.
+  // noise-free and identical on every run. Battles outside exact combat's
+  // interactive budget, plus battles with 3+ fleets, fall back to Monte Carlo.
   if (engineFleets.length === 2) {
     const exact = computeExactBattle(
       engineFleets[0],
