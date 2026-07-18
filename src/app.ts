@@ -44,6 +44,7 @@ function renderFleets() {
 
     // Only the defender (fleet 0) may contain AI ships.
     fleetElement.setAttribute('is-defender', index === 0 ? 'true' : 'false');
+    fleetElement.setAttribute('fleet-index', index.toString());
 
     fleetsContainer.appendChild(fleetElement);
   });
@@ -103,6 +104,10 @@ function simulate() {
           string,
           Record<string, number>
         >,
+        survivorDistribution: exact.survivorDistribution as {
+          probability: number;
+          survivors: Record<string, Record<string, number>>;
+        }[],
         timeTaken: exact.timeTaken,
         method: 'exact',
       });
@@ -119,6 +124,10 @@ function simulate() {
     victoryProbability: results.lastFleetStanding,
     drawProbability: results.drawPercentage,
     expectedSurvivors: results.expectedSurvivors,
+    survivorDistribution: results.survivorDistribution as {
+      probability: number;
+      survivors: Record<string, Record<string, number>>;
+    }[],
     timeTaken: results.timeTaken,
     method: 'monte-carlo',
     iterations: MC_ITERATIONS,

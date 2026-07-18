@@ -5,6 +5,48 @@
 .fleet {
   margin-bottom: var(--space-lg);
   padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.fleet::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.25rem;
+  background: var(--fleet-accent, var(--color-border-strong));
+}
+
+.fleet-defender {
+  --fleet-accent: var(--color-defender);
+}
+
+.fleet-attacker {
+  --fleet-accent: var(--color-attacker);
+  --fleet-accent-soft: var(--color-attacker-soft);
+}
+
+.fleet-attacker-2 {
+  --fleet-accent: var(--color-attacker-2);
+  --fleet-accent-soft: var(--color-attacker-2-soft);
+}
+
+.fleet-attacker-3 {
+  --fleet-accent: var(--color-attacker-3);
+  --fleet-accent-soft: var(--color-attacker-3-soft);
+}
+
+.fleet-attacker-4 {
+  --fleet-accent: var(--color-attacker-4);
+  --fleet-accent-soft: var(--color-attacker-4-soft);
+}
+
+.fleet-defender .fleet-header {
+  background: linear-gradient(90deg, var(--color-defender-soft), var(--color-bg-secondary) 45%);
+}
+
+.fleet-attacker .fleet-header {
+  background: linear-gradient(90deg, var(--fleet-accent-soft), var(--color-bg-secondary) 45%);
 }
 
 .fleet-name {

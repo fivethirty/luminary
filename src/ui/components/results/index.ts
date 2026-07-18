@@ -12,6 +12,7 @@ export class ResultsElement extends HTMLElement {
     const results = state.simulationResults!;
 
     this.renderWinPercentages(results);
+    this.renderSurvivorDistribution(results);
     this.renderSurvivors(results);
 
     setTimeout(() => {
@@ -29,19 +30,58 @@ export class ResultsElement extends HTMLElement {
         ? `Exact (deterministic) · ${results.timeTaken} ms`
         : `Monte Carlo · ${results.iterations.toLocaleString()} iterations · ${results.timeTaken} ms`;
     const tbody = this.querySelector('#results-tbody')!;
+    const oddsStrip = this.querySelector('#odds-strip')!;
     tbody.innerHTML = '';
+    oddsStrip.innerHTML = '';
 
     for (const [fleetName, percentage] of this.orderedByFleet(
       results.victoryProbability
     )) {
+      if (percentage <= 0) continue;
+      oddsStrip.appendChild(this.createOddsSegment(fleetName, percentage));
       tbody.appendChild(this.createResultRow(fleetName, percentage));
     }
 
     if (results.drawProbability > 0) {
+      oddsStrip.appendChild(
+        this.createOddsSegment('Draw', results.drawProbability, true)
+      );
       tbody.appendChild(
         this.createResultRow('Draw', results.drawProbability, true)
       );
     }
+  }
+
+  private renderSurvivorDistribution(results: SimulationResults) {
+    const section = this.querySelector(
+      '#survivor-distribution-section'
+    ) as HTMLElement;
+    const tbody = this.querySelector('#survivor-distribution-tbody')!;
+    tbody.innerHTML = '';
+
+    const entries = results.survivorDistribution.filter(
+      (entry) => entry.probability > 0
+    );
+    if (entries.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    const visibleEntries = entries.slice(0, 8);
+    for (const entry of visibleEntries) {
+      tbody.appendChild(
+        this.createCompositionRow(entry.probability, entry.survivors)
+      );
+    }
+
+    if (entries.length > visibleEntries.length) {
+      const remainingProbability = entries
+        .slice(visibleEntries.length)
+        .reduce((sum, entry) => sum + entry.probability, 0);
+      tbody.appendChild(this.createOtherCompositionRow(remainingProbability));
+    }
+
+    section.style.display = 'block';
   }
 
   private renderSurvivors(results: SimulationResults) {
@@ -94,6 +134,7 @@ export class ResultsElement extends HTMLElement {
   ): HTMLElement {
     const row = document.createElement('tr');
     row.className = isDraw ? 'result-row draw' : 'result-row';
+    row.classList.add(...this.sideClasses(fleetName, isDraw));
 
     const nameCell = document.createElement('td');
     nameCell.className = 'fleet-name';
@@ -123,12 +164,103 @@ export class ResultsElement extends HTMLElement {
     return row;
   }
 
+  private createOddsSegment(
+    fleetName: string,
+    percentage: number,
+    isDraw = false
+  ): HTMLElement {
+    const segment = document.createElement('div');
+    segment.className = `odds-segment ${this.sideClass(fleetName, isDraw)}`;
+    segment.style.flexBasis = `${Math.max(percentage * 100, 2)}%`;
+
+    const value = document.createElement('strong');
+    value.textContent = `${Math.round(percentage * 100)}%`;
+
+    const label = document.createElement('span');
+    label.textContent = fleetName;
+
+    segment.appendChild(value);
+    segment.appendChild(label);
+    return segment;
+  }
+
+  private createCompositionRow(
+    probability: number,
+    survivors: Record<string, Record<string, number>>
+  ): HTMLElement {
+    const row = document.createElement('tr');
+    const defenderName = state.fleets[0]?.name ?? 'Defender';
+    const attackerNames = state.fleets.slice(1).map((fleet) => fleet.name);
+    const defenderText = this.formatFleetComposition(survivors[defenderName]);
+    const attackerCompositions = attackerNames
+      .map((name) => ({
+        name,
+        text: this.formatFleetComposition(survivors[name]),
+      }))
+      .filter((entry) => entry.text !== '—');
+
+    if (defenderText !== '—') row.classList.add('defender-result');
+    if (attackerCompositions.length === 1) {
+      row.classList.add(...this.sideClasses(attackerCompositions[0].name));
+    } else if (attackerCompositions.length > 1) {
+      row.classList.add('attacker-result');
+    }
+
+    const defenderCell = document.createElement('td');
+    defenderCell.textContent = defenderText;
+
+    const probabilityCell = document.createElement('td');
+    probabilityCell.className = 'composition-probability';
+    probabilityCell.textContent = this.formatPercent(probability);
+
+    const attackerCell = document.createElement('td');
+    if (attackerCompositions.length === 0) {
+      attackerCell.textContent = '—';
+    } else {
+      attackerCompositions.forEach((entry, index) => {
+        if (index > 0) {
+          attackerCell.appendChild(document.createTextNode(' / '));
+        }
+        const label = document.createElement('span');
+        label.classList.add(...this.sideClasses(entry.name));
+        label.textContent = entry.text;
+        attackerCell.appendChild(label);
+      });
+    }
+
+    row.appendChild(defenderCell);
+    row.appendChild(probabilityCell);
+    row.appendChild(attackerCell);
+    return row;
+  }
+
+  private createOtherCompositionRow(probability: number): HTMLElement {
+    const row = document.createElement('tr');
+    row.className = 'composition-other';
+
+    const labelCell = document.createElement('td');
+    labelCell.textContent = 'Other outcomes';
+
+    const probabilityCell = document.createElement('td');
+    probabilityCell.className = 'composition-probability';
+    probabilityCell.textContent = this.formatPercent(probability);
+
+    const emptyCell = document.createElement('td');
+    emptyCell.textContent = '—';
+
+    row.appendChild(labelCell);
+    row.appendChild(probabilityCell);
+    row.appendChild(emptyCell);
+    return row;
+  }
+
   private createSurvivorCard(
     fleetName: string,
     survivors: [string, number][]
   ): HTMLElement {
     const card = document.createElement('div');
     card.className = 'survivor-fleet-card';
+    card.classList.add(...this.sideClasses(fleetName));
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'survivor-fleet-name';
@@ -160,6 +292,39 @@ export class ResultsElement extends HTMLElement {
     card.appendChild(table);
 
     return card;
+  }
+
+  private formatFleetComposition(
+    survivors: Record<string, number> | undefined
+  ): string {
+    if (!survivors) return '—';
+    const entries = Object.entries(survivors)
+      .filter(([, count]) => count > 0)
+      .sort(([a], [b]) => a.localeCompare(b));
+    if (entries.length === 0) return '—';
+    return entries
+      .map(([type, count]) => (count === 1 ? type : `${count} ${type}`))
+      .join(', ');
+  }
+
+  private formatPercent(value: number): string {
+    return `${(value * 100).toFixed(value >= 0.1 ? 1 : 2)}%`;
+  }
+
+  private sideClass(fleetName: string, isDraw = false): string {
+    return this.sideClasses(fleetName, isDraw).join(' ');
+  }
+
+  private sideClasses(fleetName: string, isDraw = false): string[] {
+    if (isDraw || fleetName === 'Draw') return ['draw-result'];
+    const fleetIndex = state.fleets.findIndex(
+      (fleet) => fleet.name === fleetName
+    );
+    if (fleetIndex === 0) return ['defender-result'];
+    if (fleetIndex > 1) {
+      return ['attacker-result', `attacker-result-${Math.min(fleetIndex, 4)}`];
+    }
+    return ['attacker-result'];
   }
 }
 

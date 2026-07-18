@@ -200,6 +200,20 @@ export class FleetElement extends HTMLElement {
 
     const nameSpan = this.querySelector('.fleet-name') as HTMLSpanElement;
     nameSpan.textContent = this.fleet.name;
+    this.querySelector('.fleet')?.classList.toggle(
+      'fleet-defender',
+      this.getAttribute('is-defender') !== 'false'
+    );
+    this.querySelector('.fleet')?.classList.toggle(
+      'fleet-attacker',
+      this.getAttribute('is-defender') === 'false'
+    );
+    const fleetIndex = Number(this.getAttribute('fleet-index') ?? '0');
+    if (fleetIndex > 1) {
+      this.querySelector('.fleet')?.classList.add(
+        `fleet-attacker-${Math.min(fleetIndex, 4)}`
+      );
+    }
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     const canRemove = this.getAttribute('can-remove') !== 'false';

@@ -7,6 +7,7 @@ const DEFAULT_RESULTS = {
   victoryProbability: { Defender: 0.6, Attacker: 0.4 },
   drawProbability: 0,
   expectedSurvivors: {},
+  survivorDistribution: [],
   timeTaken: 1000,
 };
 

@@ -1,22 +1,44 @@
 <div class="results-container">
-  <div class="results-card card">
+  <div class="results-card card combat-outlook">
     <div class="results-header card-header">
-      <h2>Victory Odds</h2>
+      <div>
+        <p class="results-kicker">Combat Outlook</p>
+        <h2>Victory Odds</h2>
+      </div>
+      <div class="results-time"></div>
     </div>
     <div class="results-body">
+      <div id="odds-strip" class="odds-strip"></div>
       <table class="results-table">
         <tbody id="results-tbody">
         </tbody>
       </table>
     </div>
-    <div class="results-time"></div>
-  </div>
 
-  <div id="survivors-section" class="survivors-card card">
-    <div class="survivors-header card-header">
-      <h3>Survivors With Victory</h3>
+    <div id="survivor-distribution-section" class="survivor-distribution-section">
+      <div class="panel-heading">
+        <h3>Surviving Fleet Compositions</h3>
+      </div>
+      <div class="composition-table-wrap">
+        <table class="composition-table">
+          <thead>
+            <tr>
+              <th>Defender Survivors</th>
+              <th>%</th>
+              <th>Attacker Survivors</th>
+            </tr>
+          </thead>
+          <tbody id="survivor-distribution-tbody">
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="survivors-body">
+
+    <div id="survivors-section" class="survivors-section">
+      <div class="panel-heading">
+        <h3>Average Survivors</h3>
+        <span>Among wins only</span>
+      </div>
       <div id="survivors-grid" class="survivors-grid">
       </div>
     </div>

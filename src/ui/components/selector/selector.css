@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-bg-primary) 40%, var(--color-bg-secondary));
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: calc(var(--space-xs) / 2);
   max-width: 5rem;
@@ -13,7 +13,7 @@
   width: 1.75rem;
   height: 1.75rem;
   padding: 0;
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   font-size: var(--font-size-base);
@@ -26,6 +26,7 @@
 
 .selector button:hover:not(:disabled) {
   background: var(--color-border-strong);
+  border-color: var(--color-text-secondary);
 }
 
 .selector button:active:not(:disabled) {

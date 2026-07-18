@@ -22,12 +22,18 @@ export interface FleetState {
   plannerType: PlannerType;
 }
 
+export interface SurvivorDistributionEntry {
+  probability: number;
+  survivors: Record<string, Record<string, number>>;
+}
+
 export type SimulationMethod = 'exact' | 'monte-carlo';
 
 interface BaseSimulationResults {
   victoryProbability: Record<string, number>;
   drawProbability: number;
   expectedSurvivors: Record<string, Record<string, number>>;
+  survivorDistribution: SurvivorDistributionEntry[];
   timeTaken: number;
 }
 

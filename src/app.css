@@ -12,6 +12,18 @@
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-info: #3b82f6;
+  --color-attacker: #35d0c8;
+  --color-attacker-soft: #123b43;
+  --color-attacker-2: #8fc45d;
+  --color-attacker-2-soft: #263a1e;
+  --color-attacker-3: #d58fe8;
+  --color-attacker-3-soft: #3b2743;
+  --color-attacker-4: #5fa8ff;
+  --color-attacker-4-soft: #1d314c;
+  --color-defender: #f0a35b;
+  --color-defender-soft: #462c1e;
+  --color-draw: #98a6bd;
+  --color-draw-soft: #293040;
   
   --color-stat-ion: #facc15;
   --color-stat-plasma: #fb923c;
@@ -272,6 +284,7 @@ select {
 .card {
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
 }
 
 .card-header {

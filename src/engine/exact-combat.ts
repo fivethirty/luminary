@@ -25,6 +25,10 @@ export type ExactBattleResult = {
   lastFleetStanding: Record<string, number>;
   drawPercentage: number;
   expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
+  survivorDistribution: {
+    probability: number;
+    survivors: Record<string, Partial<Record<ShipType, number>>>;
+  }[];
   timeTaken: number;
 };
 
@@ -47,6 +51,7 @@ export function computeExactBattle(
     lastFleetStanding: {},
     drawPercentage: 0,
     expectedSurvivors: {},
+    survivorDistribution: [],
     timeTaken: Date.now() - start,
   });
 
@@ -98,6 +103,17 @@ export function computeExactBattle(
         Record<ShipType, number>
       >,
     },
+    survivorDistribution: outcome.survivorDistribution.map((entry) => ({
+      probability: entry.probability,
+      survivors: {
+        [defender.name]: entry.defenderSurvivors as Partial<
+          Record<ShipType, number>
+        >,
+        [attacker.name]: entry.attackerSurvivors as Partial<
+          Record<ShipType, number>
+        >,
+      },
+    })),
     timeTaken: Date.now() - start,
   };
 }

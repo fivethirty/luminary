@@ -76,7 +76,14 @@ export type OutcomeResult = {
   // Expected surviving ship counts by type, conditioned on that side winning.
   attackerSurvivors: Partial<Record<string, number>>;
   defenderSurvivors: Partial<Record<string, number>>;
+  survivorDistribution: SurvivorComposition[];
   states: number;
+};
+
+export type SurvivorComposition = {
+  probability: number;
+  attackerSurvivors: Partial<Record<string, number>>;
+  defenderSurvivors: Partial<Record<string, number>>;
 };
 
 export type SolverGraphStats = {
@@ -194,6 +201,7 @@ export class WinProbabilitySolver {
         residual: NaN,
         attackerSurvivors: {},
         defenderSurvivors: {},
+        survivorDistribution: [],
         states: this.nodes.length,
       };
       return this.outcome;
@@ -459,20 +467,36 @@ export class WinProbabilitySolver {
     let pDraw = 0;
     const attackerSurvivors: Record<string, number> = {};
     const defenderSurvivors: Record<string, number> = {};
+    const compositionMass = new Map<string, SurvivorComposition>();
     for (let i = 0; i < n; i++) {
       const m = absorbed[i];
       if (m === 0) continue;
       const terminal = this.nodes[i].terminal!;
+      const attackerCounts = this.model.survivorsByType('A', terminal.hpA);
+      const defenderCounts = this.model.survivorsByType('D', terminal.hpB);
+      const compositionKey = this.compositionKey(
+        attackerCounts,
+        defenderCounts
+      );
+      const existing = compositionMass.get(compositionKey);
+      if (existing) {
+        existing.probability += m;
+      } else {
+        compositionMass.set(compositionKey, {
+          probability: m,
+          attackerSurvivors: attackerCounts,
+          defenderSurvivors: defenderCounts,
+        });
+      }
+
       if (terminal.outcome === 'AttackerWins') {
         pAttacker += m;
-        const counts = this.model.survivorsByType('A', terminal.hpA);
-        for (const [type, count] of Object.entries(counts)) {
+        for (const [type, count] of Object.entries(attackerCounts)) {
           attackerSurvivors[type] = (attackerSurvivors[type] ?? 0) + m * count!;
         }
       } else if (terminal.outcome === 'DefenderWins') {
         pDefenderTerm += m;
-        const counts = this.model.survivorsByType('D', terminal.hpB);
-        for (const [type, count] of Object.entries(counts)) {
+        for (const [type, count] of Object.entries(defenderCounts)) {
           defenderSurvivors[type] = (defenderSurvivors[type] ?? 0) + m * count!;
         }
       } else {
@@ -498,7 +522,22 @@ export class WinProbabilitySolver {
       residual,
       attackerSurvivors,
       defenderSurvivors,
+      survivorDistribution: Array.from(compositionMass.values()).sort(
+        (a, b) => b.probability - a.probability
+      ),
       states: this.nodes.length,
     };
+  }
+
+  private compositionKey(
+    attackerSurvivors: Partial<Record<string, number>>,
+    defenderSurvivors: Partial<Record<string, number>>
+  ): string {
+    const side = (counts: Partial<Record<string, number>>): string =>
+      Object.entries(counts)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([type, count]) => `${type}:${count}`)
+        .join(',');
+    return `A:${side(attackerSurvivors)}|D:${side(defenderSurvivors)}`;
   }
 }

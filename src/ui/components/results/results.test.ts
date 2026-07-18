@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, describe } from 'bun:test';
 import './index';
 import type { ResultsElement } from './index';
-import { resetFleets, setSimulationResults } from '@ui/state';
+import { addFleet, resetFleets, setSimulationResults, state } from '@ui/state';
 import { exactResults, monteCarloResults } from '@ui/test-helpers';
 
 describe('Results', () => {
@@ -70,6 +70,53 @@ describe('Results', () => {
     ).map((el) => el.textContent);
 
     expect(percentages).toEqual(['75.3%', '24.7%']);
+  });
+
+  test('omits zero-probability fleets from victory odds', () => {
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          Defender: 0.7,
+          Attacker: 0.3,
+          'Attacker 2': 0,
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const names = Array.from(element.querySelectorAll('.result-row')).map(
+      (row) => row.querySelector('.fleet-name')?.textContent
+    );
+    const oddsLabels = Array.from(
+      element.querySelectorAll('.odds-segment')
+    ).map((segment) => segment.querySelector('span')?.textContent);
+
+    expect(names).toEqual(['Defender', 'Attacker']);
+    expect(oddsLabels).toEqual(['Defender', 'Attacker']);
+  });
+
+  test('uses distinct color classes for multiple attackers', () => {
+    addFleet();
+    state.fleets[2].name = 'Attacker 2';
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          Defender: 0.25,
+          Attacker: 0.35,
+          'Attacker 2': 0.4,
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const segments = element.querySelectorAll('.odds-segment');
+    expect(segments[1].classList.contains('attacker-result')).toBe(true);
+    expect(segments[1].classList.contains('attacker-result-2')).toBe(false);
+    expect(segments[2].classList.contains('attacker-result-2')).toBe(true);
   });
 
   test('displays draw probability when present', () => {
@@ -232,6 +279,69 @@ describe('Results', () => {
       element.querySelectorAll('.survivor-ships-tbody td:nth-child(2)')
     ).map((el) => el.textContent);
     expect(shipCounts).toEqual(['2.5', '1.2', '0.8']);
+  });
+
+  test('displays survivor composition distribution', () => {
+    setSimulationResults(
+      exactResults({
+        victoryProbability: { Defender: 0.35, Attacker: 0.65 },
+        survivorDistribution: [
+          {
+            probability: 0.42,
+            survivors: {
+              Defender: {},
+              Attacker: { Cruiser: 1, Interceptor: 2 },
+            },
+          },
+          {
+            probability: 0.24,
+            survivors: {
+              Defender: { Ancient: 1 },
+              Attacker: {},
+            },
+          },
+        ],
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const rows = element.querySelectorAll('#survivor-distribution-tbody tr');
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toContain('2 Interceptor');
+    expect(rows[0].textContent).toContain('Cruiser');
+    expect(rows[0].textContent).toContain('42.0%');
+    expect(rows[1].textContent).toContain('Ancient');
+    expect(rows[1].textContent).toContain('24.0%');
+  });
+
+  test('colors survivor composition attackers by fleet', () => {
+    addFleet();
+    state.fleets[2].name = 'Attacker 2';
+    setSimulationResults(
+      exactResults({
+        victoryProbability: { Defender: 0.2, Attacker: 0.3, 'Attacker 2': 0.5 },
+        survivorDistribution: [
+          {
+            probability: 0.5,
+            survivors: {
+              Defender: {},
+              Attacker: {},
+              'Attacker 2': { Cruiser: 1 },
+            },
+          },
+        ],
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const row = element.querySelector('#survivor-distribution-tbody tr')!;
+    const attackerLabel = row.querySelector('td:last-child span')!;
+    expect(row.classList.contains('attacker-result-2')).toBe(true);
+    expect(attackerLabel.classList.contains('attacker-result-2')).toBe(true);
   });
 
   test('hides survivors section when no survivors', () => {

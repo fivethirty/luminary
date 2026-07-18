@@ -5,12 +5,17 @@
   justify-content: space-between;
   width: 100%;
   aspect-ratio: 1;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0.375rem 0;
   box-sizing: border-box;
   cursor: pointer;
+}
+
+.stat-cube:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-tertiary);
 }
 
 .stat-cube label {
@@ -34,7 +39,7 @@
 }
 
 .stat-cube input:focus {
-  color: var(--color-accent);
+  color: var(--color-attacker);
 }
 
 .stat-cube input::-webkit-inner-spin-button,

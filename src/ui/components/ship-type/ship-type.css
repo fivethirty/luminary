@@ -1,7 +1,8 @@
 .ship-type {
   margin: 0 0 var(--space-sm) 0;
   padding: 0;
-  background: var(--color-bg-secondary);
+  background: color-mix(in srgb, var(--color-bg-secondary) 88%, var(--color-bg-primary));
+  border-top: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
@@ -11,12 +12,14 @@
 
 .ship-type > header {
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 72%, transparent);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .ship-type-name {
   flex: 1;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
 }
 
 .quantity {
@@ -27,7 +30,23 @@
 .ship-type .stats {
   padding: var(--space-sm) var(--space-md);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+  grid-template-columns: minmax(13rem, 1fr) minmax(13rem, 1fr) minmax(10rem, 0.8fr);
+  gap: var(--space-sm);
+}
+
+.stat-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(3.25rem, 1fr));
   gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: color-mix(in srgb, var(--color-bg-primary) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 52rem) {
+  .ship-type .stats {
+    grid-template-columns: 1fr;
+  }
 }
 
