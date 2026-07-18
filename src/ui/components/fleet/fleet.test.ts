@@ -143,6 +143,19 @@ describe('Fleet', () => {
     expect(select.value).toBe('npc');
   });
 
+  test('ignores NPC planner change events', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    document.body.appendChild(element);
+
+    addShip(element, 'ancient');
+    const select = plannerSelect(element);
+    select.dispatchEvent(new Event('change'));
+
+    expect(state.fleets[0].plannerType).toBe('dps');
+    expect(select.value).toBe('npc');
+  });
+
   test('restores an editable planner when a player ship is added', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];

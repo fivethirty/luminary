@@ -11,7 +11,6 @@ import {
   toggleAntimatterSplitter,
   setFleetPlannerType,
 } from '@ui/state';
-import type { PlannerType } from '@ui/state';
 
 type ShipDropdownOption =
   | 'interceptor'
@@ -247,10 +246,9 @@ export class FleetElement extends HTMLElement {
     ) as HTMLSelectElement;
     plannerTypeSelect.value = this.fleet.plannerType;
     plannerTypeSelect.addEventListener('change', () => {
-      setFleetPlannerType(
-        this.fleet.id,
-        plannerTypeSelect.value as PlannerType
-      );
+      const value = plannerTypeSelect.value;
+      if (value !== 'dps' && value !== 'optimal') return;
+      setFleetPlannerType(this.fleet.id, value);
     });
 
     this.updateShipSelector();
