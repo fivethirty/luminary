@@ -44,6 +44,10 @@ export class Battle {
   // omits the already-fired missile phases is what prevents missiles firing
   // twice.
   resumeFight(phases: Phase[]): BattleResult {
+    const ctx = { attacker: this.attacker, defender: this.defender };
+    this.attacker.prepareForBattle(ctx);
+    this.defender.prepareForBattle(ctx);
+
     while (phases[0]?.missilePhase) {
       const result = this.resolveMissilePhase(phases.shift()!, phases);
       if (result) return result;

@@ -4,6 +4,7 @@ import { Fleet } from './fleet';
 import { ShipType } from './ship';
 import { ship } from './test-helpers';
 import {
+  DamageType,
   DICE_VALUES,
   GUARANTEED_HIT,
   GUARANTEED_MISS,
@@ -394,6 +395,34 @@ describe('Battle', () => {
       const result = battle.resumeFight([phase]);
       expect(result.outcome).toBe(BattleOutcome.Attacker);
       expect(defender.isAlive()).toBe(false);
+    });
+
+    test('prepares optimal planners before assigning damage', () => {
+      const attacker = ship(
+        { initiative: 3, cannons: { ion: 1 } },
+        ShipType.Interceptor,
+        GUARANTEED_HIT
+      );
+      const defender = ship({ initiative: 2 });
+      const attackerFleet = new Fleet(
+        'Attacker',
+        [attacker],
+        false,
+        DamageType.OPTIMAL
+      );
+      const defenderFleet = new Fleet('Defender', [defender]);
+      const battle = new Battle(attackerFleet, defenderFleet);
+
+      const phase: Phase = {
+        ships: [attacker],
+        initiative: 3,
+        shootingFleet: attackerFleet,
+        targetFleet: defenderFleet,
+        missilePhase: false,
+      };
+
+      const result = battle.resumeFight([phase]);
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
     });
 
     // Missiles fire exactly once because they live only in the phase queue; a
