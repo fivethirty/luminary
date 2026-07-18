@@ -82,6 +82,40 @@ For attacker perspective, the solver evaluates reachability of `AttackerWins`. F
 perspective, it evaluates the complement of reaching `AttackerWins` or `Draw`; this preserves
 both draw-as-loss and defender-favored nontermination.
 
+## Exact Model Contract
+
+The exact model must preserve these mutable-engine rules:
+
+- The schedule contains all missile slots first, then cannon slots. Both groups use descending
+  initiative with the defender first on ties. Missile slots run once; cannon slots cycle.
+- A slot re-queries its fleet for living shooters. Minimum-shield filtering is therefore based
+  on the currently living target ships and may change after a ship dies.
+- Within a cannon slot, resolve weapon and rift rolls, assign rift self-damage with the NPC
+  planner, assign target damage, then check the terminal outcome. This ordering permits a rift
+  cannon to produce a draw. Missile slots can only destroy the target fleet.
+- At cannon-cycle wrap-around, heal living ships before checking the no-living-cannons
+  stalemate rule.
+
+Exact working state is an HP vector for each original roster plus a schedule position. Roster
+order is retained when materializing real ships for heuristic assignment. Canonical keys sort
+HP only within groups of ships with the same `configKey`; this collapses interchangeable states
+without changing first-seen planner behavior. Healing can increase HP, so the graph may contain
+cycles and must not be treated as a DAG.
+
+Policy transitions call the real `BinnedDamageAssignmentHelper` on materialized ship clones.
+They do not reimplement NPC or DPS targeting. Minimax transitions reuse `enumerateCandidates`
+to produce legal, distinct successor assignments; NPC assignment remains deterministic.
+
+`dice-distribution.ts` groups ordinary die rolls by the set of living shield values they hit.
+Identical dice are exchangeable, so it enumerates multinomial multisets rather than roll
+sequences, then combines unlike groups by cartesian product. Rift dice use their five fixed
+self/target-damage classes. Antimatter splitting applies to landed cannon shots, not missiles.
+
+The unrestricted defaults cap a solve at 500,000 states, 20,000 outcomes per slot, and 10,000
+value-iteration sweeps with convergence at `1e-10`. Unrestricted analysis has no wall-clock
+limit. Interactive exact combat and optimal planning use a 2-second, 250,000-state budget; any
+cap, timeout, or convergence failure falls back to DPS or Monte Carlo at the caller boundary.
+
 ## Intentional Model Differences
 
 The exact model does not reproduce two mutable-loop details:
