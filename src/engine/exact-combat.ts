@@ -53,13 +53,16 @@ export function computeExactBattle(
   const attackerType = attacker.getDamageType();
   const defenderType = defender.getDamageType();
 
-  let assignments: AssignmentMode = 'policy';
-  let perspective: Role = 'A';
+  const decisionRoles: Role[] = [];
+  if (attackerType === DamageType.OPTIMAL) decisionRoles.push('A');
+  if (defenderType === DamageType.OPTIMAL) decisionRoles.push('D');
+
+  const assignments: AssignmentMode =
+    decisionRoles.length > 0 ? 'minimax' : 'policy';
+  let perspective: Role = decisionRoles[0] ?? 'A';
   if (attackerType === DamageType.OPTIMAL) {
-    assignments = 'minimax';
     perspective = 'A';
   } else if (defenderType === DamageType.OPTIMAL) {
-    assignments = 'minimax';
     perspective = 'D';
   }
 
@@ -72,6 +75,7 @@ export function computeExactBattle(
   const outcome = new WinProbabilitySolver(model, {
     perspective,
     assignments,
+    decisionRoles,
     caps,
   }).solveOutcome();
   if (!outcome.ok) {

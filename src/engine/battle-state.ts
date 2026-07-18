@@ -46,7 +46,7 @@ export type Expansion =
 export type MoveEdge = { prob: number; options: Successor[] };
 
 export type ExpandContext = {
-  minimax: boolean;
+  decisionRoles: readonly Role[];
   maxOutcomes: number;
 };
 
@@ -464,7 +464,7 @@ export class BattleModel {
     if (shooterIsNpc) {
       return { kind: 'heuristic', damageType: DamageType.NPC };
     }
-    if (ctx.minimax) {
+    if (ctx.decisionRoles.includes(slot.role)) {
       return { kind: 'decision', role: slot.role };
     }
     return { kind: 'heuristic', damageType: DamageType.DPS };

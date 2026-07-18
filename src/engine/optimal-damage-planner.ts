@@ -7,6 +7,7 @@ import { Phase } from './battle';
 import type { Fleet } from './fleet';
 import { enumerateCandidates } from './candidate-enumerator';
 import { BattleModel, Role, Terminal, WorkingState } from './battle-state';
+import { DamageType } from 'src/constants';
 import {
   DEFAULT_CAPS,
   SolverCaps,
@@ -42,6 +43,7 @@ export class OptimalDamagePlanner {
   private perspective: Role = 'A';
   private attackerRoster: Ship[] = [];
   private defenderRoster: Ship[] = [];
+  private decisionRoles: Role[] = [];
   private model: BattleModel | null = null;
   private solver: WinProbabilitySolver | null = null;
   // Solvers persist across battles/iterations, keyed by matchup signature, so a
@@ -61,6 +63,13 @@ export class OptimalDamagePlanner {
     this.perspective = ownFleet === ctx.attacker ? 'A' : 'D';
     this.attackerRoster = ctx.attacker.getRoster();
     this.defenderRoster = ctx.defender.getRoster();
+    this.decisionRoles = [];
+    if (ctx.attacker.getDamageType() === DamageType.OPTIMAL) {
+      this.decisionRoles.push('A');
+    }
+    if (ctx.defender.getDamageType() === DamageType.OPTIMAL) {
+      this.decisionRoles.push('D');
+    }
 
     const signature = this.buildSignature();
     if (this.solverCache.has(signature)) {
@@ -79,6 +88,7 @@ export class OptimalDamagePlanner {
     const solver = new WinProbabilitySolver(model, {
       perspective: this.perspective,
       assignments: 'minimax',
+      decisionRoles: this.decisionRoles,
       caps: this.solveCaps,
     });
     const result = solver.solve();
@@ -217,8 +227,8 @@ export class OptimalDamagePlanner {
         .map((s) => s.configKey())
         .sort()
         .join(',');
-    return `${this.perspective}|A:${roster(this.attackerRoster)}|D:${roster(
-      this.defenderRoster
-    )}`;
+    return `${this.perspective}|decisions:${this.decisionRoles.join(
+      ','
+    )}|A:${roster(this.attackerRoster)}|D:${roster(this.defenderRoster)}`;
   }
 }

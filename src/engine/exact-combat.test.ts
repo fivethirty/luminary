@@ -155,6 +155,113 @@ describe('computeExactBattle', () => {
     ).toBeGreaterThan(0.2);
   });
 
+  test('mixed optimal and DPS fleets optimize only the selected fleet', () => {
+    const attacker = () => [
+      new Ship(ShipType.Cruiser, {
+        initiative: 3,
+        hull: 1,
+        computers: 2,
+        cannons: { plasma: 1 },
+      }),
+      new Ship(ShipType.Interceptor, {
+        initiative: 1,
+        computers: 1,
+        cannons: { ion: 2 },
+      }),
+    ];
+    const defender = () => [
+      new Ship(ShipType.Cruiser, {
+        initiative: 2,
+        hull: 1,
+        computers: 2,
+        cannons: { plasma: 1 },
+      }),
+      new Ship(ShipType.Interceptor, {
+        initiative: 1,
+        computers: 1,
+        cannons: { ion: 2 },
+      }),
+    ];
+    const model = new BattleModel(attacker(), defender(), false, false);
+    const attackerOnly = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+      decisionRoles: ['A'],
+    }).solveOutcome();
+    const bothOptimal = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+    }).solveOutcome();
+
+    const exact = computeExactBattle(
+      new Fleet('D', defender()),
+      new Fleet('A', attacker(), false, DamageType.OPTIMAL)
+    );
+
+    expect(attackerOnly.ok).toBe(true);
+    expect(bothOptimal.ok).toBe(true);
+    expect(exact.ok).toBe(true);
+    expect(
+      Math.abs(attackerOnly.pAttacker - bothOptimal.pAttacker)
+    ).toBeGreaterThan(0.001);
+    expect(exact.lastFleetStanding['A']).toBeCloseTo(attackerOnly.pAttacker, 9);
+  });
+
+  test('optimal versus AI assumes NPC targeting for the AI fleet', () => {
+    const attacker = () => [
+      new Ship(ShipType.Cruiser, {
+        initiative: 3,
+        hull: 1,
+        computers: 2,
+        cannons: { plasma: 1 },
+      }),
+      new Ship(ShipType.Interceptor, {
+        initiative: 1,
+        computers: 1,
+        cannons: { ion: 2 },
+      }),
+    ];
+    const aiFleet = () => [
+      new Ship(ShipType.Guardian, {
+        hull: 2,
+        computers: 2,
+        initiative: 3,
+        cannons: { ion: 3 },
+      }),
+      new Ship(ShipType.Ancient, {
+        hull: 1,
+        computers: 2,
+        initiative: 3,
+        cannons: { ion: 1 },
+      }),
+    ];
+    const model = new BattleModel(attacker(), aiFleet(), false, false);
+    const attackerOnly = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+      decisionRoles: ['A'],
+    }).solveOutcome();
+    const npcStillHeuristic = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+      decisionRoles: ['A', 'D'],
+    }).solveOutcome();
+
+    const exact = computeExactBattle(
+      new Fleet('AI', aiFleet(), false, DamageType.OPTIMAL),
+      new Fleet('Player', attacker(), false, DamageType.OPTIMAL)
+    );
+
+    expect(attackerOnly.ok).toBe(true);
+    expect(npcStillHeuristic.ok).toBe(true);
+    expect(exact.ok).toBe(true);
+    expect(npcStillHeuristic.pAttacker).toBeCloseTo(attackerOnly.pAttacker, 9);
+    expect(exact.lastFleetStanding['Player']).toBeCloseTo(
+      attackerOnly.pAttacker,
+      9
+    );
+  });
+
   describe('two mutually-optimal fleets', () => {
     const interceptor = () =>
       new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });

@@ -62,8 +62,10 @@ decision nodes.
 `assignments` controls the policy model:
 
 - `policy`: player fleets use deterministic DPS assignments and NPC fleets use NPC assignments.
-- `minimax`: every non-NPC assignment is a decision. Attacker nodes maximize and defender nodes
-  minimize the queried reach objective.
+- `minimax`: selected non-NPC assignments are decisions. By default both player fleets are
+  selected; exact combat and the mutable optimal planner pass only the roles whose fleet damage
+  type is `OPTIMAL`. Attacker nodes maximize and defender nodes minimize the queried reach
+  objective.
 
 The UI's `DamageType.OPTIMAL` selects minimax assignments. If an interactive solve exceeds its
 caps, `OptimalDamagePlanner` falls back to DPS.

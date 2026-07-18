@@ -8,7 +8,7 @@ import {
 } from './battle-state';
 
 const CTX: ExpandContext = {
-  minimax: false,
+  decisionRoles: [],
   maxOutcomes: 100_000,
 };
 
@@ -161,7 +161,7 @@ describe('BattleModel', () => {
         });
       const model = new BattleModel([make()], [make()], false, false);
       const ctx: ExpandContext = {
-        minimax: true,
+        decisionRoles: ['A', 'D'],
         maxOutcomes: 100_000,
       };
 
@@ -169,6 +169,29 @@ describe('BattleModel', () => {
       expect(defenderMove.kind).toBe('move');
       if (defenderMove.kind !== 'move') return;
       expect(defenderMove.decisionRole).toBe('D');
+
+      const attackerMove = model.expand({ hpA: [1], hpB: [1], slot: 1 }, ctx);
+      expect(attackerMove.kind).toBe('move');
+      if (attackerMove.kind !== 'move') return;
+      expect(attackerMove.decisionRole).toBe('A');
+    });
+
+    test('decision roles leave unselected player fleets on DPS policy', () => {
+      const make = () =>
+        new Ship(ShipType.Interceptor, {
+          initiative: 3,
+          cannons: { ion: 1 },
+        });
+      const model = new BattleModel([make()], [make()], false, false);
+      const ctx: ExpandContext = {
+        decisionRoles: ['A'],
+        maxOutcomes: 100_000,
+      };
+
+      const defenderMove = model.expand(model.initialState(), ctx);
+      expect(defenderMove.kind).toBe('move');
+      if (defenderMove.kind !== 'move') return;
+      expect(defenderMove.decisionRole).toBeNull();
 
       const attackerMove = model.expand({ hpA: [1], hpB: [1], slot: 1 }, ctx);
       expect(attackerMove.kind).toBe('move');
@@ -194,7 +217,7 @@ describe('BattleModel', () => {
         false
       );
       const exp = model.expand(model.initialState(), {
-        minimax: true,
+        decisionRoles: ['A', 'D'],
         maxOutcomes: 100_000,
       });
       expect(exp.kind).toBe('move');

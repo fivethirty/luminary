@@ -34,8 +34,10 @@ export const DEFAULT_CAPS: SolverCaps = {
 export type SolverOptions = {
   // The fleet whose win event solve() reports. This does not control decisions.
   perspective: Role;
-  // 'policy' uses DPS/NPC assignments; 'minimax' optimizes both player fleets.
+  // 'policy' uses DPS/NPC assignments; 'minimax' optimizes selected player fleets.
   assignments: AssignmentMode;
+  // Defaults to both roles in minimax mode, preserving the full two-sided solve.
+  decisionRoles?: readonly Role[];
   caps?: SolverCaps;
 };
 
@@ -99,7 +101,7 @@ export type DecisionExplanation = {
  * Computes the exact probability that the selected perspective wins, by
  * building the reachable state graph and running value iteration to the least
  * fixed point. With policy assignments all choices use heuristics. With minimax
- * assignments both non-NPC sides are decision nodes: attacker assignments
+ * assignments selected non-NPC sides are decision nodes: attacker assignments
  * maximize and defender assignments minimize the queried reach objective.
  *
  * Role formulations (both solved by LFP from 0):
@@ -132,7 +134,10 @@ export class WinProbabilitySolver {
     this.perspective = options.perspective;
     this.caps = options.caps ?? DEFAULT_CAPS;
     this.ctx = {
-      minimax: options.assignments === 'minimax',
+      decisionRoles:
+        options.assignments === 'minimax'
+          ? (options.decisionRoles ?? ['A', 'D'])
+          : [],
       maxOutcomes: this.caps.maxOutcomesPerSlot,
     };
   }
