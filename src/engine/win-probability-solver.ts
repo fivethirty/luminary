@@ -37,7 +37,7 @@ type TerminalInfo = { outcome: Terminal; hpA: number[]; hpB: number[] };
 type Edge = { prob: number; options: number[] }; // node indices
 type Node = {
   terminal: TerminalInfo | null;
-  decision: boolean;
+  decisionRole: Role | null;
   edges: Edge[];
 };
 
@@ -68,8 +68,9 @@ export type OutcomeResult = {
 /**
  * Computes the exact probability that the player (ownRole) wins the battle, by
  * building the reachable state graph and running value iteration to the least
- * fixed point (fact 10). In 'policy' mode all assignments use the heuristics; in
- * 'optimal' mode the player's own slots are max/min decision nodes.
+ * fixed point (fact 10). In 'policy' mode all assignments use the heuristics. In
+ * 'optimal' mode both non-NPC sides are decision nodes: attacker assignments
+ * maximize and defender assignments minimize the queried reach objective.
  *
  * Role formulations (both solved by LFP from 0):
  *  - attacker: V = P(reach AttackerWins), decisions take max, W = V.
@@ -99,7 +100,6 @@ export class WinProbabilitySolver {
     private readonly caps: SolverCaps = DEFAULT_CAPS
   ) {
     this.ctx = {
-      ownRole,
       optimal: mode === 'optimal',
       maxOutcomes: caps.maxOutcomesPerSlot,
     };
@@ -188,7 +188,7 @@ export class WinProbabilitySolver {
       if (idx === undefined) {
         idx = this.nodes.length;
         this.keyToIndex.set(key, idx);
-        this.nodes.push({ terminal: null, decision: false, edges: [] });
+        this.nodes.push({ terminal: null, decisionRole: null, edges: [] });
       }
       return idx;
     };
@@ -200,7 +200,7 @@ export class WinProbabilitySolver {
       if (idx === undefined) {
         idx = this.nodes.length;
         this.keyToIndex.set(key, idx);
-        this.nodes.push({ terminal: info, decision: false, edges: [] });
+        this.nodes.push({ terminal: info, decisionRole: null, edges: [] });
       }
       return idx;
     };
@@ -231,7 +231,7 @@ export class WinProbabilitySolver {
       if (exp.kind === 'terminal') {
         this.nodes[idx] = {
           terminal: { outcome: exp.outcome, hpA: state.hpA, hpB: state.hpB },
-          decision: false,
+          decisionRole: null,
           edges: [],
         };
         continue;
@@ -253,7 +253,11 @@ export class WinProbabilitySolver {
           return oidx;
         }),
       }));
-      this.nodes[idx] = { terminal: null, decision: exp.decision, edges };
+      this.nodes[idx] = {
+        terminal: null,
+        decisionRole: exp.decisionRole,
+        edges,
+      };
     }
     return { ok: true };
   }
@@ -267,8 +271,6 @@ export class WinProbabilitySolver {
         this.values[i] = this.target(terminal.outcome);
       }
     }
-    const isMax = this.ownRole === 'A';
-
     for (let sweep = 1; sweep <= this.caps.maxSweeps; sweep++) {
       if (Date.now() > this.deadline) {
         return { ok: false, sweeps: sweep - 1, reason: 'time budget exceeded' };
@@ -280,7 +282,8 @@ export class WinProbabilitySolver {
         let v = 0;
         for (const edge of node.edges) {
           let edgeVal: number;
-          if (node.decision) {
+          if (node.decisionRole) {
+            const isMax = node.decisionRole === 'A';
             edgeVal = isMax ? -Infinity : Infinity;
             for (const opt of edge.options) {
               const ov = this.values[opt];
@@ -309,8 +312,8 @@ export class WinProbabilitySolver {
   // Picks the option the solved policy takes at a decision edge. Ties break to
   // the first optimal option; any tie-broken choice has the same win value,
   // though survivor mixes can differ between equally-optimal lines.
-  private chooseOption(options: number[]): number {
-    const isMax = this.ownRole === 'A';
+  private chooseOption(options: number[], decisionRole: Role): number {
+    const isMax = decisionRole === 'A';
     let best = options[0];
     let bestVal = this.values[best];
     for (let i = 1; i < options.length; i++) {
@@ -350,8 +353,8 @@ export class WinProbabilitySolver {
           continue;
         }
         for (const edge of node.edges) {
-          const targetIdx = node.decision
-            ? this.chooseOption(edge.options)
+          const targetIdx = node.decisionRole
+            ? this.chooseOption(edge.options, node.decisionRole)
             : edge.options[0];
           next[targetIdx] += edge.prob * m;
         }

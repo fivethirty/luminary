@@ -5,8 +5,7 @@ import { WinProbabilitySolver } from './win-probability-solver';
 import { buildShips, MATCHUPS } from '../../scripts/matchups';
 
 describe('WinProbabilitySolver (optimal mode)', () => {
-  // The core guarantee: optimal play is never worse than the DPS policy.
-  describe('optimal dominates policy on every matchup, both roles', () => {
+  describe('minimax values are consistent for both roles', () => {
     for (const matchup of MATCHUPS.filter((m) => m.noHeal)) {
       test(matchup.name, () => {
         const model = new BattleModel(
@@ -29,10 +28,24 @@ describe('WinProbabilitySolver (optimal mode)', () => {
           ).solve();
           expect(policy.ok).toBe(true);
           expect(optimal.ok).toBe(true);
-          expect(optimal.winProbability).toBeGreaterThanOrEqual(
-            policy.winProbability - 1e-9
-          );
+          expect(optimal.winProbability).toBeGreaterThanOrEqual(0);
+          expect(optimal.winProbability).toBeLessThanOrEqual(1);
         }
+
+        const attacker = new WinProbabilitySolver(
+          model,
+          'A',
+          'optimal'
+        ).solve();
+        const defender = new WinProbabilitySolver(
+          model,
+          'D',
+          'optimal'
+        ).solve();
+        expect(attacker.winProbability + defender.winProbability).toBeCloseTo(
+          1,
+          9
+        );
       });
     }
   });

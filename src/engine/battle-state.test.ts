@@ -8,7 +8,6 @@ import {
 } from './battle-state';
 
 const CTX: ExpandContext = {
-  ownRole: 'A',
   optimal: false,
   maxOutcomes: 100_000,
 };
@@ -147,11 +146,34 @@ describe('BattleModel', () => {
       const exp = model.expand(model.initialState(), CTX);
       expect(exp.kind).toBe('move');
       if (exp.kind !== 'move') return;
-      expect(exp.decision).toBe(false);
+      expect(exp.decisionRole).toBeNull();
       expect(exp.edges).toHaveLength(1);
       expect(exp.edges[0].prob).toBe(1);
       const opt = exp.edges[0].options[0];
       expect('state' in opt && opt.state.slot).toBe(1); // advanced to attacker's slot
+    });
+
+    test('optimal mode exposes decisions for both player fleets', () => {
+      const make = () =>
+        new Ship(ShipType.Interceptor, {
+          initiative: 3,
+          cannons: { ion: 1 },
+        });
+      const model = new BattleModel([make()], [make()], false, false);
+      const ctx: ExpandContext = {
+        optimal: true,
+        maxOutcomes: 100_000,
+      };
+
+      const defenderMove = model.expand(model.initialState(), ctx);
+      expect(defenderMove.kind).toBe('move');
+      if (defenderMove.kind !== 'move') return;
+      expect(defenderMove.decisionRole).toBe('D');
+
+      const attackerMove = model.expand({ hpA: [1], hpB: [1], slot: 1 }, ctx);
+      expect(attackerMove.kind).toBe('move');
+      if (attackerMove.kind !== 'move') return;
+      expect(attackerMove.decisionRole).toBe('A');
     });
 
     test('a single ion die vs a 1-HP enemy: 1/6 kill, 5/6 continue', () => {

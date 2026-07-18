@@ -48,7 +48,12 @@ describe('OptimalDamagePlanner', () => {
         const exact = new WinProbabilitySolver(model, 'A', 'optimal').solve();
         expect(exact.ok).toBe(true);
 
-        const enemyFleet = new Fleet('Enemy', buildShips(matchup.enemy));
+        const enemyFleet = new Fleet(
+          'Enemy',
+          buildShips(matchup.enemy),
+          false,
+          DamageType.OPTIMAL
+        );
         const playerFleet = new Fleet(
           'Player',
           buildShips(matchup.player),

@@ -53,39 +53,9 @@ export function computeExactBattle(
   const attackerType = attacker.getDamageType();
   const defenderType = defender.getDamageType();
 
-  // A fleet of a single ship configuration presents interchangeable targets,
-  // so the side shooting at it has no meaningful assignment choice: optimal
-  // play coincides with the DPS heuristic (exactly so for a single ship, and
-  // borne out by zero measured optimal-vs-DPS gap on homogeneous fleets).
-  const isHomogeneous = (fleet: Fleet): boolean =>
-    new Set(fleet.getRoster().map((ship) => ship.configKey())).size <= 1;
-
   let mode: SolverMode = 'policy';
   let role: Role = 'A';
-  if (
-    attackerType === DamageType.OPTIMAL &&
-    defenderType === DamageType.OPTIMAL
-  ) {
-    // Two mutually-optimizing fleets form a game, not an MDP — the solver
-    // models exactly one optimizing side. But a side whose targeting is
-    // trivial (homogeneous enemy) can be modeled as DPS without changing its
-    // play, which de-escalates the game back to an MDP.
-    const attackerTrivial = isHomogeneous(defender); // attacker shoots defender
-    const defenderTrivial = isHomogeneous(attacker);
-    if (attackerTrivial && defenderTrivial) {
-      mode = 'policy';
-    } else if (attackerTrivial) {
-      mode = 'optimal';
-      role = 'D';
-    } else if (defenderTrivial) {
-      mode = 'optimal';
-      role = 'A';
-    } else {
-      return fail(
-        'both fleets use the optimal planner against mixed ship types'
-      );
-    }
-  } else if (attackerType === DamageType.OPTIMAL) {
+  if (attackerType === DamageType.OPTIMAL) {
     mode = 'optimal';
     role = 'A';
   } else if (defenderType === DamageType.OPTIMAL) {

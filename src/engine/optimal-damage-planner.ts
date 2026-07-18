@@ -28,9 +28,10 @@ export type FallbackAssign = (
 
 /**
  * Assigns damage by looking up the exactly-solved optimal value of each
- * candidate successor state. The heavy work — building the reachable graph and
- * value-iterating to a fixed point — happens once per distinct matchup in
- * setBattleContext; every assignment is then a handful of table lookups.
+ * candidate successor state against an optimal opponent. The heavy work —
+ * building the reachable game graph and value-iterating to a fixed point —
+ * happens once per distinct matchup in setBattleContext; every assignment is
+ * then a handful of table lookups.
  */
 export class OptimalDamagePlanner {
   private ctx: BattleContext | null = null;

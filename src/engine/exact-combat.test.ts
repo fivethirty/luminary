@@ -149,7 +149,7 @@ describe('computeExactBattle', () => {
     );
     expect(dps.ok).toBe(true);
     expect(optimal.ok).toBe(true);
-    // The known +25.4pp assassins gap must show up between the two modes.
+    // This initiative trap has a +57.86pp targeting gap between the two modes.
     expect(
       optimal.lastFleetStanding['Player'] - dps.lastFleetStanding['Player']
     ).toBeGreaterThan(0.2);
@@ -231,13 +231,14 @@ describe('computeExactBattle', () => {
       );
     });
 
-    test('rejects only when both sides face mixed ship types', () => {
+    test('mixed fleets with choices on both sides solve exactly', () => {
       const result = computeExactBattle(
         new Fleet('D', mixed(), false, DamageType.OPTIMAL),
         new Fleet('A', mixed(), false, DamageType.OPTIMAL)
       );
-      expect(result.ok).toBe(false);
-      expect(result.reason).toContain('mixed ship types');
+      expect(result.ok).toBe(true);
+      expect(result.lastFleetStanding['A']).toBeGreaterThanOrEqual(0);
+      expect(result.lastFleetStanding['A']).toBeLessThanOrEqual(1);
     });
   });
 

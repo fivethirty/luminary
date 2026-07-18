@@ -32,16 +32,15 @@ export type Successor =
 
 export type Expansion =
   | { kind: 'terminal'; outcome: Terminal }
-  | { kind: 'move'; decision: boolean; edges: MoveEdge[] }
+  | { kind: 'move'; decisionRole: Role | null; edges: MoveEdge[] }
   | { kind: 'fail' };
 
 // One dice outcome. For a heuristic slot `options` has length 1 (deterministic
-// assignment); for the player's optimal-mode slot it holds the candidate
-// successors the player chooses among.
+// assignment); for an optimal-mode player slot it holds the candidate
+// successors that slot's owner chooses among.
 export type MoveEdge = { prob: number; options: Successor[] };
 
 export type ExpandContext = {
-  ownRole: Role;
   optimal: boolean;
   maxOutcomes: number;
 };
@@ -329,13 +328,12 @@ export class BattleModel {
       const succ = this.advance(state.hpA, state.hpB, state.slot);
       return {
         kind: 'move',
-        decision: false,
+        decisionRole: null,
         edges: [{ prob: 1, options: [succ] }],
       };
     }
 
-    const isDecisionSlot =
-      ctx.optimal && slot.role === ctx.ownRole && !shooterIsNpc;
+    const decisionRole = ctx.optimal && !shooterIsNpc ? slot.role : null;
 
     const edges: MoveEdge[] = [];
     for (const outcome of outcomes) {
@@ -347,17 +345,17 @@ export class BattleModel {
         shooterTemplates,
         targetTemplates,
         shooterIsNpc,
-        isDecisionSlot
+        decisionRole !== null
       );
       if (options === null) return { kind: 'fail' };
       edges.push({ prob: outcome.prob, options });
     }
-    return { kind: 'move', decision: isDecisionSlot, edges };
+    return { kind: 'move', decisionRole, edges };
   }
 
   // Applies rift self-damage and target assignment for one dice outcome, then
   // advances into successor state(s). One successor for heuristic slots; the
-  // candidate successors for the player's optimal decision slot.
+  // candidate successors for an optimal player-fleet decision slot.
   private resolveOutcome(
     state: WorkingState,
     slot: Slot,
