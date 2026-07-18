@@ -48,6 +48,7 @@ describe('App', () => {
       drawProbability: 0,
       expectedSurvivors: {},
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const clearBtn = document.getElementById(

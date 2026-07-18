@@ -9,18 +9,33 @@ export interface ShipTypeConfig {
   config: Partial<ShipConfig>;
 }
 
+export type PlannerType = 'dps' | 'optimal';
+
 export interface FleetState {
   id: string;
   name: string;
   shipTypes: ShipTypeConfig[];
   antimatterSplitter: boolean;
+  // How this (player) fleet plans damage assignment:
+  //  - 'dps': remove the most enemy firepower per assignment (default)
+  //  - 'optimal': play the exactly-solved optimal assignment
+  plannerType: PlannerType;
 }
+
+// How the outcome numbers were produced:
+//  - 'exact': deterministic probability propagation — true probabilities,
+//    identical on every run.
+//  - 'monte-carlo': sampled simulation — estimates with sampling noise.
+export type SimulationMethod = 'exact' | 'monte-carlo';
 
 export interface SimulationResults {
   victoryProbability: Record<string, number>;
   drawProbability: number;
   expectedSurvivors: Record<string, Record<string, number>>;
   timeTaken: number;
+  method: SimulationMethod;
+  // Sample count, present when method is 'monte-carlo'.
+  iterations?: number;
 }
 
 export interface State {
@@ -34,12 +49,14 @@ const DEFAULT_FLEETS: FleetState[] = [
     name: 'Defender',
     shipTypes: [],
     antimatterSplitter: false,
+    plannerType: 'dps',
   },
   {
     id: 'fleet-1',
     name: 'Attacker',
     shipTypes: [],
     antimatterSplitter: false,
+    plannerType: 'dps',
   },
 ];
 
@@ -54,6 +71,7 @@ export function addFleet(): FleetState {
     name: '',
     shipTypes: [],
     antimatterSplitter: false,
+    plannerType: 'dps',
   };
   nextFleetId++;
 
@@ -125,4 +143,9 @@ export function setSimulationResults(results: SimulationResults | null) {
 export function toggleAntimatterSplitter(fleetId: string) {
   const fleet = getFleetById(fleetId);
   fleet.antimatterSplitter = !fleet.antimatterSplitter;
+}
+
+export function setFleetPlannerType(fleetId: string, plannerType: PlannerType) {
+  const fleet = getFleetById(fleetId);
+  fleet.plannerType = plannerType;
 }

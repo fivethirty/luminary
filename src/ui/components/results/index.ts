@@ -24,11 +24,14 @@ export class ResultsElement extends HTMLElement {
 
   private renderWinPercentages(results: SimulationResults) {
     const resultsTime = this.querySelector('.results-time')!;
-    resultsTime.innerHTML = `Simulation Time: ${results.timeTaken} ms`;
+    resultsTime.textContent =
+      results.method === 'exact'
+        ? `Exact (deterministic) · ${results.timeTaken} ms`
+        : `Monte Carlo · ${(results.iterations ?? 0).toLocaleString()} iterations · ${results.timeTaken} ms`;
     const tbody = this.querySelector('#results-tbody')!;
     tbody.innerHTML = '';
 
-    for (const [fleetName, percentage] of Object.entries(
+    for (const [fleetName, percentage] of this.orderedByFleet(
       results.victoryProbability
     )) {
       tbody.appendChild(this.createResultRow(fleetName, percentage));
@@ -64,6 +67,20 @@ export class ResultsElement extends HTMLElement {
     }
 
     survivorsSection.style.display = hasSurvivors ? 'block' : 'none';
+  }
+
+  // Orders entries by the fleets' on-screen order (defender is fleet 0, so it
+  // always lists first), regardless of the order the result producer used.
+  // Names not found in the fleet list keep their insertion order at the end.
+  private orderedByFleet(byName: Record<string, number>): [string, number][] {
+    const fleetOrder = state.fleets.map((fleet) => fleet.name);
+    const position = (name: string): number => {
+      const idx = fleetOrder.indexOf(name);
+      return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+    };
+    return Object.entries(byName).sort(
+      (a, b) => position(a[0]) - position(b[0])
+    );
   }
 
   private createResultRow(

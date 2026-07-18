@@ -19,6 +19,7 @@ describe('Results', () => {
       drawProbability: 0,
       expectedSurvivors: {},
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -40,6 +41,7 @@ describe('Results', () => {
       drawProbability: 0,
       expectedSurvivors: {},
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -62,6 +64,7 @@ describe('Results', () => {
       drawProbability: 0,
       expectedSurvivors: {},
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -83,6 +86,7 @@ describe('Results', () => {
       drawProbability: 0.25,
       expectedSurvivors: {},
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -101,6 +105,66 @@ describe('Results', () => {
     expect(drawPercent).toBe('25.0%');
   });
 
+  test('lists the defender first even when results arrive attacker-first', () => {
+    // Default fleets are Defender (fleet 0) and Attacker; the producer here
+    // inserts Attacker first, as the exact path historically did.
+    setSimulationResults({
+      victoryProbability: {
+        Attacker: 0.55,
+        Defender: 0.45,
+      },
+      drawProbability: 0,
+      expectedSurvivors: {},
+      timeTaken: 10,
+      method: 'exact' as const,
+    });
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const names = Array.from(element.querySelectorAll('.result-row')).map(
+      (row) => row.querySelector('.fleet-name')?.textContent
+    );
+    expect(names).toEqual(['Defender', 'Attacker']);
+  });
+
+  test('labels exact results as deterministic', () => {
+    setSimulationResults({
+      victoryProbability: { 'Fleet A': 0.6, 'Fleet B': 0.4 },
+      drawProbability: 0,
+      expectedSurvivors: {},
+      timeTaken: 42,
+      method: 'exact' as const,
+    });
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const label = element.querySelector('.results-time')?.textContent;
+    expect(label).toContain('Exact');
+    expect(label).toContain('deterministic');
+    expect(label).not.toContain('Monte Carlo');
+  });
+
+  test('labels Monte Carlo results with the iteration count', () => {
+    setSimulationResults({
+      victoryProbability: { 'Fleet A': 0.6, 'Fleet B': 0.4 },
+      drawProbability: 0,
+      expectedSurvivors: {},
+      timeTaken: 42,
+      method: 'monte-carlo' as const,
+      iterations: 5000,
+    });
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const label = element.querySelector('.results-time')?.textContent;
+    expect(label).toContain('Monte Carlo');
+    expect(label).toContain('5,000 iterations');
+    expect(label).not.toContain('Exact');
+  });
+
   test('hides draw when probability is 0', () => {
     setSimulationResults({
       victoryProbability: {
@@ -110,6 +174,7 @@ describe('Results', () => {
       drawProbability: 0,
       expectedSurvivors: {},
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -131,6 +196,7 @@ describe('Results', () => {
         },
       },
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -163,6 +229,7 @@ describe('Results', () => {
         'Fleet B': {},
       },
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -186,6 +253,7 @@ describe('Results', () => {
         },
       },
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;
@@ -209,6 +277,7 @@ describe('Results', () => {
       drawProbability: 0,
       expectedSurvivors: {},
       timeTaken: 1000,
+      method: 'monte-carlo' as const,
     });
 
     const element = document.createElement('calc-results') as ResultsElement;

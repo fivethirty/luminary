@@ -2,6 +2,7 @@ import { RiftShot, Ship, Shot } from './ship';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
 import { DamageType } from 'src/constants';
 import { Phase } from './battle';
+import { BattleContext, OptimalDamagePlanner } from './optimal-damage-planner';
 
 export class Fleet {
   private readonly ships: Ship[];
@@ -11,11 +12,15 @@ export class Fleet {
   private readonly minShields: number;
   private readonly initiatives: Set<number>;
   private readonly binnedDamageAssignment = new BinnedDamageAssignmentHelper();
+  // Built lazily the first time this fleet fights and reused across battles, so
+  // its solved value tables survive the many iterations of a CombatSimulator run.
+  private optimalPlanner: OptimalDamagePlanner | null = null;
 
   constructor(
     public name: string,
     ships: Ship[],
-    public antimatterSplitter: boolean = false
+    public antimatterSplitter: boolean = false,
+    private readonly playerPlanner: DamageType = DamageType.DPS
   ) {
     this.ships = Array.from(ships);
     this.startsWithMissiles = this.ships.some((ship) => ship.hasMissiles());
@@ -25,6 +30,27 @@ export class Fleet {
     this.startsWithMixedShields = shields.size > 1;
     this.minShields = Math.min(...this.ships.map((ship) => ship.shields));
     this.initiatives = new Set(this.ships.flatMap((ship) => ship.initiative));
+  }
+
+  // Called by Battle at the start of every fight. When this fleet plans
+  // optimally, wire up its (persistent) planner with the current opponents and
+  // its role in the fight. No-op for every other planner type.
+  prepareForBattle(ctx: BattleContext): void {
+    if (this.getDamageType() !== DamageType.OPTIMAL) {
+      return;
+    }
+    if (!this.optimalPlanner) {
+      this.optimalPlanner = new OptimalDamagePlanner((shots, ships, phases) =>
+        this.binnedDamageAssignment.assignDamage(
+          shots,
+          ships,
+          DamageType.DPS,
+          phases
+        )
+      );
+      this.binnedDamageAssignment.setOptimalPlanner(this.optimalPlanner);
+    }
+    this.optimalPlanner.setBattleContext(ctx, this);
   }
 
   getInitiatives(): Set<number> {
@@ -72,6 +98,12 @@ export class Fleet {
     return this.ships.filter((ship) => ship.isAlive());
   }
 
+  // Full roster in construction order (living and dead), used by planners that
+  // need a stable per-ship index across the battle.
+  getRoster(): Ship[] {
+    return [...this.ships];
+  }
+
   getLivingRiftShips(): Ship[] {
     return this.ships.filter((ship) => ship.isAlive() && ship.hasRiftCannons());
   }
@@ -82,7 +114,7 @@ export class Fleet {
 
   getDamageType(): DamageType {
     if (this.isPlayerFleet()) {
-      return DamageType.DPS;
+      return this.playerPlanner;
     }
     return DamageType.NPC;
   }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { Battle, BattleOutcome } from './battle';
+import { Battle, BattleOutcome, Phase } from './battle';
 import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
 import {
@@ -275,6 +275,39 @@ describe('Battle', () => {
       expect(result.victors).toEqual([defender]);
     });
 
+    test('defender wins stalemate after missiles', () => {
+      const attackers = [
+        new Ship(
+          ShipType.Interceptor,
+          { hull: 1, missiles: { plasma: 1 }, initiative: 1 },
+          GUARANTEED_MISS
+        ),
+        new Ship(
+          ShipType.Cruiser,
+          { hull: 1, cannons: { plasma: 1 }, initiative: 1 },
+          GUARANTEED_HIT
+        ),
+      ];
+
+      const defender = new Ship(
+        ShipType.Interceptor,
+        {
+          missiles: { plasma: 1 },
+          initiative: 2,
+        },
+        GUARANTEED_HIT
+      );
+
+      const battle = new Battle(
+        new Fleet('Attacker', attackers),
+        new Fleet('Defender', [defender])
+      );
+
+      const result = battle.fight();
+      expect(result.outcome).toBe(BattleOutcome.Defender);
+      expect(result.victors).toEqual([defender]);
+    });
+
     test('victors are living ships from winning fleet', () => {
       const attackers = [
         new Ship(
@@ -333,6 +366,97 @@ describe('Battle', () => {
       const result = battle.fight();
       expect(result.outcome).toBe(BattleOutcome.Attacker);
       expect(result.victors).toEqual([attacker]);
+    });
+  });
+
+  describe('resumeFight', () => {
+    test('resumes from a hand-built queue and fires only queued phases', () => {
+      const attacker = new Ship(
+        ShipType.Interceptor,
+        { initiative: 3, cannons: { plasma: 1 } },
+        GUARANTEED_HIT
+      );
+      const defender = new Ship(ShipType.Interceptor, { initiative: 2 });
+      const attackerFleet = new Fleet('Attacker', [attacker]);
+      const defenderFleet = new Fleet('Defender', [defender]);
+      const battle = new Battle(attackerFleet, defenderFleet);
+
+      // Only the attacker's cannon phase remains; the defender never gets to act.
+      const phase: Phase = {
+        ships: [attacker],
+        initiative: 3,
+        shootingFleet: attackerFleet,
+        targetFleet: defenderFleet,
+        missilePhase: false,
+      };
+
+      const result = battle.resumeFight([phase]);
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
+      expect(defender.isAlive()).toBe(false);
+    });
+
+    // Missiles fire exactly once because they live only in the phase queue; a
+    // resumed queue that omits them must not re-fire them.
+    describe('missiles do not re-fire on resume', () => {
+      const buildFleets = () => {
+        const attacker = new Ship(
+          ShipType.Interceptor,
+          {
+            initiative: 5,
+            missiles: { antimatter: 2 },
+            cannons: { ion: 1 },
+          },
+          GUARANTEED_HIT
+        );
+        const defender = new Ship(
+          ShipType.Interceptor,
+          { initiative: 1, hull: 4, cannons: { antimatter: 1 } },
+          GUARANTEED_HIT
+        );
+        const attackerFleet = new Fleet('Attacker', [attacker]);
+        const defenderFleet = new Fleet('Defender', [defender]);
+        const cannonPhases: Phase[] = [
+          {
+            ships: [attacker],
+            initiative: 5,
+            shootingFleet: attackerFleet,
+            targetFleet: defenderFleet,
+            missilePhase: false,
+          },
+          {
+            ships: [defender],
+            initiative: 1,
+            shootingFleet: defenderFleet,
+            targetFleet: attackerFleet,
+            missilePhase: false,
+          },
+        ];
+        const missilePhase: Phase = {
+          ships: [attacker],
+          initiative: 5,
+          shootingFleet: attackerFleet,
+          targetFleet: defenderFleet,
+          missilePhase: true,
+        };
+        return { attackerFleet, defenderFleet, cannonPhases, missilePhase };
+      };
+
+      test('cannon-only queue: missiles stay silent, defender survives to win', () => {
+        const { attackerFleet, defenderFleet, cannonPhases } = buildFleets();
+        const battle = new Battle(attackerFleet, defenderFleet);
+        // Without the 8-damage missile salvo the attacker only chips 1 HP, then
+        // the defender's antimatter kills it.
+        const result = battle.resumeFight(cannonPhases);
+        expect(result.outcome).toBe(BattleOutcome.Defender);
+      });
+
+      test('queue including the missile phase: missiles fire and win', () => {
+        const { attackerFleet, defenderFleet, cannonPhases, missilePhase } =
+          buildFleets();
+        const battle = new Battle(attackerFleet, defenderFleet);
+        const result = battle.resumeFight([missilePhase, ...cannonPhases]);
+        expect(result.outcome).toBe(BattleOutcome.Attacker);
+      });
     });
   });
 });

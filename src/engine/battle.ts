@@ -31,10 +31,21 @@ export class Battle {
   ) {}
 
   fight(): BattleResult {
-    const phases = this.getAllPhases();
+    const ctx = { attacker: this.attacker, defender: this.defender };
+    this.attacker.prepareForBattle(ctx);
+    this.defender.prepareForBattle(ctx);
+    return this.resumeFight(this.getAllPhases());
+  }
 
+  // Runs a battle forward from an arbitrary point in its phase queue. `fight`
+  // starts from a freshly built queue. Because missile phases live only in the
+  // queue (a ship never records that it has fired), resuming from a queue that
+  // omits the already-fired missile phases is what prevents missiles firing
+  // twice.
+  resumeFight(phases: Phase[]): BattleResult {
     while (phases[0]?.missilePhase) {
-      this.resolveMissilePhase(phases.shift()!, phases);
+      const result = this.resolveMissilePhase(phases.shift()!, phases);
+      if (result) return result;
     }
 
     let rounds = 0;

@@ -130,6 +130,7 @@ describe('State', () => {
         drawProbability: 0,
         expectedSurvivors: {},
         timeTaken: 0,
+        method: 'monte-carlo' as const,
       };
 
       setSimulationResults(results);
@@ -143,6 +144,7 @@ describe('State', () => {
         drawProbability: 0,
         expectedSurvivors: {},
         timeTaken: 1000,
+        method: 'monte-carlo' as const,
       });
 
       setSimulationResults(null);
