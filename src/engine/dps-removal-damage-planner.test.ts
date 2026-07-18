@@ -254,7 +254,7 @@ describe('DpsRemovalDamagePlanner', () => {
       expect(result.allDestroyed).toBe(false);
       expect(result.score).toBe(0);
     });
-    test('returns the same score regardless of overkill', () => {
+    test('returns a higher score for kills with less overkill', () => {
       const ship = new Ship(ShipType.Interceptor);
       const result1 = new DpsRemovalDamagePlanner().evaluate(
         [ship],
@@ -270,7 +270,7 @@ describe('DpsRemovalDamagePlanner', () => {
       );
       expect(result1.allDestroyed).toBe(true);
       expect(result2.allDestroyed).toBe(true);
-      expect(result1.score).toBe(result2.score);
+      expect(result1.score).toBeGreaterThan(result2.score);
     });
     test('resturns a similar score for different damage assignments', () => {
       const ship1 = new Ship(ShipType.Interceptor);
