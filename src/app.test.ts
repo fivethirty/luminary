@@ -44,9 +44,11 @@ describe('App', () => {
     addBtn.click();
     expect(state.fleets.length).toBe(4);
 
-    setSimulationResults(monteCarloResults({
-      victoryProbability: { Defender: 0.5, 'Attacker 1': 0.5 },
-    }));
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: { Defender: 0.5, 'Attacker 1': 0.5 },
+      })
+    );
 
     const clearBtn = document.getElementById(
       'clear-all-btn'

@@ -137,9 +137,11 @@ describe('State', () => {
     });
 
     test('can set results to null', () => {
-      setSimulationResults(monteCarloResults({
-        victoryProbability: {},
-      }));
+      setSimulationResults(
+        monteCarloResults({
+          victoryProbability: {},
+        })
+      );
 
       setSimulationResults(null);
 
