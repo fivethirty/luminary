@@ -163,25 +163,27 @@ describe('Fleet', () => {
       (element.querySelector('.ship-selector') as HTMLSelectElement).options
     ).find((opt) => opt.value === value);
 
-  test('attacker fleets do not offer AI ships', () => {
+  test('attacker fleets do not offer defender-only ships', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[1]; // an attacker
     element.setAttribute('is-defender', 'false');
     document.body.appendChild(element);
 
-    // AI options hidden and disabled.
-    for (const ai of [
+    // Defender-only options are hidden and disabled.
+    for (const defenderOnly of [
+      'starbase',
+      'orbital',
       'ancient',
       'ancient-adv',
       'guardian',
       'gcds',
       'gcds-wa',
     ]) {
-      expect(shipOption(element, ai)?.hidden).toBe(true);
-      expect(shipOption(element, ai)?.disabled).toBe(true);
+      expect(shipOption(element, defenderOnly)?.hidden).toBe(true);
+      expect(shipOption(element, defenderOnly)?.disabled).toBe(true);
     }
     // Player options remain available.
-    for (const player of ['interceptor', 'cruiser', 'dreadnaught', 'orbital']) {
+    for (const player of ['interceptor', 'cruiser', 'dreadnaught']) {
       expect(shipOption(element, player)?.hidden).toBe(false);
     }
   });
@@ -192,8 +194,14 @@ describe('Fleet', () => {
     element.setAttribute('is-defender', 'true');
     document.body.appendChild(element);
 
-    for (const ai of ['ancient', 'guardian', 'gcds']) {
-      expect(shipOption(element, ai)?.hidden).toBe(false);
+    for (const defenderOnly of [
+      'starbase',
+      'orbital',
+      'ancient',
+      'guardian',
+      'gcds',
+    ]) {
+      expect(shipOption(element, defenderOnly)?.hidden).toBe(false);
     }
   });
 

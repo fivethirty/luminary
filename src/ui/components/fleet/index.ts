@@ -277,8 +277,8 @@ export class FleetElement extends HTMLElement {
       '.ship-selector'
     ) as HTMLSelectElement;
     const existingTypes = this.fleet.shipTypes.map((st) => st.type);
-    // AI ships may only be fielded by the defender; attacker fleets never offer
-    // them. A missing attribute defaults to defender (permissive).
+    // AI ships, starbases, and orbitals may only be fielded by the defender. A
+    // missing attribute defaults to defender (permissive).
     const isAttacker = this.getAttribute('is-defender') === 'false';
 
     const options = shipSelector.querySelectorAll('option');
@@ -287,9 +287,14 @@ export class FleetElement extends HTMLElement {
       const variantData = getDefaultShipConfig(
         option.value as ShipDropdownOption
       );
-      const aiForbidden = isAttacker && !isPlayerShipType(variantData.type);
-      option.hidden = aiForbidden;
-      option.disabled = aiForbidden || existingTypes.includes(variantData.type);
+      const attackerForbidden =
+        isAttacker &&
+        (!isPlayerShipType(variantData.type) ||
+          variantData.type === ShipType.Starbase ||
+          variantData.type === ShipType.Orbital);
+      option.hidden = attackerForbidden;
+      option.disabled =
+        attackerForbidden || existingTypes.includes(variantData.type);
     });
   }
 
