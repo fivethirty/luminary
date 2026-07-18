@@ -1,10 +1,18 @@
 import { CombatSimulator } from '@calc/combat-simulator';
+import { computeExactBattle, EXACT_INTERACTIVE_CAPS } from '@calc/exact-combat';
 import { Fleet } from '@calc/fleet';
 import { Ship } from '@calc/ship';
 import '@ui/components/fleet';
 import type { FleetElement } from '@ui/components/fleet';
 import '@ui/components/results';
 import { state, addFleet, resetFleets, setSimulationResults } from '@ui/state';
+import type { PlannerType } from '@ui/state';
+import { DamageType } from 'src/constants';
+
+const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
+  dps: DamageType.DPS,
+  optimal: DamageType.OPTIMAL,
+};
 
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
@@ -33,6 +41,9 @@ function renderFleets() {
     } else {
       fleetElement.setAttribute('can-remove', 'false');
     }
+
+    // Only the defender (fleet 0) may contain AI ships.
+    fleetElement.setAttribute('is-defender', index === 0 ? 'true' : 'false');
 
     fleetsContainer.appendChild(fleetElement);
   });
@@ -66,17 +77,51 @@ function simulate() {
       }
     });
 
-    return new Fleet(fleet.name, ships, fleet.antimatterSplitter);
+    return new Fleet(
+      fleet.name,
+      ships,
+      fleet.antimatterSplitter,
+      PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
+    );
   });
 
+  // Two-fleet battles are solved exactly: every dice outcome's probability is
+  // propagated through the state graph instead of sampled, so the numbers are
+  // noise-free and identical on every run. Battles outside exact combat's
+  // interactive budget, plus battles with 3+ fleets, fall back to Monte Carlo.
+  if (engineFleets.length === 2) {
+    const exact = computeExactBattle(
+      engineFleets[0],
+      engineFleets[1],
+      EXACT_INTERACTIVE_CAPS
+    );
+    if (exact.ok) {
+      setSimulationResults({
+        victoryProbability: exact.lastFleetStanding,
+        drawProbability: exact.drawPercentage,
+        expectedSurvivors: exact.expectedSurvivors as Record<
+          string,
+          Record<string, number>
+        >,
+        timeTaken: exact.timeTaken,
+        method: 'exact',
+      });
+      renderResults();
+      return;
+    }
+  }
+
+  const MC_ITERATIONS = 5000;
   const simulator = new CombatSimulator();
-  const results = simulator.simulate(engineFleets, 5000);
+  const results = simulator.simulate(engineFleets, MC_ITERATIONS);
 
   setSimulationResults({
     victoryProbability: results.lastFleetStanding,
     drawProbability: results.drawPercentage,
     expectedSurvivors: results.expectedSurvivors,
     timeTaken: results.timeTaken,
+    method: 'monte-carlo',
+    iterations: MC_ITERATIONS,
   });
 
   renderResults();

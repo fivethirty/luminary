@@ -4,12 +4,20 @@ import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
 import { DamageType } from 'src/constants';
 import { DpsRemovalDamagePlanner } from './dps-removal-damage-planner';
 import { Phase } from './battle';
+import { OptimalDamagePlanner } from './optimal-damage-planner';
 
 export class BinnedDamageAssignmentHelper {
   private readonly npcDamagePlanner: AbstractDamagePlanner =
     new NpcDamagePlanner();
   private readonly dpsDamagePlanner: AbstractDamagePlanner =
     new DpsRemovalDamagePlanner();
+  // Injected by the owning fleet when it opts into optimal planning. Unlike the
+  // others it applies damage itself rather than scoring an assignment.
+  private optimalDamagePlanner!: OptimalDamagePlanner;
+
+  setOptimalPlanner(planner: OptimalDamagePlanner): void {
+    this.optimalDamagePlanner = planner;
+  }
 
   assignDamage(
     shots: Shot[],
@@ -17,6 +25,14 @@ export class BinnedDamageAssignmentHelper {
     damageType: DamageType,
     upcomingPhases: Phase[] = []
   ) {
+    if (damageType === DamageType.OPTIMAL) {
+      // Always set by the fleet before this type is selected (see Fleet).
+      return this.optimalDamagePlanner.assignDamage(
+        shots,
+        targetShips,
+        upcomingPhases
+      );
+    }
     return this.assignBinnedDamage(
       shots,
       targetShips,

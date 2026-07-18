@@ -225,6 +225,22 @@ describe('BinnedDamageAssignment', () => {
       expect(ship2.remainingHP()).toBe(0);
     });
 
+    test('DPS avoids overkill when two same-priority kills are available', () => {
+      const woundedAncient = new Ship(ShipType.Ancient, { hull: 1 });
+      const fullAncient = new Ship(ShipType.Ancient, { hull: 1 });
+      woundedAncient.takeDamage(1);
+      const ships = [woundedAncient, fullAncient];
+
+      new BinnedDamageAssignmentHelper().assignDamage(
+        [{ roll: DICE_VALUES.HIT, computers: 0, damage: 2 }],
+        ships,
+        DamageType.DPS
+      );
+
+      expect(woundedAncient.remainingHP()).toBe(1);
+      expect(fullAncient.isAlive()).toBe(false);
+    });
+
     test('spreads damage when unable to kill', () => {
       const ship1 = new Ship(ShipType.Interceptor, { hull: 2, shields: 1 });
       const ship2 = new Ship(ShipType.Cruiser, { hull: 2, shields: 2 });

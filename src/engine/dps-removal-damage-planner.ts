@@ -83,7 +83,8 @@ export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
           priorityWeight +
           Math.pow(2, ship.maxHP() - (remainingShipHp - damage)); // Prioritize damage to ships that are closer to being destroyed
       } else {
-        score += priorityWeight * KILL_WEIGHT;
+        const overkill = damage - remainingShipHp;
+        score += priorityWeight * KILL_WEIGHT - overkill;
       }
     }
     return { score, allDestroyed, damageAssignments };

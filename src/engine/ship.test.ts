@@ -554,4 +554,85 @@ describe('Ship', () => {
       expect(ship.hasMissiles()).toEqual(true);
     });
   });
+
+  describe('clone', () => {
+    test('preserves damage and remaining HP', () => {
+      const ship = new Ship(ShipType.Cruiser, { hull: 2 });
+      ship.takeDamage(1);
+      const clone = ship.clone();
+      expect(clone.remainingHP()).toBe(ship.remainingHP());
+      expect(clone.maxHP()).toBe(ship.maxHP());
+    });
+
+    test('is independent of the original', () => {
+      const ship = new Ship(ShipType.Cruiser, { hull: 2 });
+      const clone = ship.clone();
+      clone.takeDamage(3);
+      expect(clone.isAlive()).toBe(false);
+      expect(ship.remainingHP()).toBe(3); // original untouched
+    });
+
+    test('preserves the injected dice roller', () => {
+      const ship = new Ship(
+        ShipType.Interceptor,
+        { cannons: { ion: 2 } },
+        GUARANTEED_HIT
+      );
+      const clone = ship.clone();
+      const shots = clone.shootCannons(0);
+      expect(shots).toHaveLength(2);
+      expect(shots.every((s) => s.roll === DICE_VALUES.HIT)).toBe(true);
+    });
+
+    test('copies weapon and stat configuration', () => {
+      const ship = new Ship(ShipType.Dreadnaught, {
+        hull: 3,
+        computers: 2,
+        shields: 1,
+        initiative: 4,
+        cannons: { antimatter: 1, ion: 2 },
+        missiles: { plasma: 3 },
+        rift: 1,
+        heal: 1,
+      });
+      const clone = ship.clone();
+      expect(clone.configKey()).toBe(ship.configKey());
+    });
+  });
+
+  describe('configKey', () => {
+    test('is equal for identically configured ships', () => {
+      const a = new Ship(ShipType.Cruiser, {
+        hull: 2,
+        cannons: { ion: 1 },
+      });
+      const b = new Ship(ShipType.Cruiser, {
+        hull: 2,
+        cannons: { ion: 1 },
+      });
+      expect(a.configKey()).toBe(b.configKey());
+    });
+
+    test('ignores current damage', () => {
+      const a = new Ship(ShipType.Cruiser, { hull: 2 });
+      const b = new Ship(ShipType.Cruiser, { hull: 2 });
+      a.takeDamage(1);
+      expect(a.configKey()).toBe(b.configKey());
+    });
+
+    test.each([
+      ['hull', { hull: 3 }],
+      ['computers', { computers: 1 }],
+      ['shields', { shields: 1 }],
+      ['initiative', { initiative: 2 }],
+      ['cannons', { cannons: { plasma: 1 } }],
+      ['missiles', { missiles: { ion: 1 } }],
+      ['rift', { rift: 1 }],
+      ['heal', { heal: 1 }],
+    ])('differs when %s differs', (_label, override) => {
+      const base = new Ship(ShipType.Cruiser, { hull: 2 });
+      const variant = new Ship(ShipType.Cruiser, { hull: 2, ...override });
+      expect(variant.configKey()).not.toBe(base.configKey());
+    });
+  });
 });

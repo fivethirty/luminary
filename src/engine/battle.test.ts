@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { Battle, BattleOutcome } from './battle';
+import { Battle, BattleOutcome, Phase } from './battle';
 import { Fleet } from './fleet';
-import { Ship, ShipType } from './ship';
+import { ShipType } from './ship';
+import { ship } from './test-helpers';
 import {
+  DamageType,
   DICE_VALUES,
   GUARANTEED_HIT,
   GUARANTEED_MISS,
@@ -12,21 +14,21 @@ import {
 describe('Battle', () => {
   describe('fight', () => {
     test('defender cannons fire first', () => {
-      const attacker = new Ship(
-        ShipType.Interceptor,
+      const attacker = ship(
         {
           initiative: 3,
           cannons: { plasma: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
-      const defender = new Ship(
-        ShipType.Interceptor,
+      const defender = ship(
         {
           initiative: 3,
           cannons: { plasma: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
@@ -41,21 +43,21 @@ describe('Battle', () => {
     });
 
     test('defender missiles fire first', () => {
-      const attacker = new Ship(
-        ShipType.Interceptor,
+      const attacker = ship(
         {
           initiative: 3,
           missiles: { plasma: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
-      const defender = new Ship(
-        ShipType.Interceptor,
+      const defender = ship(
         {
           initiative: 3,
           missiles: { plasma: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
@@ -70,21 +72,21 @@ describe('Battle', () => {
     });
 
     test('missles fire before cannons', () => {
-      const attacker = new Ship(
-        ShipType.Interceptor,
+      const attacker = ship(
         {
           initiative: 3,
           missiles: { ion: 2 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
-      const defender = new Ship(
-        ShipType.Interceptor,
+      const defender = ship(
         {
           initiative: 3,
           cannons: { antimatter: 4 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
@@ -99,22 +101,22 @@ describe('Battle', () => {
     });
 
     test('higher initiative first first', () => {
-      const attacker = new Ship(
-        ShipType.Interceptor,
+      const attacker = ship(
         {
           initiative: 2,
           hull: 1,
           cannons: { plasma: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
-      const defender = new Ship(
-        ShipType.Interceptor,
+      const defender = ship(
         {
           initiative: 3,
           cannons: { plasma: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
@@ -129,17 +131,17 @@ describe('Battle', () => {
     });
 
     test('rift cannon can cause self-destruction', () => {
-      const attacker = new Ship(
-        ShipType.Cruiser,
+      const attacker = ship(
         {
           hull: 1,
           rift: 1,
         },
+        ShipType.Cruiser,
         // self damage only
         RIFT_SELF_DAMAGE
       );
 
-      const defender = new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS);
+      const defender = ship({}, ShipType.Interceptor, GUARANTEED_MISS);
 
       const battle = new Battle(
         new Fleet('Attacker', [attacker]),
@@ -160,19 +162,19 @@ describe('Battle', () => {
         DICE_VALUES.RIFT_SELF_DAMAGE,
       ];
 
-      const attacker = new Ship(
-        ShipType.Cruiser,
+      const attacker = ship(
         {
           cannons: { plasma: 2 },
           rift: 1,
         },
+        ShipType.Cruiser,
         () => rolls[rollCount++]
       );
-      const defender = new Ship(
-        ShipType.Interceptor,
+      const defender = ship(
         {
           hull: 3,
         },
+        ShipType.Interceptor,
         GUARANTEED_MISS
       );
 
@@ -187,32 +189,32 @@ describe('Battle', () => {
     });
 
     test('rift cannons destroy the biggest rift ship', () => {
-      const riftInt = new Ship(
-        ShipType.Interceptor,
+      const riftInt = ship(
         {
           rift: 1,
           initiative: 3,
         },
+        ShipType.Interceptor,
         RIFT_SELF_DAMAGE
       );
-      const riftCruiser = new Ship(
-        ShipType.Cruiser,
+      const riftCruiser = ship(
         {
           rift: 1,
           hull: 1,
           initiative: 3,
         },
+        ShipType.Cruiser,
         RIFT_SELF_DAMAGE
       );
-      const nonRiftDread = new Ship(
-        ShipType.Cruiser,
+      const nonRiftDread = ship(
         {
           cannons: { ion: 1 },
           initiative: 3,
         },
+        ShipType.Cruiser,
         GUARANTEED_HIT
       );
-      const defender = new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS);
+      const defender = ship({}, ShipType.Interceptor, GUARANTEED_MISS);
 
       const battle = new Battle(
         new Fleet('Attacker', [riftInt, riftCruiser, nonRiftDread]),
@@ -227,26 +229,26 @@ describe('Battle', () => {
     });
 
     test('antimatter splitter works', () => {
-      const attacker = new Ship(
-        ShipType.Cruiser,
+      const attacker = ship(
         {
           cannons: { antimatter: 1 },
           initiative: 6,
         },
+        ShipType.Cruiser,
         GUARANTEED_HIT
       );
-      const defender1 = new Ship(
-        ShipType.Interceptor,
+      const defender1 = ship(
         {
           cannons: { ion: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
-      const defender2 = new Ship(
-        ShipType.Interceptor,
+      const defender2 = ship(
         {
           cannons: { ion: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
@@ -261,9 +263,9 @@ describe('Battle', () => {
     });
 
     test('stalemate when no damage can be dealt', () => {
-      const attacker = new Ship(ShipType.Interceptor, {}, GUARANTEED_HIT);
+      const attacker = ship({}, ShipType.Interceptor, GUARANTEED_HIT);
 
-      const defender = new Ship(ShipType.Interceptor, {}, GUARANTEED_HIT);
+      const defender = ship({}, ShipType.Interceptor, GUARANTEED_HIT);
 
       const battle = new Battle(
         new Fleet('Attacker', [attacker]),
@@ -275,23 +277,56 @@ describe('Battle', () => {
       expect(result.victors).toEqual([defender]);
     });
 
-    test('victors are living ships from winning fleet', () => {
+    test('defender wins stalemate after missiles', () => {
       const attackers = [
-        new Ship(
+        ship(
+          { hull: 1, missiles: { plasma: 1 }, initiative: 1 },
           ShipType.Interceptor,
-          { hull: 1, cannons: { plasma: 1 }, initiative: 1 },
-          GUARANTEED_HIT
+          GUARANTEED_MISS
         ),
-        new Ship(
-          ShipType.Interceptor,
+        ship(
           { hull: 1, cannons: { plasma: 1 }, initiative: 1 },
+          ShipType.Cruiser,
           GUARANTEED_HIT
         ),
       ];
 
-      const defender = new Ship(
+      const defender = ship(
+        {
+          missiles: { plasma: 1 },
+          initiative: 2,
+        },
         ShipType.Interceptor,
+        GUARANTEED_HIT
+      );
+
+      const battle = new Battle(
+        new Fleet('Attacker', attackers),
+        new Fleet('Defender', [defender])
+      );
+
+      const result = battle.fight();
+      expect(result.outcome).toBe(BattleOutcome.Defender);
+      expect(result.victors).toEqual([defender]);
+    });
+
+    test('victors are living ships from winning fleet', () => {
+      const attackers = [
+        ship(
+          { hull: 1, cannons: { plasma: 1 }, initiative: 1 },
+          ShipType.Interceptor,
+          GUARANTEED_HIT
+        ),
+        ship(
+          { hull: 1, cannons: { plasma: 1 }, initiative: 1 },
+          ShipType.Interceptor,
+          GUARANTEED_HIT
+        ),
+      ];
+
+      const defender = ship(
         { cannons: { antimatter: 1 }, initiative: 2 },
+        ShipType.Interceptor,
         GUARANTEED_HIT
       );
 
@@ -307,21 +342,21 @@ describe('Battle', () => {
 
     test('battle continues for many rounds', () => {
       let hitRoll = 0;
-      const attacker = new Ship(
-        ShipType.Interceptor,
+      const attacker = ship(
         {
           hull: 5,
           cannons: { ion: 1 },
         },
+        ShipType.Interceptor,
         () => (hitRoll++ % 2 === 0 ? DICE_VALUES.HIT : DICE_VALUES.MISS)
       );
 
-      const defender = new Ship(
-        ShipType.Interceptor,
+      const defender = ship(
         {
           hull: 4,
           cannons: { ion: 1 },
         },
+        ShipType.Interceptor,
         GUARANTEED_MISS
       );
 
@@ -333,6 +368,125 @@ describe('Battle', () => {
       const result = battle.fight();
       expect(result.outcome).toBe(BattleOutcome.Attacker);
       expect(result.victors).toEqual([attacker]);
+    });
+  });
+
+  describe('resumeFight', () => {
+    test('resumes from a hand-built queue and fires only queued phases', () => {
+      const attacker = ship(
+        { initiative: 3, cannons: { plasma: 1 } },
+        ShipType.Interceptor,
+        GUARANTEED_HIT
+      );
+      const defender = ship({ initiative: 2 });
+      const attackerFleet = new Fleet('Attacker', [attacker]);
+      const defenderFleet = new Fleet('Defender', [defender]);
+      const battle = new Battle(attackerFleet, defenderFleet);
+
+      // Only the attacker's cannon phase remains; the defender never gets to act.
+      const phase: Phase = {
+        ships: [attacker],
+        initiative: 3,
+        shootingFleet: attackerFleet,
+        targetFleet: defenderFleet,
+        missilePhase: false,
+      };
+
+      const result = battle.resumeFight([phase]);
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
+      expect(defender.isAlive()).toBe(false);
+    });
+
+    test('prepares optimal planners before assigning damage', () => {
+      const attacker = ship(
+        { initiative: 3, cannons: { ion: 1 } },
+        ShipType.Interceptor,
+        GUARANTEED_HIT
+      );
+      const defender = ship({ initiative: 2 });
+      const attackerFleet = new Fleet(
+        'Attacker',
+        [attacker],
+        false,
+        DamageType.OPTIMAL
+      );
+      const defenderFleet = new Fleet('Defender', [defender]);
+      const battle = new Battle(attackerFleet, defenderFleet);
+
+      const phase: Phase = {
+        ships: [attacker],
+        initiative: 3,
+        shootingFleet: attackerFleet,
+        targetFleet: defenderFleet,
+        missilePhase: false,
+      };
+
+      const result = battle.resumeFight([phase]);
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
+    });
+
+    // Missiles fire exactly once because they live only in the phase queue; a
+    // resumed queue that omits them must not re-fire them.
+    describe('missiles do not re-fire on resume', () => {
+      const buildFleets = () => {
+        const attacker = ship(
+          {
+            initiative: 5,
+            missiles: { antimatter: 2 },
+            cannons: { ion: 1 },
+          },
+          ShipType.Interceptor,
+          GUARANTEED_HIT
+        );
+        const defender = ship(
+          { initiative: 1, hull: 4, cannons: { antimatter: 1 } },
+          ShipType.Interceptor,
+          GUARANTEED_HIT
+        );
+        const attackerFleet = new Fleet('Attacker', [attacker]);
+        const defenderFleet = new Fleet('Defender', [defender]);
+        const cannonPhases: Phase[] = [
+          {
+            ships: [attacker],
+            initiative: 5,
+            shootingFleet: attackerFleet,
+            targetFleet: defenderFleet,
+            missilePhase: false,
+          },
+          {
+            ships: [defender],
+            initiative: 1,
+            shootingFleet: defenderFleet,
+            targetFleet: attackerFleet,
+            missilePhase: false,
+          },
+        ];
+        const missilePhase: Phase = {
+          ships: [attacker],
+          initiative: 5,
+          shootingFleet: attackerFleet,
+          targetFleet: defenderFleet,
+          missilePhase: true,
+        };
+        return { attackerFleet, defenderFleet, cannonPhases, missilePhase };
+      };
+
+      test('cannon-only queue: missiles stay silent, defender survives to win', () => {
+        const { attackerFleet, defenderFleet, cannonPhases } = buildFleets();
+        const battle = new Battle(attackerFleet, defenderFleet);
+        // Without the 8-damage missile salvo the attacker only chips 1 HP, then
+        // the defender's antimatter kills it.
+        const result = battle.resumeFight(cannonPhases);
+        expect(result.outcome).toBe(BattleOutcome.Defender);
+      });
+
+      test('queue including the missile phase: missiles fire and win', () => {
+        const { attackerFleet, defenderFleet, cannonPhases, missilePhase } =
+          buildFleets();
+        const battle = new Battle(attackerFleet, defenderFleet);
+        const result = battle.resumeFight([missilePhase, ...cannonPhases]);
+        expect(result.outcome).toBe(BattleOutcome.Attacker);
+      });
     });
   });
 });

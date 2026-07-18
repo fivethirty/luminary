@@ -60,3 +60,7 @@
   gap: var(--space-sm);
   cursor: pointer;
 }
+
+.damage-planner-option {
+  margin-left: auto;
+}

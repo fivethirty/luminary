@@ -30,6 +30,12 @@ const npcTypes: ShipType[] = [
   ShipType.GCDS,
 ];
 
+// A player-controlled ship type (anything that isn't an AI/NPC hull). AI fleets
+// always use the NPC damage planner, so their targeting is not player-selectable.
+export function isPlayerShipType(type: ShipType): boolean {
+  return !npcTypes.includes(type);
+}
+
 export const WeaponDamage: Record<WeaponType, number> = {
   ion: 1,
   plasma: 2,
@@ -86,6 +92,7 @@ export class Ship {
 
   private damage = 0;
   private rollD6: () => number;
+  private cachedConfigKey?: string;
 
   constructor(
     type: ShipType,
@@ -107,7 +114,56 @@ export class Ship {
   }
 
   isPlayerShip(): boolean {
-    return !npcTypes.includes(this.type);
+    return isPlayerShipType(this.type);
+  }
+
+  // Deep copy for playout simulations. Preserves the injected dice roller so
+  // deterministic tests stay deterministic, and copies the private damage so
+  // the clone starts from the same HP as the original.
+  clone(): Ship {
+    const copy = new Ship(
+      this.type,
+      {
+        hull: this.hull,
+        computers: this.computers,
+        shields: this.shields,
+        initiative: this.initiative,
+        cannons: { ...this.cannons },
+        missiles: { ...this.missiles },
+        rift: this.rift,
+        heal: this.heal,
+      },
+      this.rollD6
+    );
+    copy.damage = this.damage;
+    return copy;
+  }
+
+  // Stable identity of this ship's combat-relevant configuration. Two ships
+  // with the same key are interchangeable for damage-assignment purposes, so
+  // it keys candidate-state dedup and the solver's canonical state key. Excludes
+  // current damage (that is state, not configuration).
+  configKey(): string {
+    if (this.cachedConfigKey === undefined) {
+      this.cachedConfigKey = [
+        this.type,
+        this.hull,
+        this.computers,
+        this.shields,
+        this.initiative,
+        this.cannons.ion,
+        this.cannons.plasma,
+        this.cannons.soliton,
+        this.cannons.antimatter,
+        this.missiles.ion,
+        this.missiles.plasma,
+        this.missiles.soliton,
+        this.missiles.antimatter,
+        this.rift,
+        this.heal,
+      ].join('|');
+    }
+    return this.cachedConfigKey;
   }
 
   shootMissles(minShields: number): Shot[] {

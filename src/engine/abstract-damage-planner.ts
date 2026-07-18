@@ -8,6 +8,27 @@ export type Plan = {
   damageAssignments: number[];
 };
 
+// Orders shots so that weaker/less-flexible shots are assigned first and
+// identical shots land adjacent. Shared by the binned solver and the candidate
+// enumerator so both explore the same action space.
+export function sortShotsForAssignment(shots: Shot[]): Shot[] {
+  return shots.slice().sort((a, b) => {
+    if (a.roll === DICE_VALUES.HIT) {
+      if (b.roll === DICE_VALUES.HIT) {
+        return b.damage - a.damage;
+      }
+      return 1; // HITs should come last
+    }
+    if (b.roll === DICE_VALUES.HIT) {
+      return -1; // HITs should come last
+    }
+    if (a.roll + a.computers !== b.roll + b.computers) {
+      return a.roll + a.computers - b.roll - b.computers; // Sort by rolls ascending
+    }
+    return b.damage - a.damage; // If rolls are equal, sort by damage descending
+  });
+}
+
 export abstract class AbstractDamagePlanner {
   abstract evaluate(
     ships: Ship[],
@@ -19,22 +40,7 @@ export abstract class AbstractDamagePlanner {
   abstract optimallySortShips(ships: Ship[], upcomingPhases: Phase[]): Ship[];
 
   optimallySortShots(shots: Shot[]): Shot[] {
-    const sortedArr = shots.slice().sort((a, b) => {
-      if (a.roll === DICE_VALUES.HIT) {
-        if (b.roll === DICE_VALUES.HIT) {
-          return b.damage - a.damage;
-        }
-        return 1; // HITs should come last
-      }
-      if (b.roll === DICE_VALUES.HIT) {
-        return -1; // HITs should come last
-      }
-      if (a.roll + a.computers !== b.roll + b.computers) {
-        return a.roll + a.computers - b.roll - b.computers; // Sort by rolls ascending
-      }
-      return b.damage - a.damage; // If rolls are equal, sort by damage descending
-    });
-    return sortedArr;
+    return sortShotsForAssignment(shots);
   }
 
   calculateMaxScore(

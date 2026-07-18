@@ -1,6 +1,7 @@
 import { DICE_VALUES } from 'src/constants';
 import { Fleet } from './fleet';
 import { RiftShot, Ship, Shot } from './ship';
+import { terminalFromSurvival } from './battle-rules';
 
 const MAX_ROUNDS: number = 100;
 export const BattleOutcome = {
@@ -31,10 +32,25 @@ export class Battle {
   ) {}
 
   fight(): BattleResult {
-    const phases = this.getAllPhases();
+    const ctx = { attacker: this.attacker, defender: this.defender };
+    this.attacker.prepareForBattle(ctx);
+    this.defender.prepareForBattle(ctx);
+    return this.resumeFight(this.getAllPhases());
+  }
+
+  // Runs a battle forward from an arbitrary point in its phase queue. `fight`
+  // starts from a freshly built queue. Because missile phases live only in the
+  // queue (a ship never records that it has fired), resuming from a queue that
+  // omits the already-fired missile phases is what prevents missiles firing
+  // twice.
+  resumeFight(phases: Phase[]): BattleResult {
+    const ctx = { attacker: this.attacker, defender: this.defender };
+    this.attacker.prepareForBattle(ctx);
+    this.defender.prepareForBattle(ctx);
 
     while (phases[0]?.missilePhase) {
-      this.resolveMissilePhase(phases.shift()!, phases);
+      const result = this.resolveMissilePhase(phases.shift()!, phases);
+      if (result) return result;
     }
 
     let rounds = 0;
@@ -200,25 +216,24 @@ export class Battle {
   }
 
   private checkBattleOutcome(): BattleResult | null {
-    const attackerAlive = this.attacker.isAlive();
-    const defenderAlive = this.defender.isAlive();
-
-    if (!attackerAlive && !defenderAlive) {
+    const terminal = terminalFromSurvival(
+      this.attacker.isAlive(),
+      this.defender.isAlive()
+    );
+    if (terminal === 'Draw')
       return { outcome: BattleOutcome.Draw, victors: [] };
-    }
-    if (!attackerAlive) {
+    if (terminal === 'DefenderWins') {
       return {
         outcome: BattleOutcome.Defender,
         victors: this.defender.getLivingShips(),
       };
     }
-    if (!defenderAlive) {
+    if (terminal === 'AttackerWins') {
       return {
         outcome: BattleOutcome.Attacker,
         victors: this.attacker.getLivingShips(),
       };
     }
-
     return null;
   }
 }

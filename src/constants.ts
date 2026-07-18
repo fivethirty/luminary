@@ -19,4 +19,5 @@ export const RIFT_MISS = () => DICE_VALUES.RIFT_MISS_1;
 export enum DamageType {
   NPC = 'npc',
   DPS = 'dps',
+  OPTIMAL = 'optimal',
 }

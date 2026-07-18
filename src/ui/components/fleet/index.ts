@@ -2,9 +2,15 @@ import html from './fleet.html' with { type: 'text' };
 import './fleet.css';
 import '../ship-type';
 import type { ShipTypeElement } from '../ship-type';
-import { ShipType, ShipConfig } from '@calc/ship';
+import { ShipType, ShipConfig, isPlayerShipType } from '@calc/ship';
 import type { FleetState } from '@ui/state';
-import { removeFleet, addShipType, toggleAntimatterSplitter } from '@ui/state';
+import {
+  removeFleet,
+  addShipType,
+  removeShipType,
+  toggleAntimatterSplitter,
+  setFleetPlannerType,
+} from '@ui/state';
 
 type ShipDropdownOption =
   | 'interceptor'
@@ -213,6 +219,7 @@ export class FleetElement extends HTMLElement {
 
     this.addEventListener('ship-removed', () => {
       this.updateShipSelector();
+      this.updatePlannerControl();
     });
 
     const shipSelector = this.querySelector(
@@ -234,8 +241,22 @@ export class FleetElement extends HTMLElement {
       toggleAntimatterSplitter(this.fleet.id);
     });
 
-    this.updateShipSelector();
+    const plannerTypeSelect = this.querySelector(
+      '.planner-type-select'
+    ) as HTMLSelectElement;
+    plannerTypeSelect.value = this.fleet.plannerType;
+    plannerTypeSelect.addEventListener('change', () => {
+      const value = plannerTypeSelect.value;
+      if (value !== 'dps' && value !== 'optimal') return;
+      setFleetPlannerType(this.fleet.id, value);
+    });
 
+    this.updateShipSelector();
+    this.updatePlannerControl();
+    this.renderShips();
+  }
+
+  private renderShips() {
     const shipsContainer = this.querySelector('.fleet-ships') as HTMLDivElement;
     shipsContainer.innerHTML = '';
 
@@ -254,33 +275,83 @@ export class FleetElement extends HTMLElement {
       '.ship-selector'
     ) as HTMLSelectElement;
     const existingTypes = this.fleet.shipTypes.map((st) => st.type);
+    // AI ships, starbases, and orbitals may only be fielded by the defender. A
+    // missing attribute defaults to defender (permissive).
+    const isAttacker = this.getAttribute('is-defender') === 'false';
 
     const options = shipSelector.querySelectorAll('option');
     options.forEach((option) => {
-      if (option.value) {
-        const variantData = getDefaultShipConfig(
-          option.value as ShipDropdownOption
-        );
-        option.disabled = existingTypes.includes(variantData.type);
-      }
+      if (!option.value) return;
+      const variantData = getDefaultShipConfig(
+        option.value as ShipDropdownOption
+      );
+      const attackerForbidden =
+        isAttacker &&
+        (!isPlayerShipType(variantData.type) ||
+          variantData.type === ShipType.Starbase ||
+          variantData.type === ShipType.Orbital);
+      option.hidden = attackerForbidden;
+      option.disabled =
+        attackerForbidden || existingTypes.includes(variantData.type);
     });
   }
 
   private addShip(dropdownOption: ShipDropdownOption) {
     const variantData = getDefaultShipConfig(dropdownOption);
-    const newShip = addShipType(this.fleet.id, variantData.type);
+    const newIsPlayer = isPlayerShipType(variantData.type);
 
+    // A fleet can't mix AI and player ships: adding one class evicts the other.
+    const opposite = this.fleet.shipTypes.filter(
+      (st) => isPlayerShipType(st.type) !== newIsPlayer
+    );
+    opposite.forEach((st) => removeShipType(this.fleet.id, st.id));
+
+    const newShip = addShipType(this.fleet.id, variantData.type);
     newShip.config = variantData.config;
 
-    const shipsContainer = this.querySelector('.fleet-ships') as HTMLDivElement;
-    const shipElement = document.createElement(
-      'calc-ship-type'
-    ) as ShipTypeElement;
-    shipElement.shipType = newShip;
-    shipElement.fleetId = this.fleet.id;
-    shipsContainer.appendChild(shipElement);
+    if (opposite.length > 0) {
+      // Some ship elements were removed; rebuild the list from state.
+      this.renderShips();
+    } else {
+      const shipsContainer = this.querySelector(
+        '.fleet-ships'
+      ) as HTMLDivElement;
+      const shipElement = document.createElement(
+        'calc-ship-type'
+      ) as ShipTypeElement;
+      shipElement.shipType = newShip;
+      shipElement.fleetId = this.fleet.id;
+      shipsContainer.appendChild(shipElement);
+    }
 
     this.updateShipSelector();
+    this.updatePlannerControl();
+  }
+
+  // An all-AI fleet always fights with the NPC planner (see Fleet.getDamageType),
+  // so lock the control to a disabled "NPC" for those fleets. Player fleets get
+  // the normal, editable set of planners.
+  private updatePlannerControl() {
+    const select = this.querySelector(
+      '.planner-type-select'
+    ) as HTMLSelectElement | null;
+    if (!select) return;
+    const types = this.fleet.shipTypes;
+    const allAi =
+      types.length > 0 && types.every((st) => !isPlayerShipType(st.type));
+
+    select.querySelectorAll('option').forEach((opt) => {
+      const option = opt as HTMLOptionElement;
+      option.hidden = option.value === 'npc' ? !allAi : allAi;
+    });
+
+    if (allAi) {
+      select.value = 'npc';
+      select.disabled = true;
+    } else {
+      select.disabled = false;
+      select.value = this.fleet.plannerType;
+    }
   }
 }
 

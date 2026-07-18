@@ -1,6 +1,7 @@
 import { test, expect, beforeEach, describe } from 'bun:test';
 import '../happydom';
 import { state, resetFleets, setSimulationResults } from '@ui/state';
+import { monteCarloResults } from '@ui/test-helpers';
 import { init } from './app';
 import indexHtml from './index.html' with { type: 'text' };
 
@@ -43,12 +44,11 @@ describe('App', () => {
     addBtn.click();
     expect(state.fleets.length).toBe(4);
 
-    setSimulationResults({
-      victoryProbability: { Defender: 0.5, 'Attacker 1': 0.5 },
-      drawProbability: 0,
-      expectedSurvivors: {},
-      timeTaken: 1000,
-    });
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: { Defender: 0.5, 'Attacker 1': 0.5 },
+      })
+    );
 
     const clearBtn = document.getElementById(
       'clear-all-btn'

@@ -6,9 +6,12 @@
     "dev": "bun --hot src/index.html",
     "build": "bun build ./src/*.html --outdir ./dist --minify",
     "test": "bun test",
+    "test:engine": "bun test src/engine",
+    "test:solver": "bun test src/engine/battle-rules.test.ts src/engine/battle-state.test.ts src/engine/dice-distribution.test.ts src/engine/win-probability-solver.test.ts src/engine/win-probability-solver.optimal.test.ts src/engine/win-probability-solver.minimax.test.ts src/engine/exact-combat.test.ts src/engine/optimal-damage-planner.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint": "eslint src scripts",
+    "lint:fix": "eslint src scripts --fix",
+    "check": "bun run typecheck && bun run lint && bun test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
