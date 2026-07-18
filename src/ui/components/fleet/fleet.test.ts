@@ -139,6 +139,9 @@ describe('Fleet', () => {
     addShip(element, 'guardian');
 
     const select = plannerSelect(element);
+    expect(state.fleets[0].shipTypes.map((st) => st.type)).toEqual([
+      ShipType.Guardian,
+    ]);
     expect(select.disabled).toBe(true);
     expect(select.value).toBe('npc');
   });
@@ -218,7 +221,26 @@ describe('Fleet', () => {
     }
   });
 
-  test('adding a player ship evicts AI ships (no mixing)', () => {
+  test('adding a player ship evicts NPC ships (no mixing)', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+    document.body.appendChild(element);
+
+    addShip(element, 'ancient');
+    expect(state.fleets[0].shipTypes.map((st) => st.type)).toEqual([
+      ShipType.Ancient,
+    ]);
+
+    // Adding a player ship clears the NPC ships.
+    addShip(element, 'cruiser');
+    expect(state.fleets[0].shipTypes.map((st) => st.type)).toEqual([
+      ShipType.Cruiser,
+    ]);
+    expect(element.querySelectorAll('calc-ship-type').length).toBe(1);
+  });
+
+  test('adding an NPC ship evicts a different NPC type', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
     element.setAttribute('is-defender', 'true');
@@ -226,15 +248,9 @@ describe('Fleet', () => {
 
     addShip(element, 'ancient');
     addShip(element, 'guardian');
-    expect(state.fleets[0].shipTypes.map((st) => st.type)).toEqual([
-      ShipType.Ancient,
-      ShipType.Guardian,
-    ]);
 
-    // Adding a player ship clears the AI ships.
-    addShip(element, 'cruiser');
     expect(state.fleets[0].shipTypes.map((st) => st.type)).toEqual([
-      ShipType.Cruiser,
+      ShipType.Guardian,
     ]);
     expect(element.querySelectorAll('calc-ship-type').length).toBe(1);
   });
@@ -280,5 +296,19 @@ describe('Fleet', () => {
     expect(ancientOption?.disabled).toBe(true);
     expect(ancientAdvOption?.disabled).toBe(true);
     expect(ancientWaOption?.disabled).toBe(true);
+  });
+
+  test('allows selecting a different NPC type when an NPC type is added', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+    document.body.appendChild(element);
+
+    addShip(element, 'ancient');
+
+    expect(shipOption(element, 'guardian')?.disabled).toBe(false);
+    expect(shipOption(element, 'guardian-adv')?.disabled).toBe(false);
+    expect(shipOption(element, 'gcds')?.disabled).toBe(false);
+    expect(shipOption(element, 'cruiser')?.disabled).toBe(false);
   });
 });

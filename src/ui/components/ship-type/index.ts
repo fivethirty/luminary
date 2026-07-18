@@ -6,7 +6,19 @@ import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
 import { removeShipType, updateShipType } from '@ui/state';
+import { ShipType } from '@calc/ship';
 import type { WeaponType } from '@calc/ship';
+
+const SHIP_QUANTITY_LIMITS: Record<ShipType, number> = {
+  [ShipType.Interceptor]: 8,
+  [ShipType.Cruiser]: 4,
+  [ShipType.Dreadnought]: 2,
+  [ShipType.Starbase]: 4,
+  [ShipType.Orbital]: 1,
+  [ShipType.Ancient]: 2,
+  [ShipType.Guardian]: 1,
+  [ShipType.GCDS]: 1,
+};
 
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
@@ -32,7 +44,7 @@ export class ShipTypeElement extends HTMLElement {
     const qtyInput = this.querySelector('calc-selector') as SelectorElement;
     if (qtyInput) {
       qtyInput.min = 1;
-      qtyInput.max = 99;
+      qtyInput.max = SHIP_QUANTITY_LIMITS[this.shipType.type];
       qtyInput.value = this.shipType.quantity;
       qtyInput.addEventListener('change', () => {
         this.shipType.quantity = qtyInput.value;
