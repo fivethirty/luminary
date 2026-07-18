@@ -2,6 +2,7 @@ import { test, expect, beforeEach, describe } from 'bun:test';
 import './index';
 import type { ResultsElement } from './index';
 import { resetFleets, setSimulationResults } from '@ui/state';
+import { exactResults, monteCarloResults } from '@ui/test-helpers';
 
 describe('Results', () => {
   beforeEach(() => {
@@ -11,16 +12,12 @@ describe('Results', () => {
   });
 
   test('component renders when simulation results exist', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: {
         Defender: 0.6,
         'Attacker 1': 0.4,
       },
-      drawProbability: 0,
-      expectedSurvivors: {},
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -32,17 +29,13 @@ describe('Results', () => {
   });
 
   test('displays fleets in their original order', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: {
         'Fleet A': 0.3,
         'Fleet B': 0.6,
         'Fleet C': 0.1,
       },
-      drawProbability: 0,
-      expectedSurvivors: {},
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -56,16 +49,12 @@ describe('Results', () => {
   });
 
   test('displays percentages correctly', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: {
         Defender: 0.753,
         Attacker: 0.247,
       },
-      drawProbability: 0,
-      expectedSurvivors: {},
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -78,16 +67,13 @@ describe('Results', () => {
   });
 
   test('displays draw probability when present', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: {
         'Fleet A': 0.4,
         'Fleet B': 0.35,
       },
       drawProbability: 0.25,
-      expectedSurvivors: {},
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -108,16 +94,13 @@ describe('Results', () => {
   test('lists the defender first even when results arrive attacker-first', () => {
     // Default fleets are Defender (fleet 0) and Attacker; the producer here
     // inserts Attacker first, as the exact path historically did.
-    setSimulationResults({
+    setSimulationResults(exactResults({
       victoryProbability: {
         Attacker: 0.55,
         Defender: 0.45,
       },
-      drawProbability: 0,
-      expectedSurvivors: {},
       timeTaken: 10,
-      method: 'exact' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -129,18 +112,15 @@ describe('Results', () => {
   });
 
   test('keeps unknown fleet names in insertion order after known fleets', () => {
-    setSimulationResults({
+    setSimulationResults(exactResults({
       victoryProbability: {
         'Detached Fleet B': 0.1,
         Attacker: 0.3,
         'Detached Fleet A': 0.2,
         Defender: 0.4,
       },
-      drawProbability: 0,
-      expectedSurvivors: {},
       timeTaken: 10,
-      method: 'exact' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -157,13 +137,10 @@ describe('Results', () => {
   });
 
   test('labels exact results as deterministic', () => {
-    setSimulationResults({
+    setSimulationResults(exactResults({
       victoryProbability: { 'Fleet A': 0.6, 'Fleet B': 0.4 },
-      drawProbability: 0,
-      expectedSurvivors: {},
       timeTaken: 42,
-      method: 'exact' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -175,14 +152,10 @@ describe('Results', () => {
   });
 
   test('labels Monte Carlo results with the iteration count', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: { 'Fleet A': 0.6, 'Fleet B': 0.4 },
-      drawProbability: 0,
-      expectedSurvivors: {},
       timeTaken: 42,
-      method: 'monte-carlo' as const,
-      iterations: 5000,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -194,16 +167,12 @@ describe('Results', () => {
   });
 
   test('hides draw when probability is 0', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: {
         'Fleet A': 0.6,
         'Fleet B': 0.4,
       },
-      drawProbability: 0,
-      expectedSurvivors: {},
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -213,9 +182,8 @@ describe('Results', () => {
   });
 
   test('displays expected survivors', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: { Defender: 1.0 },
-      drawProbability: 0,
       expectedSurvivors: {
         Defender: {
           Interceptor: 2.5,
@@ -223,9 +191,7 @@ describe('Results', () => {
           Dreadnaught: 0.8,
         },
       },
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -249,16 +215,13 @@ describe('Results', () => {
   });
 
   test('hides survivors section when no survivors', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: { 'Fleet A': 0.5, 'Fleet B': 0.5 },
-      drawProbability: 0,
       expectedSurvivors: {
         'Fleet A': {},
         'Fleet B': {},
       },
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -270,9 +233,8 @@ describe('Results', () => {
   });
 
   test('filters out ships with 0 survivors', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: { Fleet: 1.0 },
-      drawProbability: 0,
       expectedSurvivors: {
         Fleet: {
           Interceptor: 2.0,
@@ -280,9 +242,7 @@ describe('Results', () => {
           Dreadnaught: 1.0,
         },
       },
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
@@ -297,16 +257,12 @@ describe('Results', () => {
   });
 
   test('displays progress bars with correct widths', () => {
-    setSimulationResults({
+    setSimulationResults(monteCarloResults({
       victoryProbability: {
         'Fleet A': 0.75,
         'Fleet B': 0.25,
       },
-      drawProbability: 0,
-      expectedSurvivors: {},
-      timeTaken: 1000,
-      method: 'monte-carlo' as const,
-    });
+    }));
 
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);

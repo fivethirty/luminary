@@ -9,6 +9,7 @@ import {
   resetFleets,
   setSimulationResults,
 } from './state';
+import { monteCarloResults } from './test-helpers';
 import { ShipType } from '@calc/ship';
 
 describe('State', () => {
@@ -125,13 +126,10 @@ describe('State', () => {
 
   describe('setSimulationResults', () => {
     test('sets simulation results', () => {
-      const results = {
+      const results = monteCarloResults({
         victoryProbability: { Defender: 0.6, Attacker: 0.4 },
-        drawProbability: 0,
-        expectedSurvivors: {},
         timeTaken: 0,
-        method: 'monte-carlo' as const,
-      };
+      });
 
       setSimulationResults(results);
 
@@ -139,13 +137,9 @@ describe('State', () => {
     });
 
     test('can set results to null', () => {
-      setSimulationResults({
+      setSimulationResults(monteCarloResults({
         victoryProbability: {},
-        drawProbability: 0,
-        expectedSurvivors: {},
-        timeTaken: 1000,
-        method: 'monte-carlo' as const,
-      });
+      }));
 
       setSimulationResults(null);
 

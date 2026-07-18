@@ -27,7 +27,7 @@ export class ResultsElement extends HTMLElement {
     resultsTime.textContent =
       results.method === 'exact'
         ? `Exact (deterministic) · ${results.timeTaken} ms`
-        : `Monte Carlo · ${(results.iterations ?? 0).toLocaleString()} iterations · ${results.timeTaken} ms`;
+        : `Monte Carlo · ${results.iterations.toLocaleString()} iterations · ${results.timeTaken} ms`;
     const tbody = this.querySelector('#results-tbody')!;
     tbody.innerHTML = '';
 

@@ -22,21 +22,30 @@ export interface FleetState {
   plannerType: PlannerType;
 }
 
-// How the outcome numbers were produced:
-//  - 'exact': deterministic probability propagation — true probabilities,
-//    identical on every run.
-//  - 'monte-carlo': sampled simulation — estimates with sampling noise.
 export type SimulationMethod = 'exact' | 'monte-carlo';
 
-export interface SimulationResults {
+interface BaseSimulationResults {
   victoryProbability: Record<string, number>;
   drawProbability: number;
   expectedSurvivors: Record<string, Record<string, number>>;
   timeTaken: number;
-  method: SimulationMethod;
-  // Sample count, present when method is 'monte-carlo'.
-  iterations?: number;
 }
+
+export interface ExactSimulationResults extends BaseSimulationResults {
+  // Deterministic probability propagation: true probabilities, identical on every run.
+  method: 'exact';
+  iterations?: never;
+}
+
+export interface MonteCarloSimulationResults extends BaseSimulationResults {
+  // Sampled simulation: estimates with sampling noise.
+  method: 'monte-carlo';
+  iterations: number;
+}
+
+export type SimulationResults =
+  | ExactSimulationResults
+  | MonteCarloSimulationResults;
 
 export interface State {
   fleets: FleetState[];
