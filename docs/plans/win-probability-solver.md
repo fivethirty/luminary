@@ -25,7 +25,7 @@ Deliverables, in priority order:
 ## Verification gates (run after every stage)
 
 ```
-bun test          # bun is installed via mise: PATH=~/.local/share/mise/installs/bun/1.2.19/bin
+bun test
 bun run typecheck
 bun run lint
 ```
