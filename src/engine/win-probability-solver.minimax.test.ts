@@ -33,17 +33,19 @@ describe('WinProbabilitySolver (minimax mode)', () => {
     ];
     const model = new BattleModel(attacker, defender, false, false);
 
-    const policy = new WinProbabilitySolver(model, 'A', 'policy').solve();
-    const optimalAttacker = new WinProbabilitySolver(
-      model,
-      'A',
-      'optimal'
-    ).solve();
-    const optimalDefender = new WinProbabilitySolver(
-      model,
-      'D',
-      'optimal'
-    ).solve();
+    const policy = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solve();
+    const optimalAttackerSolver = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+    });
+    const optimalAttacker = optimalAttackerSolver.solve();
+    const optimalDefender = new WinProbabilitySolver(model, {
+      perspective: 'D',
+      assignments: 'minimax',
+    }).solve();
 
     expect(policy.ok).toBe(true);
     expect(optimalAttacker.ok).toBe(true);
@@ -54,5 +56,20 @@ describe('WinProbabilitySolver (minimax mode)', () => {
     expect(
       optimalAttacker.winProbability + optimalDefender.winProbability
     ).toBeCloseTo(1, 9);
+
+    const stats = optimalAttackerSolver.getGraphStats();
+    expect(stats.attackerDecisionStates).toBeGreaterThan(0);
+    expect(stats.defenderDecisionStates).toBeGreaterThan(0);
+
+    const initialKey = optimalAttackerSolver.canonicalKey(model.initialState());
+    const decision = optimalAttackerSolver.explainDecision(initialKey);
+    expect(decision?.role).toBe('A');
+    expect(decision?.outcomes.length).toBeGreaterThan(0);
+    expect(
+      decision?.outcomes.every(
+        (outcome) =>
+          outcome.options.filter((option) => option.selected).length === 1
+      )
+    ).toBe(true);
   });
 });

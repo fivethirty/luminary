@@ -3,9 +3,9 @@ import { Fleet } from './fleet';
 import { ShipType } from './ship';
 import { BattleModel, Role } from './battle-state';
 import {
+  AssignmentMode,
   DEFAULT_CAPS,
   SolverCaps,
-  SolverMode,
   WinProbabilitySolver,
 } from './win-probability-solver';
 
@@ -53,14 +53,14 @@ export function computeExactBattle(
   const attackerType = attacker.getDamageType();
   const defenderType = defender.getDamageType();
 
-  let mode: SolverMode = 'policy';
-  let role: Role = 'A';
+  let assignments: AssignmentMode = 'policy';
+  let perspective: Role = 'A';
   if (attackerType === DamageType.OPTIMAL) {
-    mode = 'optimal';
-    role = 'A';
+    assignments = 'minimax';
+    perspective = 'A';
   } else if (defenderType === DamageType.OPTIMAL) {
-    mode = 'optimal';
-    role = 'D';
+    assignments = 'minimax';
+    perspective = 'D';
   }
 
   const model = new BattleModel(
@@ -69,12 +69,11 @@ export function computeExactBattle(
     attacker.antimatterSplitter,
     defender.antimatterSplitter
   );
-  const outcome = new WinProbabilitySolver(
-    model,
-    role,
-    mode,
-    caps
-  ).solveOutcome();
+  const outcome = new WinProbabilitySolver(model, {
+    perspective,
+    assignments,
+    caps,
+  }).solveOutcome();
   if (!outcome.ok) {
     return fail(outcome.reason ?? 'solve failed');
   }

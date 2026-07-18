@@ -14,11 +14,17 @@ describe('WinProbabilitySolver (policy mode)', () => {
       new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });
     const model = new BattleModel([make()], [make()], false, false);
 
-    const attacker = new WinProbabilitySolver(model, 'A', 'policy').solve();
+    const attacker = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solve();
     expect(attacker.ok).toBe(true);
     expect(attacker.winProbability).toBeCloseTo(5 / 11, 9);
 
-    const defender = new WinProbabilitySolver(model, 'D', 'policy').solve();
+    const defender = new WinProbabilitySolver(model, {
+      perspective: 'D',
+      assignments: 'policy',
+    }).solve();
     expect(defender.ok).toBe(true);
     expect(defender.winProbability).toBeCloseTo(6 / 11, 9);
   });
@@ -27,8 +33,14 @@ describe('WinProbabilitySolver (policy mode)', () => {
     const make = () =>
       new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });
     const model = new BattleModel([make()], [make()], false, false);
-    const a = new WinProbabilitySolver(model, 'A', 'policy').solve();
-    const b = new WinProbabilitySolver(model, 'A', 'policy').solve();
+    const a = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solve();
+    const b = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solve();
     expect(a.winProbability).toBe(b.winProbability);
   });
 
@@ -48,7 +60,10 @@ describe('WinProbabilitySolver (policy mode)', () => {
           false,
           false
         );
-        const solved = new WinProbabilitySolver(model, 'A', 'policy').solve();
+        const solved = new WinProbabilitySolver(model, {
+          perspective: 'A',
+          assignments: 'policy',
+        }).solve();
         expect(solved.ok).toBe(true);
 
         const enemyFleet = new Fleet('Enemy', buildShips(matchup.enemy));

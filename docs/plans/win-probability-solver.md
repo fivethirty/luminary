@@ -1,5 +1,10 @@
 # Plan: Exact win-probability solver + OptimalDamagePlanner
 
+> Historical implementation plan. See [Architecture](../architecture.md) for current module
+> ownership, solver configuration, intentional divergences, and validation commands. References
+> below to removed rollout and benchmark scripts describe development artifacts, not current
+> repository entry points.
+
 ## Objective and context
 
 Build a solver that computes the **exact** probability of the player winning a battle from any
@@ -87,7 +92,7 @@ introduce the bug.
    and credits non-termination to the defender (see fact 10); the measure-zero divergence is
    documented, not fixed.
 
-6. **Opponent model = minimax for player fleets.** In optimal mode every non-NPC assignment
+6. **Opponent model = minimax for player fleets.** With minimax assignments every non-NPC assignment
   is a decision node. Attacker nodes maximize and defender nodes minimize the queried reach
   objective, so the solved value is the selected role's guaranteed win probability against
   optimal opposition. NPC assignments remain deterministic `NpcDamagePlanner` decisions.
@@ -178,7 +183,8 @@ New files:
   terminal checks, materialization to Ship clones/Fleets/Phases, and the one-slot transition
   function (chance outcomes → assignment → successor).
 - `src/engine/win-probability-solver.ts` — reachable-graph builder + value iteration
-  (fact 10), modes `'policy' | 'optimal'`, incremental `getValue(stateKey)` for planner reuse.
+  (fact 10), assignment modes `'policy' | 'minimax'`, incremental `getValue(stateKey)` for
+  planner reuse.
 - `src/engine/optimal-damage-planner.ts` — thin planner over the solver.
 - `scripts/measure-planner-gap.ts` — the exact-gap report.
 - Tests for each engine file.
@@ -286,7 +292,7 @@ recursion) from the initial state; nodes store outcome edges; then sweep.
 If the statistical test fails, debug the transition model — do not widen the tolerance.
 Fact 12 lists the only acceptable divergence sources, all sub-tolerance for no-heal matchups.
 
-## Stage D — Optimal mode
+## Stage D — Minimax assignments
 
 Every non-NPC decision node branches over `enumerateCandidates` successors (fact 8).
 Attacker-owned nodes take max and defender-owned nodes take min for the queried reach

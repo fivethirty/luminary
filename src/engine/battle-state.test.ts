@@ -8,7 +8,7 @@ import {
 } from './battle-state';
 
 const CTX: ExpandContext = {
-  optimal: false,
+  minimax: false,
   maxOutcomes: 100_000,
 };
 
@@ -161,7 +161,7 @@ describe('BattleModel', () => {
         });
       const model = new BattleModel([make()], [make()], false, false);
       const ctx: ExpandContext = {
-        optimal: true,
+        minimax: true,
         maxOutcomes: 100_000,
       };
 
@@ -174,6 +174,33 @@ describe('BattleModel', () => {
       expect(attackerMove.kind).toBe('move');
       if (attackerMove.kind !== 'move') return;
       expect(attackerMove.decisionRole).toBe('A');
+    });
+
+    test('minimax mode keeps NPC assignments deterministic', () => {
+      const model = new BattleModel(
+        [
+          new Ship(ShipType.Interceptor, {
+            initiative: 2,
+            cannons: { ion: 1 },
+          }),
+        ],
+        [
+          new Ship(ShipType.Ancient, {
+            initiative: 3,
+            cannons: { ion: 1 },
+          }),
+        ],
+        false,
+        false
+      );
+      const exp = model.expand(model.initialState(), {
+        minimax: true,
+        maxOutcomes: 100_000,
+      });
+      expect(exp.kind).toBe('move');
+      if (exp.kind !== 'move') return;
+      expect(exp.decisionRole).toBeNull();
+      expect(exp.edges.every((edge) => edge.options.length === 1)).toBe(true);
     });
 
     test('a single ion die vs a 1-HP enemy: 1/6 kill, 5/6 continue', () => {

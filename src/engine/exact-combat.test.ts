@@ -17,11 +17,10 @@ describe('solveOutcome', () => {
       new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } }),
     ];
     const model = new BattleModel(make(), make(), false, false);
-    const outcome = new WinProbabilitySolver(
-      model,
-      'A',
-      'policy'
-    ).solveOutcome();
+    const outcome = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solveOutcome();
 
     expect(outcome.ok).toBe(true);
     expect(outcome.pAttacker).toBeCloseTo(5 / 11, 9);
@@ -39,11 +38,10 @@ describe('solveOutcome', () => {
         false,
         false
       );
-      const outcome = new WinProbabilitySolver(
-        model,
-        'A',
-        'policy'
-      ).solveOutcome();
+      const outcome = new WinProbabilitySolver(model, {
+        perspective: 'A',
+        assignments: 'policy',
+      }).solveOutcome();
       expect(outcome.ok).toBe(true);
       expect(outcome.pAttacker + outcome.pDefender + outcome.pDraw).toBeCloseTo(
         1,
@@ -61,7 +59,10 @@ describe('solveOutcome', () => {
       false
     );
     for (const role of ['A', 'D'] as const) {
-      const solver = new WinProbabilitySolver(model, role, 'optimal');
+      const solver = new WinProbabilitySolver(model, {
+        perspective: role,
+        assignments: 'minimax',
+      });
       const w = solver.solve().winProbability;
       const outcome = solver.solveOutcome();
       const forward = role === 'A' ? outcome.pAttacker : outcome.pDefender;
@@ -77,11 +78,10 @@ describe('solveOutcome', () => {
       false,
       false
     );
-    const outcome = new WinProbabilitySolver(
-      model,
-      'A',
-      'policy'
-    ).solveOutcome();
+    const outcome = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solveOutcome();
     expect(outcome.pDraw).toBeGreaterThan(0);
   });
 });

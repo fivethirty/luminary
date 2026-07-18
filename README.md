@@ -9,7 +9,7 @@ It lives at [luminary.baysoft.dev](https://luminary.baysoft.dev).
 ## Dependencies
 
 Luminary requires [Bun](https://bun.sh). You can install it directly or with the
-provided [mise](https://mise.jdx.dev/) file (reccomended).
+provided [mise](https://mise.jdx.dev/) file (recommended).
 
 To start the dev server:
 
@@ -19,6 +19,11 @@ bun run dev
 ```
 
 The app will be available at http://localhost:3000
+
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md) for engine ownership, exact-solver semantics,
+intentional model differences, and focused validation commands.
 
 ## Bugs
 

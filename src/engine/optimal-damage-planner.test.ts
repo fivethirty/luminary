@@ -45,7 +45,10 @@ describe('OptimalDamagePlanner', () => {
           false,
           false
         );
-        const exact = new WinProbabilitySolver(model, 'A', 'optimal').solve();
+        const exact = new WinProbabilitySolver(model, {
+          perspective: 'A',
+          assignments: 'minimax',
+        }).solve();
         expect(exact.ok).toBe(true);
 
         const enemyFleet = new Fleet(
@@ -93,12 +96,16 @@ describe('OptimalDamagePlanner', () => {
       false
     );
     // A 1-state cap forces the build to bail immediately.
-    const solved = new WinProbabilitySolver(model, 'A', 'optimal', {
-      maxStates: 1,
-      maxOutcomesPerSlot: 20_000,
-      maxSweeps: 10_000,
-      convergence: 1e-10,
-      maxMillis: Infinity,
+    const solved = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+      caps: {
+        maxStates: 1,
+        maxOutcomesPerSlot: 20_000,
+        maxSweeps: 10_000,
+        convergence: 1e-10,
+        maxMillis: Infinity,
+      },
     }).solve();
     expect(solved.ok).toBe(false);
     expect(solved.reason).toContain('maxStates');

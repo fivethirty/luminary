@@ -1,6 +1,7 @@
 import { DICE_VALUES } from 'src/constants';
 import { Fleet } from './fleet';
 import { RiftShot, Ship, Shot } from './ship';
+import { terminalFromSurvival } from './battle-rules';
 
 const MAX_ROUNDS: number = 100;
 export const BattleOutcome = {
@@ -211,25 +212,24 @@ export class Battle {
   }
 
   private checkBattleOutcome(): BattleResult | null {
-    const attackerAlive = this.attacker.isAlive();
-    const defenderAlive = this.defender.isAlive();
-
-    if (!attackerAlive && !defenderAlive) {
+    const terminal = terminalFromSurvival(
+      this.attacker.isAlive(),
+      this.defender.isAlive()
+    );
+    if (terminal === 'Draw')
       return { outcome: BattleOutcome.Draw, victors: [] };
-    }
-    if (!attackerAlive) {
+    if (terminal === 'DefenderWins') {
       return {
         outcome: BattleOutcome.Defender,
         victors: this.defender.getLivingShips(),
       };
     }
-    if (!defenderAlive) {
+    if (terminal === 'AttackerWins') {
       return {
         outcome: BattleOutcome.Attacker,
         victors: this.attacker.getLivingShips(),
       };
     }
-
     return null;
   }
 }

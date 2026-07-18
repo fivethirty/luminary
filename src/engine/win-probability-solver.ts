@@ -1,3 +1,7 @@
+/**
+ * Builds and solves the exact combat graph. BattleModel owns transitions;
+ * this module owns policy evaluation, minimax choices, and outcome propagation.
+ */
 import {
   BattleModel,
   ExpandContext,
@@ -6,7 +10,7 @@ import {
   WorkingState,
 } from './battle-state';
 
-export type SolverMode = 'policy' | 'optimal';
+export type AssignmentMode = 'policy' | 'minimax';
 
 export type SolverCaps = {
   maxStates: number;
@@ -25,6 +29,14 @@ export const DEFAULT_CAPS: SolverCaps = {
   maxSweeps: 10_000,
   convergence: 1e-10,
   maxMillis: Infinity,
+};
+
+export type SolverOptions = {
+  // The fleet whose win event solve() reports. This does not control decisions.
+  perspective: Role;
+  // 'policy' uses DPS/NPC assignments; 'minimax' optimizes both player fleets.
+  assignments: AssignmentMode;
+  caps?: SolverCaps;
 };
 
 // Forward-pass controls: propagate until this little probability mass is still
@@ -65,11 +77,29 @@ export type OutcomeResult = {
   states: number;
 };
 
+export type SolverGraphStats = {
+  states: number;
+  terminalStates: number;
+  chanceStates: number;
+  attackerDecisionStates: number;
+  defenderDecisionStates: number;
+  chanceOutcomes: number;
+  assignmentOptions: number;
+};
+
+export type DecisionExplanation = {
+  role: Role;
+  outcomes: {
+    probability: number;
+    options: { value: number; selected: boolean }[];
+  }[];
+};
+
 /**
- * Computes the exact probability that the player (ownRole) wins the battle, by
+ * Computes the exact probability that the selected perspective wins, by
  * building the reachable state graph and running value iteration to the least
- * fixed point (fact 10). In 'policy' mode all assignments use the heuristics. In
- * 'optimal' mode both non-NPC sides are decision nodes: attacker assignments
+ * fixed point. With policy assignments all choices use heuristics. With minimax
+ * assignments both non-NPC sides are decision nodes: attacker assignments
  * maximize and defender assignments minimize the queried reach objective.
  *
  * Role formulations (both solved by LFP from 0):
@@ -84,6 +114,8 @@ export type OutcomeResult = {
  */
 export class WinProbabilitySolver {
   private readonly ctx: ExpandContext;
+  private readonly perspective: Role;
+  private readonly caps: SolverCaps;
   private keyToIndex = new Map<string, number>();
   private nodes: Node[] = [];
   private values: Float64Array = new Float64Array(0);
@@ -95,19 +127,19 @@ export class WinProbabilitySolver {
 
   constructor(
     private readonly model: BattleModel,
-    private readonly ownRole: Role,
-    private readonly mode: SolverMode,
-    private readonly caps: SolverCaps = DEFAULT_CAPS
+    options: SolverOptions
   ) {
+    this.perspective = options.perspective;
+    this.caps = options.caps ?? DEFAULT_CAPS;
     this.ctx = {
-      optimal: mode === 'optimal',
-      maxOutcomes: caps.maxOutcomesPerSlot,
+      minimax: options.assignments === 'minimax',
+      maxOutcomes: this.caps.maxOutcomesPerSlot,
     };
   }
 
   // Reach-set membership per role (fact 10).
   private target(outcome: Terminal): number {
-    if (this.ownRole === 'A') {
+    if (this.perspective === 'A') {
       return outcome === 'AttackerWins' ? 1 : 0;
     }
     return outcome === 'AttackerWins' || outcome === 'Draw' ? 1 : 0;
@@ -132,7 +164,7 @@ export class WinProbabilitySolver {
     }
     const iter = this.iterate();
     const raw = this.values[this.initialIndex];
-    const winProbability = this.ownRole === 'A' ? raw : 1 - raw;
+    const winProbability = this.perspective === 'A' ? raw : 1 - raw;
     this.solved = {
       ok: iter.ok,
       winProbability,
@@ -176,6 +208,53 @@ export class WinProbabilitySolver {
 
   canonicalKey(state: WorkingState): string {
     return this.model.canonicalKey(state);
+  }
+
+  getGraphStats(): SolverGraphStats {
+    this.solve();
+    const stats: SolverGraphStats = {
+      states: this.nodes.length,
+      terminalStates: 0,
+      chanceStates: 0,
+      attackerDecisionStates: 0,
+      defenderDecisionStates: 0,
+      chanceOutcomes: 0,
+      assignmentOptions: 0,
+    };
+    for (const node of this.nodes) {
+      if (node.terminal) stats.terminalStates++;
+      else if (node.decisionRole === 'A') stats.attackerDecisionStates++;
+      else if (node.decisionRole === 'D') stats.defenderDecisionStates++;
+      else stats.chanceStates++;
+      stats.chanceOutcomes += node.edges.length;
+      for (const edge of node.edges) {
+        stats.assignmentOptions += edge.options.length;
+      }
+    }
+    return stats;
+  }
+
+  explainDecision(key: string): DecisionExplanation | undefined {
+    const solved = this.solve();
+    if (!solved.ok) return undefined;
+    const index = this.keyToIndex.get(key);
+    if (index === undefined) return undefined;
+    const node = this.nodes[index];
+    if (!node.decisionRole) return undefined;
+
+    return {
+      role: node.decisionRole,
+      outcomes: node.edges.map((edge) => {
+        const selected = this.chooseOption(edge.options, node.decisionRole!);
+        return {
+          probability: edge.prob,
+          options: edge.options.map((option) => ({
+            value: this.values[option],
+            selected: option === selected,
+          })),
+        };
+      }),
+    };
   }
 
   private buildGraph(): { ok: boolean; reason?: string } {

@@ -1,3 +1,7 @@
+/**
+ * Adapts minimax solver values to live damage assignments and caches one solve
+ * per matchup. BattleModel and WinProbabilitySolver own combat semantics.
+ */
 import { Ship, Shot } from './ship';
 import { Phase } from './battle';
 import type { Fleet } from './fleet';
@@ -35,7 +39,7 @@ export type FallbackAssign = (
  */
 export class OptimalDamagePlanner {
   private ctx: BattleContext | null = null;
-  private ownRole: Role = 'A';
+  private perspective: Role = 'A';
   private attackerRoster: Ship[] = [];
   private defenderRoster: Ship[] = [];
   private model: BattleModel | null = null;
@@ -54,7 +58,7 @@ export class OptimalDamagePlanner {
 
   setBattleContext(ctx: BattleContext, ownFleet: Fleet): void {
     this.ctx = ctx;
-    this.ownRole = ownFleet === ctx.attacker ? 'A' : 'D';
+    this.perspective = ownFleet === ctx.attacker ? 'A' : 'D';
     this.attackerRoster = ctx.attacker.getRoster();
     this.defenderRoster = ctx.defender.getRoster();
 
@@ -72,12 +76,11 @@ export class OptimalDamagePlanner {
       ctx.attacker.antimatterSplitter,
       ctx.defender.antimatterSplitter
     );
-    const solver = new WinProbabilitySolver(
-      model,
-      this.ownRole,
-      'optimal',
-      this.solveCaps
-    );
+    const solver = new WinProbabilitySolver(model, {
+      perspective: this.perspective,
+      assignments: 'minimax',
+      caps: this.solveCaps,
+    });
     const result = solver.solve();
     if (!result.ok) {
       // Too large / too slow to solve exactly → fall back to the heuristic.
@@ -115,7 +118,7 @@ export class OptimalDamagePlanner {
 
     const nextSlot = this.nextSlotIndex(upcomingPhases);
     // Live HP in roster order; the target fleet gets each candidate applied.
-    const ownIsAttacker = this.ownRole === 'A';
+    const ownIsAttacker = this.perspective === 'A';
     const targetRoster = ownIsAttacker
       ? this.defenderRoster
       : this.attackerRoster;
@@ -163,7 +166,7 @@ export class OptimalDamagePlanner {
     targetHp: number[],
     nextSlot: number
   ): number | undefined {
-    const ownIsAttacker = this.ownRole === 'A';
+    const ownIsAttacker = this.perspective === 'A';
     const hpA = ownIsAttacker ? ownHp : targetHp;
     const hpB = ownIsAttacker ? targetHp : ownHp;
 
@@ -182,7 +185,7 @@ export class OptimalDamagePlanner {
   }
 
   private terminalValue(outcome: Terminal): number {
-    if (this.ownRole === 'A') return outcome === 'AttackerWins' ? 1 : 0;
+    if (this.perspective === 'A') return outcome === 'AttackerWins' ? 1 : 0;
     return outcome === 'AttackerWins' || outcome === 'Draw' ? 1 : 0;
   }
 
@@ -214,7 +217,7 @@ export class OptimalDamagePlanner {
         .map((s) => s.configKey())
         .sort()
         .join(',');
-    return `${this.ownRole}|A:${roster(this.attackerRoster)}|D:${roster(
+    return `${this.perspective}|A:${roster(this.attackerRoster)}|D:${roster(
       this.defenderRoster
     )}`;
   }

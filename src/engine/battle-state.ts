@@ -1,3 +1,7 @@
+/**
+ * Pure state transitions for exact combat. This module owns schedule and
+ * successor construction; WinProbabilitySolver owns graph values and policy.
+ */
 import { DamageType } from 'src/constants';
 import { Ship, Shot } from './ship';
 import { Fleet } from './fleet';
@@ -5,9 +9,10 @@ import { Phase } from './battle';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
 import { enumerateSlotOutcomes } from './dice-distribution';
 import { enumerateCandidates } from './candidate-enumerator';
+import { Terminal, terminalFromSurvival } from './battle-rules';
 
 export type Role = 'A' | 'D';
-export type Terminal = 'AttackerWins' | 'DefenderWins' | 'Draw';
+export type { Terminal } from './battle-rules';
 
 // A slot in the fixed battle schedule (fact 1): missile slots first (initiative
 // descending, defender before attacker on ties), then cannon slots in the same
@@ -41,9 +46,13 @@ export type Expansion =
 export type MoveEdge = { prob: number; options: Successor[] };
 
 export type ExpandContext = {
-  optimal: boolean;
+  minimax: boolean;
   maxOutcomes: number;
 };
+
+type AssignmentControl =
+  | { kind: 'decision'; role: Role }
+  | { kind: 'heuristic'; damageType: DamageType.NPC | DamageType.DPS };
 
 export class BattleModel {
   readonly schedule: Slot[];
@@ -169,16 +178,11 @@ export class BattleModel {
   // Advance from `fromSlot` to the next slot, applying heal + the mutual-no-
   // cannons stalemate check when a full cannon cycle wraps (fact 5).
   private advance(hpA: number[], hpB: number[], fromSlot: number): Successor {
-    if (!this.anyAlive(hpA)) {
-      return {
-        terminal: this.anyAlive(hpB) ? 'DefenderWins' : 'Draw',
-        hpA,
-        hpB,
-      };
-    }
-    if (!this.anyAlive(hpB)) {
-      return { terminal: 'AttackerWins', hpA, hpB };
-    }
+    const terminal = terminalFromSurvival(
+      this.anyAlive(hpA),
+      this.anyAlive(hpB)
+    );
+    if (terminal) return { terminal, hpA, hpB };
 
     const lastSlot = this.schedule.length - 1;
     if (fromSlot === lastSlot) {
@@ -333,7 +337,9 @@ export class BattleModel {
       };
     }
 
-    const decisionRole = ctx.optimal && !shooterIsNpc ? slot.role : null;
+    const assignmentControl = this.assignmentControl(slot, shooterIsNpc, ctx);
+    const decisionRole =
+      assignmentControl.kind === 'decision' ? assignmentControl.role : null;
 
     const edges: MoveEdge[] = [];
     for (const outcome of outcomes) {
@@ -344,8 +350,7 @@ export class BattleModel {
         shooterIsAttacker,
         shooterTemplates,
         targetTemplates,
-        shooterIsNpc,
-        decisionRole !== null
+        assignmentControl
       );
       if (options === null) return { kind: 'fail' };
       edges.push({ prob: outcome.prob, options });
@@ -363,8 +368,7 @@ export class BattleModel {
     shooterIsAttacker: boolean,
     shooterTemplates: Ship[],
     targetTemplates: Ship[],
-    shooterIsNpc: boolean,
-    isDecisionSlot: boolean
+    assignmentControl: AssignmentControl
   ): Successor[] | null {
     const shooterHp = shooterIsAttacker ? state.hpA : state.hpB;
     const targetHp = shooterIsAttacker ? state.hpB : state.hpA;
@@ -417,7 +421,7 @@ export class BattleModel {
       return [buildSuccessor()];
     }
 
-    if (isDecisionSlot) {
+    if (assignmentControl.kind === 'decision') {
       const candidates = enumerateCandidates(outcome.shots, targetLiving);
       if (candidates === null) return null;
       if (candidates.length === 0) return [buildSuccessor()];
@@ -438,7 +442,6 @@ export class BattleModel {
     }
 
     // Heuristic assignment: DPS for player fleets, NPC otherwise.
-    const damageType = shooterIsNpc ? DamageType.NPC : DamageType.DPS;
     const phases = this.buildPhaseTail(
       state.slot,
       shooterIsAttacker ? shooterMat.fleet : targetMat.fleet,
@@ -447,10 +450,24 @@ export class BattleModel {
     new BinnedDamageAssignmentHelper().assignDamage(
       outcome.shots,
       targetLiving,
-      damageType,
+      assignmentControl.damageType,
       phases
     );
     return [buildSuccessor()];
+  }
+
+  private assignmentControl(
+    slot: Slot,
+    shooterIsNpc: boolean,
+    ctx: ExpandContext
+  ): AssignmentControl {
+    if (shooterIsNpc) {
+      return { kind: 'heuristic', damageType: DamageType.NPC };
+    }
+    if (ctx.minimax) {
+      return { kind: 'decision', role: slot.role };
+    }
+    return { kind: 'heuristic', damageType: DamageType.DPS };
   }
 
   // Terminal check after a slot's damage (fact 4), else advance.
@@ -470,9 +487,8 @@ export class BattleModel {
         return { terminal: 'DefenderWins', hpA, hpB };
       return this.advance(hpA, hpB, fromSlot);
     }
-    if (!attackerAlive && !defenderAlive) return { terminal: 'Draw', hpA, hpB };
-    if (!attackerAlive) return { terminal: 'DefenderWins', hpA, hpB };
-    if (!defenderAlive) return { terminal: 'AttackerWins', hpA, hpB };
+    const terminal = terminalFromSurvival(attackerAlive, defenderAlive);
+    if (terminal) return { terminal, hpA, hpB };
     return this.advance(hpA, hpB, fromSlot);
   }
 

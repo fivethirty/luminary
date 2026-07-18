@@ -4,7 +4,7 @@ import { BattleModel } from './battle-state';
 import { WinProbabilitySolver } from './win-probability-solver';
 import { buildShips, MATCHUPS } from '../../scripts/matchups';
 
-describe('WinProbabilitySolver (optimal mode)', () => {
+describe('WinProbabilitySolver (minimax assignments)', () => {
   describe('minimax values are consistent for both roles', () => {
     for (const matchup of MATCHUPS.filter((m) => m.noHeal)) {
       test(matchup.name, () => {
@@ -16,32 +16,28 @@ describe('WinProbabilitySolver (optimal mode)', () => {
         );
 
         for (const role of ['A', 'D'] as const) {
-          const policy = new WinProbabilitySolver(
-            model,
-            role,
-            'policy'
-          ).solve();
-          const optimal = new WinProbabilitySolver(
-            model,
-            role,
-            'optimal'
-          ).solve();
+          const policy = new WinProbabilitySolver(model, {
+            perspective: role,
+            assignments: 'policy',
+          }).solve();
+          const optimal = new WinProbabilitySolver(model, {
+            perspective: role,
+            assignments: 'minimax',
+          }).solve();
           expect(policy.ok).toBe(true);
           expect(optimal.ok).toBe(true);
           expect(optimal.winProbability).toBeGreaterThanOrEqual(0);
           expect(optimal.winProbability).toBeLessThanOrEqual(1);
         }
 
-        const attacker = new WinProbabilitySolver(
-          model,
-          'A',
-          'optimal'
-        ).solve();
-        const defender = new WinProbabilitySolver(
-          model,
-          'D',
-          'optimal'
-        ).solve();
+        const attacker = new WinProbabilitySolver(model, {
+          perspective: 'A',
+          assignments: 'minimax',
+        }).solve();
+        const defender = new WinProbabilitySolver(model, {
+          perspective: 'D',
+          assignments: 'minimax',
+        }).solve();
         expect(attacker.winProbability + defender.winProbability).toBeCloseTo(
           1,
           9
@@ -57,7 +53,10 @@ describe('WinProbabilitySolver (optimal mode)', () => {
       false,
       false
     );
-    const optimal = new WinProbabilitySolver(model, 'A', 'optimal').solve();
+    const optimal = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+    }).solve();
     expect(optimal.winProbability).toBeGreaterThanOrEqual(0);
     expect(optimal.winProbability).toBeLessThanOrEqual(1);
   });
@@ -90,8 +89,14 @@ describe('WinProbabilitySolver (optimal mode)', () => {
     });
     const model = new BattleModel([player], [enemyA, enemyB], false, false);
 
-    const policy = new WinProbabilitySolver(model, 'A', 'policy').solve();
-    const optimal = new WinProbabilitySolver(model, 'A', 'optimal').solve();
+    const policy = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solve();
+    const optimal = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+    }).solve();
     expect(policy.ok).toBe(true);
     expect(optimal.ok).toBe(true);
     // At minimum, optimal never trails; this matchup exercises real candidate
