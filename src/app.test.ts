@@ -9,6 +9,10 @@ import {
   setSimulationResults,
 } from '@ui/state';
 import { monteCarloResults } from '@ui/test-helpers';
+import {
+  loadSteppersPreference,
+  saveSteppersPreference,
+} from '@ui/preferences';
 import { exactDpsPlannerOverrides, init } from './app';
 import indexHtml from './index.html' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
@@ -432,5 +436,55 @@ describe('App shared battle links', () => {
     init();
 
     expect(window.location.search).toBe('?v=1&a.cruiser=1&a.cruiser.hull=1');
+  });
+});
+
+describe('App steppers preference', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetFleets();
+    setSimulationResults(null);
+    document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
+    document.documentElement.innerHTML = indexHtml;
+  });
+
+  afterEach(() => {
+    document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
+  });
+
+  test('defaults to steppers on', () => {
+    init();
+
+    const toggle = document.getElementById('steppers-toggle')!;
+    expect(
+      toggle.querySelector('[data-steppers="on"]')?.classList.contains('active')
+    ).toBe(true);
+    expect(document.body.classList.contains('no-steppers')).toBe(false);
+  });
+
+  test('turning steppers off applies the layout class and saves the cookie', () => {
+    init();
+
+    const toggle = document.getElementById('steppers-toggle')!;
+    (
+      toggle.querySelector('[data-steppers="off"]') as HTMLButtonElement
+    ).click();
+
+    expect(document.body.classList.contains('no-steppers')).toBe(true);
+    expect(loadSteppersPreference()).toBe(false);
+  });
+
+  test('restores a saved off preference on init', () => {
+    saveSteppersPreference(false);
+
+    init();
+
+    const toggle = document.getElementById('steppers-toggle')!;
+    expect(
+      toggle
+        .querySelector('[data-steppers="off"]')
+        ?.classList.contains('active')
+    ).toBe(true);
+    expect(document.body.classList.contains('no-steppers')).toBe(true);
   });
 });

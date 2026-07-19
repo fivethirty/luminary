@@ -2,7 +2,6 @@ import html from './results.html' with { type: 'text' };
 import './results.css';
 import { state, type SimulationResults } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
-import { computeVerdict } from '@ui/verdict';
 import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
 
 const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
@@ -35,25 +34,9 @@ export class ResultsElement extends HTMLElement {
   render() {
     const results = state.simulationResults!;
 
-    this.renderVerdict(results);
     this.renderWinPercentages(results);
     this.renderSurvivorDistribution(results);
     this.renderSurvivors(results);
-  }
-
-  // The lead of the report: a plain-language sentence a player would say out
-  // loud ("Attacker favored — 73%") plus a margin-calibrated tag, so the
-  // answer reads at a glance before the tables.
-  private renderVerdict(results: SimulationResults) {
-    const verdict = computeVerdict(results, state.fleets);
-
-    const headline = this.querySelector('.verdict-headline') as HTMLElement;
-    headline.textContent = verdict.headline;
-    headline.className = `verdict-headline ${verdict.className}`;
-
-    const tag = this.querySelector('.verdict-tag') as HTMLElement;
-    tag.textContent = verdict.tag;
-    tag.hidden = false;
   }
 
   private bindShareActions() {

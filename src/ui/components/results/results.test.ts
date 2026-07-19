@@ -129,7 +129,7 @@ describe('Results', () => {
     expect(sliverSegment.getAttribute('aria-label')).toBe('Attacker 2: 2.0%');
   });
 
-  test('leads with a verdict headline and tag', () => {
+  test('omits the combat outlook summary', () => {
     setSimulationResults(
       exactResults({
         victoryProbability: { Defender: 0.266, Attacker: 0.734 },
@@ -140,14 +140,10 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const headline = element.querySelector('.verdict-headline')!;
-    expect(headline.textContent).toBe('Attacker favored');
-    expect(headline.classList.contains('attacker-result')).toBe(true);
-
-    const tag = element.querySelector('.verdict-tag') as HTMLElement;
-    expect(tag.textContent).toBe('Clear edge');
-    expect(tag.hidden).toBe(false);
-
+    expect(element.querySelector('.results-header')).toBeNull();
+    expect(element.querySelector('.results-kicker')).toBeNull();
+    expect(element.querySelector('.verdict-headline')).toBeNull();
+    expect(element.textContent).not.toContain('Combat Outlook');
     expect(element.querySelector('.verdict-number')).toBeNull();
     expect(element.querySelector('.verdict-caption')).toBeNull();
   });

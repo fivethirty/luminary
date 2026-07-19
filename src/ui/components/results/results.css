@@ -16,55 +16,9 @@ calc-results {
   overflow: hidden;
 }
 
-.results-header {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
-  display: flex;
-  gap: var(--space-md);
-  align-items: flex-start;
-}
-
-.results-kicker {
-  margin: 0 0 var(--space-xs) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.08em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
 .panel-heading h3 {
   margin: 0;
   font-size: var(--font-size-base);
-}
-
-/* Verdict header: the plain-language answer, leading the card. */
-.verdict-block {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-
-.verdict-headline {
-  margin: 0;
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  line-height: 1.1;
-  text-wrap: balance;
-}
-
-.verdict-tag {
-  display: inline-block;
-  margin-top: var(--space-xs);
-  padding: 0.1rem var(--space-sm);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
-  opacity: 0.85;
 }
 
 .results-body {
@@ -351,17 +305,9 @@ calc-results {
 }
 
 @media (max-width: 42rem) {
-  .results-header,
   .panel-heading {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  /* Stacked: keep the hero number reading left-to-right with the headline. */
-  .verdict-figure {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--space-sm);
   }
 
   .results-time {

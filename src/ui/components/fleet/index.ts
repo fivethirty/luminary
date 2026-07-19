@@ -111,10 +111,10 @@ export class FleetElement extends HTMLElement {
     chips.hidden = false;
 
     chips.querySelectorAll('.preset-picker').forEach((picker) => {
+      const select = picker as HTMLSelectElement;
+      select.selectedIndex = -1;
       picker.addEventListener('change', () => {
-        const select = picker as HTMLSelectElement;
         const preset = select.value as ShipDropdownOption;
-        select.value = '';
         if (!preset) return;
         const variantData = getDefaultShipConfig(preset);
         const existing = this.fleet.shipTypes.find(
@@ -123,11 +123,13 @@ export class FleetElement extends HTMLElement {
 
         if (!existing) {
           this.addShip(preset);
+          select.selectedIndex = -1;
           return;
         }
 
         if (!sameShipConfig(existing.config, variantData.config)) {
           this.addShip(preset);
+          select.selectedIndex = -1;
           return;
         }
 
@@ -137,6 +139,7 @@ export class FleetElement extends HTMLElement {
           });
           this.renderShips();
         }
+        select.selectedIndex = -1;
       });
     });
   }

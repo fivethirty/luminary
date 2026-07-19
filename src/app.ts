@@ -20,6 +20,11 @@ import {
 import type { PlannerType } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
 import {
+  applySteppersPreference,
+  loadSteppersPreference,
+  saveSteppersPreference,
+} from '@ui/preferences';
+import {
   loadRecentBattles,
   loadSetup,
   recordRecentBattle,
@@ -341,6 +346,28 @@ function init() {
     .getElementById('add-fleet-btn')!
     .addEventListener('click', addFleetHandler);
   document.getElementById('clear-all-btn')!.addEventListener('click', clearAll);
+
+  const steppersToggle = document.getElementById('steppers-toggle');
+  const steppersToggleButtons = Array.from(
+    steppersToggle?.querySelectorAll<HTMLButtonElement>('[data-steppers]') ?? []
+  );
+  const steppersEnabled = loadSteppersPreference();
+  const setSteppersEnabled = (enabled: boolean) => {
+    applySteppersPreference(enabled);
+    steppersToggleButtons.forEach((button) => {
+      const active = button.dataset.steppers === (enabled ? 'on' : 'off');
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  };
+  setSteppersEnabled(steppersEnabled);
+  steppersToggleButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const enabled = button.dataset.steppers === 'on';
+      saveSteppersPreference(enabled);
+      setSteppersEnabled(enabled);
+    });
+  });
 
   const recentsSelect = document.getElementById(
     'recent-battles'
