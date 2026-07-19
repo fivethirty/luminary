@@ -10,4 +10,57 @@
 
   // The custom script to call for testing instead of `bun test`
   "bun.test.customScript": "bun test",
+
+  // Auto-approve routine terminal commands used while coding in this workspace.
+  "chat.tools.terminal.enableAutoApprove": true,
+  "chat.tools.terminal.autoApprove": {
+    "pwd": true,
+    "ls": true,
+    "ls *": true,
+    "find *": true,
+    "rg *": true,
+    "grep *": true,
+    "sed *": true,
+    "awk *": true,
+    "cat *": true,
+    "head *": true,
+    "tail *": true,
+    "wc *": true,
+    "which *": true,
+    "command -v *": true,
+
+    "git status*": true,
+    "git --no-pager status*": true,
+    "git diff*": true,
+    "git --no-pager diff*": true,
+    "git log*": true,
+    "git --no-pager log*": true,
+    "git show*": true,
+    "git --no-pager show*": true,
+    "git blame*": true,
+    "git --no-pager blame*": true,
+    "git branch*": true,
+    "git --no-pager branch*": true,
+    "git rev-parse*": true,
+    "git fetch*": true,
+    "git pull*": true,
+    "git add*": true,
+    "git commit*": true,
+    "git stash*": true,
+
+    "bun *": true,
+    "node *": true,
+    "npm *": true,
+    "npx *": true,
+    "pnpm *": true,
+    "yarn *": true,
+    "tsc *": true,
+    "eslint *": true,
+    "prettier *": true,
+
+    "mkdir *": true,
+    "cp *": true,
+    "mv *": true,
+    "touch *": true
+  },
 }
