@@ -26,8 +26,8 @@ describe('Results', () => {
 
     expect(element.style.display).not.toBe('none');
 
-    const resultItems = element.querySelectorAll('.result-row');
-    expect(resultItems.length).toBe(2);
+    const oddsSegments = element.querySelectorAll('.odds-segment');
+    expect(oddsSegments.length).toBe(2);
   });
 
   test('displays fleets in their original order', () => {
@@ -44,9 +44,9 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const resultItems = element.querySelectorAll('.result-row');
-    const names = Array.from(resultItems).map(
-      (item) => item.querySelector('.fleet-name')?.textContent
+    const oddsSegments = element.querySelectorAll('.odds-segment');
+    const names = Array.from(oddsSegments).map(
+      (segment) => segment.querySelector('span')?.textContent
     );
 
     expect(names).toEqual(['Fleet A', 'Fleet B', 'Fleet C']);
@@ -66,10 +66,10 @@ describe('Results', () => {
     document.body.appendChild(element);
 
     const percentages = Array.from(
-      element.querySelectorAll('.win-percentage')
-    ).map((el) => el.textContent);
+      element.querySelectorAll('.odds-segment')
+    ).map((segment) => segment.getAttribute('aria-label'));
 
-    expect(percentages).toEqual(['75.3%', '24.7%']);
+    expect(percentages).toEqual(['Defender: 75.3%', 'Attacker: 24.7%']);
   });
 
   test('omits zero-probability fleets from victory odds', () => {
@@ -86,8 +86,8 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const names = Array.from(element.querySelectorAll('.result-row')).map(
-      (row) => row.querySelector('.fleet-name')?.textContent
+    const names = Array.from(element.querySelectorAll('.odds-segment')).map(
+      (segment) => segment.querySelector('span')?.textContent
     );
     const oddsLabels = Array.from(
       element.querySelectorAll('.odds-segment')
@@ -129,7 +129,7 @@ describe('Results', () => {
     expect(sliverSegment.getAttribute('aria-label')).toBe('Attacker 2: 2.0%');
   });
 
-  test('leads with a verdict headline, tag, and hero number', () => {
+  test('leads with a verdict headline and tag', () => {
     setSimulationResults(
       exactResults({
         victoryProbability: { Defender: 0.266, Attacker: 0.734 },
@@ -148,11 +148,8 @@ describe('Results', () => {
     expect(tag.textContent).toBe('Clear edge');
     expect(tag.hidden).toBe(false);
 
-    const number = element.querySelector('.verdict-number')!;
-    expect(number.textContent).toBe('73.4%');
-    expect(element.querySelector('.verdict-caption')!.textContent).toBe(
-      'Attacker'
-    );
+    expect(element.querySelector('.verdict-number')).toBeNull();
+    expect(element.querySelector('.verdict-caption')).toBeNull();
   });
 
   test('uses distinct color classes for multiple attackers', () => {
@@ -191,17 +188,16 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const resultItems = element.querySelectorAll('.result-row');
-    expect(resultItems.length).toBe(3); // 2 fleets + draw
+    const oddsSegments = element.querySelectorAll('.odds-segment');
+    expect(oddsSegments.length).toBe(3); // 2 fleets + draw
 
-    const drawItem = element.querySelector('.result-row.draw');
+    const drawItem = element.querySelector('.odds-segment.draw-result');
     expect(drawItem).not.toBeNull();
 
-    const drawName = drawItem!.querySelector('.fleet-name')?.textContent;
+    const drawName = drawItem!.querySelector('span')?.textContent;
     expect(drawName).toBe('Draw');
 
-    const drawPercent = drawItem!.querySelector('.win-percentage')?.textContent;
-    expect(drawPercent).toBe('25.0%');
+    expect(drawItem!.getAttribute('aria-label')).toBe('Draw: 25.0%');
   });
 
   test('lists the defender first even when results arrive attacker-first', () => {
@@ -220,8 +216,8 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const names = Array.from(element.querySelectorAll('.result-row')).map(
-      (row) => row.querySelector('.fleet-name')?.textContent
+    const names = Array.from(element.querySelectorAll('.odds-segment')).map(
+      (segment) => segment.querySelector('span')?.textContent
     );
     expect(names).toEqual(['Defender', 'Attacker']);
   });
@@ -242,8 +238,8 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const names = Array.from(element.querySelectorAll('.result-row')).map(
-      (row) => row.querySelector('.fleet-name')?.textContent
+    const names = Array.from(element.querySelectorAll('.odds-segment')).map(
+      (segment) => segment.querySelector('span')?.textContent
     );
     expect(names).toEqual([
       'Defender',
@@ -300,7 +296,7 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const drawItem = element.querySelector('.result-row.draw');
+    const drawItem = element.querySelector('.odds-segment.draw-result');
     expect(drawItem).toBeNull();
   });
 
@@ -457,7 +453,7 @@ describe('Results', () => {
     expect(shipTypes).toEqual(['Interceptor', 'Dreadnought']);
   });
 
-  test('displays progress bars with correct widths', () => {
+  test('displays odds segments with correct widths', () => {
     setSimulationResults(
       monteCarloResults({
         victoryProbability: {
@@ -470,10 +466,33 @@ describe('Results', () => {
     const element = document.createElement('calc-results') as ResultsElement;
     document.body.appendChild(element);
 
-    const bars = element.querySelectorAll(
-      '.win-bar-fill'
+    const segments = element.querySelectorAll(
+      '.odds-segment'
     ) as NodeListOf<HTMLElement>;
-    expect(bars[0].style.width).toBe('75%');
-    expect(bars[1].style.width).toBe('25%');
+    expect(segments[0].style.flexBasis).toBe('75%');
+    expect(segments[1].style.flexBasis).toBe('25%');
+  });
+
+  test('renders mobile-friendly result bars', () => {
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          'Fleet A': 0.75,
+          'Fleet B': 0.25,
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const rows = element.querySelectorAll('.result-bar-row');
+    expect(rows.length).toBe(2);
+    expect(rows[0].querySelector('.result-bar-label')?.textContent).toBe(
+      'Fleet A75.0%'
+    );
+    expect(
+      (rows[0].querySelector('.result-bar-fill') as HTMLElement).style.width
+    ).toBe('75%');
   });
 });
