@@ -8,10 +8,16 @@ calc-results {
 }
 
 .results-card {
+  --results-section-padding-block: var(--space-md);
+  --results-section-padding-inline: var(--space-md);
+  --results-section-gap: var(--space-md);
+  --results-row-padding-block: var(--space-sm);
+
   overflow: hidden;
 }
 
 .results-header {
+  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
   display: flex;
   justify-content: space-between;
   gap: var(--space-md);
@@ -24,6 +30,7 @@ calc-results {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
+  line-height: 1;
   text-transform: uppercase;
 }
 
@@ -51,6 +58,7 @@ calc-results {
 
 .verdict-tag {
   display: inline-block;
+  margin-top: var(--space-xs);
   padding: 0.1rem var(--space-sm);
   border: 1px solid currentColor;
   border-radius: var(--radius-full);
@@ -81,11 +89,14 @@ calc-results {
 }
 
 .results-body {
-  padding: var(--space-md);
+  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
+  display: flex;
+  flex-direction: column;
+  gap: var(--results-section-gap);
 }
 
 .results-time {
-  margin: var(--space-sm) 0 0 0;
+  margin: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   text-align: right;
@@ -96,16 +107,16 @@ calc-results {
   display: flex;
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
-  margin-bottom: var(--space-md);
   background: color-mix(in srgb, var(--color-bg-primary) 42%, transparent);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
 
 .odds-segment {
-  min-width: 5rem;
+  min-width: 0;
   padding: var(--space-md) var(--space-lg);
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   justify-content: center;
   align-items: center;
@@ -113,11 +124,22 @@ calc-results {
   box-sizing: border-box;
   color: var(--color-text-primary);
   text-align: center;
+  overflow: hidden;
+}
+
+.odds-segment--percent-only {
+  padding-inline: var(--space-xs);
+}
+
+.odds-segment--sliver {
+  min-width: 0.35rem;
+  padding: 0;
 }
 
 .odds-segment strong {
   font-size: var(--font-size-2xl);
   line-height: 1;
+  white-space: nowrap;
 }
 
 .odds-segment span {
@@ -135,7 +157,7 @@ calc-results {
 }
 
 .results-table td {
-  padding: var(--space-sm) 0;
+  padding: var(--results-row-padding-block) 0;
   text-align: left;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
   font-size: var(--font-size-base);
@@ -221,7 +243,7 @@ calc-results {
 }
 
 .panel-heading {
-  padding: var(--space-md);
+  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -244,7 +266,7 @@ calc-results {
 
 .composition-table th,
 .composition-table td {
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--results-row-padding-block) var(--results-section-padding-inline);
   border-top: 1px solid var(--color-border);
 }
 
@@ -285,10 +307,10 @@ calc-results {
 }
 
 .survivors-grid {
-  padding: 0 var(--space-md) var(--space-md);
+  padding: 0 var(--results-section-padding-inline) var(--results-section-padding-block);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: var(--space-md);
+  gap: var(--results-section-gap);
 }
 
 .survivor-fleet-card {
@@ -330,7 +352,7 @@ calc-results {
 }
 
 .results-actions {
-  padding: var(--space-md);
+  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
   border-top: 1px solid var(--color-border);
   display: flex;
   gap: var(--space-sm);
@@ -371,10 +393,6 @@ calc-results {
   }
 
   .odds-strip {
-    flex-direction: column;
-  }
-
-  .odds-segment {
-    min-height: 4rem;
+    display: none;
   }
 }

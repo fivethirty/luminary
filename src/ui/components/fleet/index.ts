@@ -252,16 +252,20 @@ export class FleetElement extends HTMLElement {
       '.planner-type-select'
     ) as HTMLSelectElement | null;
     if (!select) return;
-    const npcOption = select.querySelector(
+    let npcOption = select.querySelector(
       'option[value="npc"]'
     ) as HTMLOptionElement | null;
     const types = this.fleet.shipTypes;
     const allAi =
       types.length > 0 && types.every((st) => !isPlayerShipType(st.type));
 
-    if (npcOption) {
-      npcOption.hidden = !allAi;
-      npcOption.disabled = !allAi;
+    if (allAi && !npcOption) {
+      npcOption = document.createElement('option');
+      npcOption.value = 'npc';
+      npcOption.textContent = 'NPC';
+      select.appendChild(npcOption);
+    } else if (!allAi) {
+      npcOption?.remove();
     }
 
     select.querySelectorAll('option:not([value="npc"])').forEach((opt) => {
