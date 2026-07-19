@@ -18,6 +18,10 @@ const PLAYER_COMPOSITION_ORDER = new Map(
   )
 );
 
+const ODDS_PERCENT_ONLY_THRESHOLD = 0.08;
+const ODDS_SLIVER_THRESHOLD = 0.025;
+const ODDS_MINIMUM_BASIS_PERCENT = 0.75;
+
 export class ResultsElement extends HTMLElement {
   connectedCallback() {
     this.innerHTML = html;
@@ -237,13 +241,28 @@ export class ResultsElement extends HTMLElement {
   ): HTMLElement {
     const segment = document.createElement('div');
     segment.className = `odds-segment ${this.sideClass(fleetName, isDraw)}`;
-    segment.style.flexBasis = `${Math.max(percentage * 100, 2)}%`;
+    if (percentage < ODDS_SLIVER_THRESHOLD) {
+      segment.classList.add('odds-segment--sliver');
+    } else if (percentage < ODDS_PERCENT_ONLY_THRESHOLD) {
+      segment.classList.add('odds-segment--percent-only');
+    }
+    segment.style.flexBasis = `${Math.max(
+      percentage * 100,
+      ODDS_MINIMUM_BASIS_PERCENT
+    )}%`;
+
+    const percentText = `${Math.round(percentage * 100)}%`;
+    const fullLabel = `${fleetName}: ${(percentage * 100).toFixed(1)}%`;
+    segment.setAttribute('aria-label', fullLabel);
+    segment.title = fullLabel;
 
     const value = document.createElement('strong');
-    value.textContent = `${Math.round(percentage * 100)}%`;
+    value.textContent = percentText;
+    value.hidden = percentage < ODDS_SLIVER_THRESHOLD;
 
     const label = document.createElement('span');
     label.textContent = fleetName;
+    label.hidden = percentage < ODDS_PERCENT_ONLY_THRESHOLD;
 
     segment.appendChild(value);
     segment.appendChild(label);

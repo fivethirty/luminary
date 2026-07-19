@@ -97,6 +97,38 @@ describe('Results', () => {
     expect(oddsLabels).toEqual(['Defender', 'Attacker']);
   });
 
+  test('compacts low-probability odds strip labels', () => {
+    addFleet();
+    state.fleets[2].name = 'Attacker 2';
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          Defender: 0.92,
+          Attacker: 0.06,
+          'Attacker 2': 0.02,
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const segments = element.querySelectorAll('.odds-segment');
+    const tightSegment = segments[1];
+    const sliverSegment = segments[2];
+
+    expect(tightSegment.classList.contains('odds-segment--percent-only')).toBe(
+      true
+    );
+    expect(tightSegment.querySelector('strong')?.hidden).toBe(false);
+    expect(tightSegment.querySelector('span')?.hidden).toBe(true);
+
+    expect(sliverSegment.classList.contains('odds-segment--sliver')).toBe(true);
+    expect(sliverSegment.querySelector('strong')?.hidden).toBe(true);
+    expect(sliverSegment.querySelector('span')?.hidden).toBe(true);
+    expect(sliverSegment.getAttribute('aria-label')).toBe('Attacker 2: 2.0%');
+  });
+
   test('leads with a verdict headline, tag, and hero number', () => {
     setSimulationResults(
       exactResults({
