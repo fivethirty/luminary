@@ -51,14 +51,32 @@
    them real tap targets. */
 @media (pointer: coarse) {
   .stat-cube {
-    min-height: 4rem;
+    min-height: 3.25rem;
   }
 
   .stat-step {
-    width: 1.9rem;
-    height: 2.5rem;
-    font-size: 1.125rem;
+    width: 1.5rem;
+    height: 2rem;
+    font-size: 1rem;
     color: var(--color-text-secondary);
+  }
+}
+
+@media (max-width: 42rem) {
+  .stat-cube {
+    min-height: 3rem;
+    padding-top: 0.25rem;
+  }
+
+  .stat-step {
+    width: 1.5rem;
+    height: 1.875rem;
+  }
+
+  .stat-cube input {
+    width: 1.75rem;
+    height: 1.25rem;
+    font-size: 0.9375rem;
   }
 }
 
