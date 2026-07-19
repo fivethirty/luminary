@@ -16,76 +16,9 @@ calc-results {
   overflow: hidden;
 }
 
-.results-header {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-md);
-  align-items: flex-start;
-}
-
-.results-kicker {
-  margin: 0 0 var(--space-xs) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.08em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
 .panel-heading h3 {
   margin: 0;
   font-size: var(--font-size-base);
-}
-
-/* Verdict header: the plain-language answer, leading the card. */
-.verdict-block {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-
-.verdict-headline {
-  margin: 0;
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  line-height: 1.1;
-  text-wrap: balance;
-}
-
-.verdict-tag {
-  display: inline-block;
-  margin-top: var(--space-xs);
-  padding: 0.1rem var(--space-sm);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
-  opacity: 0.85;
-}
-
-.verdict-figure {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-
-.verdict-number {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.verdict-caption {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
 }
 
 .results-body {
@@ -151,48 +84,6 @@ calc-results {
   text-transform: uppercase;
 }
 
-.results-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.results-table td {
-  padding: var(--results-row-padding-block) 0;
-  text-align: left;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-  font-size: var(--font-size-base);
-}
-
-.fleet-name {
-  font-weight: var(--font-weight-bold);
-  white-space: nowrap;
-}
-
-.results-table .win-percentage {
-  white-space: nowrap;
-  text-align: right;
-  padding-left: var(--space-md);
-  padding-right: var(--space-md);
-}
-
-.results-table .win-bar-cell {
-  width: 100%;
-  padding-left: var(--space-xs);
-}
-
-.win-bar {
-  background-color: color-mix(in srgb, var(--color-bg-primary) 70%, black);
-  height: 0.5rem;
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-
-.win-bar-fill {
-  background-color: currentColor;
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
 .defender-result {
   color: var(--color-defender);
 }
@@ -235,6 +126,45 @@ calc-results {
 
 .odds-segment.draw-result {
   background: linear-gradient(135deg, var(--color-draw-soft), color-mix(in srgb, var(--color-draw) 24%, var(--color-bg-secondary)));
+}
+
+.results-bars {
+  display: none;
+}
+
+.result-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.result-bar-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--font-size-base);
+}
+
+.result-bar-label span {
+  font-weight: var(--font-weight-bold);
+}
+
+.result-bar-label strong {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-bar-track {
+  background-color: color-mix(in srgb, var(--color-bg-primary) 70%, black);
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.result-bar-fill {
+  background-color: currentColor;
+  height: 100%;
+  transition: width 0.3s ease;
 }
 
 .survivor-distribution-section,
@@ -375,17 +305,9 @@ calc-results {
 }
 
 @media (max-width: 42rem) {
-  .results-header,
   .panel-heading {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  /* Stacked: keep the hero number reading left-to-right with the headline. */
-  .verdict-figure {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--space-sm);
   }
 
   .results-time {
@@ -394,5 +316,11 @@ calc-results {
 
   .odds-strip {
     display: none;
+  }
+
+  .results-bars {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
   }
 }

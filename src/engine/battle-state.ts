@@ -59,17 +59,33 @@ export class BattleModel {
   private readonly numMissileSlots: number;
   private readonly attackerIsNpc: boolean;
   private readonly defenderIsNpc: boolean;
+  private readonly attackerTemplates: Ship[];
+  private readonly defenderTemplates: Ship[];
+  private readonly attackerInitialHp: number[];
+  private readonly defenderInitialHp: number[];
 
   constructor(
-    private readonly attackerTemplates: Ship[],
-    private readonly defenderTemplates: Ship[],
+    attackerTemplates: Ship[],
+    defenderTemplates: Ship[],
     private readonly attackerSplitter: boolean,
     private readonly defenderSplitter: boolean
   ) {
+    this.attackerInitialHp = attackerTemplates.map((s) => s.remainingHP());
+    this.defenderInitialHp = defenderTemplates.map((s) => s.remainingHP());
+    this.attackerTemplates = attackerTemplates.map((s) => {
+      const template = s.clone();
+      template.resetDamage();
+      return template;
+    });
+    this.defenderTemplates = defenderTemplates.map((s) => {
+      const template = s.clone();
+      template.resetDamage();
+      return template;
+    });
     this.schedule = this.buildSchedule();
     this.numMissileSlots = this.schedule.filter((s) => s.missile).length;
-    this.attackerIsNpc = !attackerTemplates.some((s) => s.isPlayerShip());
-    this.defenderIsNpc = !defenderTemplates.some((s) => s.isPlayerShip());
+    this.attackerIsNpc = !this.attackerTemplates.some((s) => s.isPlayerShip());
+    this.defenderIsNpc = !this.defenderTemplates.some((s) => s.isPlayerShip());
   }
 
   // Mirrors getAllPhases(): each fleet contributes a cannon slot for every
@@ -117,8 +133,8 @@ export class BattleModel {
 
   initialState(): WorkingState {
     return {
-      hpA: this.attackerTemplates.map((s) => s.maxHP()),
-      hpB: this.defenderTemplates.map((s) => s.maxHP()),
+      hpA: [...this.attackerInitialHp],
+      hpB: [...this.defenderInitialHp],
       slot: 0,
     };
   }

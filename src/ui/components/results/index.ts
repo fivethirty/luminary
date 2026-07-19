@@ -2,7 +2,6 @@ import html from './results.html' with { type: 'text' };
 import './results.css';
 import { state, type SimulationResults } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
-import { computeVerdict } from '@ui/verdict';
 import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
 
 const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
@@ -18,8 +17,8 @@ const PLAYER_COMPOSITION_ORDER = new Map(
   )
 );
 
-const ODDS_PERCENT_ONLY_THRESHOLD = 0.08;
-const ODDS_SLIVER_THRESHOLD = 0.025;
+const ODDS_PERCENT_ONLY_THRESHOLD = 0.2;
+const ODDS_SLIVER_THRESHOLD = 0.035;
 const ODDS_MINIMUM_BASIS_PERCENT = 0.75;
 
 export class ResultsElement extends HTMLElement {
@@ -35,32 +34,9 @@ export class ResultsElement extends HTMLElement {
   render() {
     const results = state.simulationResults!;
 
-    this.renderVerdict(results);
     this.renderWinPercentages(results);
     this.renderSurvivorDistribution(results);
     this.renderSurvivors(results);
-  }
-
-  // The lead of the report: a plain-language sentence a player would say out
-  // loud ("Attacker favored — 73%") plus a margin-calibrated tag, so the
-  // answer reads at a glance before the tables.
-  private renderVerdict(results: SimulationResults) {
-    const verdict = computeVerdict(results, state.fleets);
-
-    const headline = this.querySelector('.verdict-headline') as HTMLElement;
-    headline.textContent = verdict.headline;
-    headline.className = `verdict-headline ${verdict.className}`;
-
-    const tag = this.querySelector('.verdict-tag') as HTMLElement;
-    tag.textContent = verdict.tag;
-    tag.hidden = false;
-
-    const number = this.querySelector('.verdict-number') as HTMLElement;
-    number.textContent = `${(verdict.leaderProbability * 100).toFixed(1)}%`;
-    number.className = `verdict-number ${verdict.className}`;
-
-    const caption = this.querySelector('.verdict-caption') as HTMLElement;
-    caption.textContent = verdict.leaderLabel;
   }
 
   private bindShareActions() {
@@ -99,25 +75,25 @@ export class ResultsElement extends HTMLElement {
       results.method === 'exact'
         ? `Exact (deterministic) · ${results.timeTaken} ms`
         : `Monte Carlo · ${results.iterations.toLocaleString()} iterations · ${results.timeTaken} ms`;
-    const tbody = this.querySelector('#results-tbody')!;
     const oddsStrip = this.querySelector('#odds-strip')!;
-    tbody.innerHTML = '';
+    const resultsBars = this.querySelector('#results-bars')!;
     oddsStrip.innerHTML = '';
+    resultsBars.innerHTML = '';
 
     for (const [fleetName, percentage] of this.orderedByFleet(
       results.victoryProbability
     )) {
       if (percentage <= 0) continue;
       oddsStrip.appendChild(this.createOddsSegment(fleetName, percentage));
-      tbody.appendChild(this.createResultRow(fleetName, percentage));
+      resultsBars.appendChild(this.createResultBar(fleetName, percentage));
     }
 
     if (results.drawProbability > 0) {
       oddsStrip.appendChild(
         this.createOddsSegment('Draw', results.drawProbability, true)
       );
-      tbody.appendChild(
-        this.createResultRow('Draw', results.drawProbability, true)
+      resultsBars.appendChild(
+        this.createResultBar('Draw', results.drawProbability, true)
       );
     }
   }
@@ -197,39 +173,37 @@ export class ResultsElement extends HTMLElement {
       .map(({ entry }) => entry);
   }
 
-  private createResultRow(
+  private createResultBar(
     fleetName: string,
     percentage: number,
     isDraw = false
   ): HTMLElement {
-    const row = document.createElement('tr');
-    row.className = isDraw ? 'result-row draw' : 'result-row';
+    const row = document.createElement('div');
+    row.className = isDraw ? 'result-bar-row draw' : 'result-bar-row';
     row.classList.add(...this.sideClasses(fleetName, isDraw));
 
-    const nameCell = document.createElement('td');
-    nameCell.className = 'fleet-name';
-    nameCell.textContent = fleetName;
+    const label = document.createElement('div');
+    label.className = 'result-bar-label';
 
-    const percentCell = document.createElement('td');
-    percentCell.className = 'win-percentage';
-    percentCell.textContent = `${(percentage * 100).toFixed(1)}%`;
+    const name = document.createElement('span');
+    name.textContent = fleetName;
 
-    const barCell = document.createElement('td');
-    barCell.className = 'win-bar-cell';
+    const value = document.createElement('strong');
+    value.textContent = `${(percentage * 100).toFixed(1)}%`;
 
-    const barDiv = document.createElement('div');
-    barDiv.className = 'win-bar';
+    label.appendChild(name);
+    label.appendChild(value);
 
-    const barFill = document.createElement('div');
-    barFill.className = 'win-bar-fill';
-    barFill.style.width = `${percentage * 100}%`;
+    const track = document.createElement('div');
+    track.className = 'result-bar-track';
 
-    barDiv.appendChild(barFill);
-    barCell.appendChild(barDiv);
+    const fill = document.createElement('div');
+    fill.className = 'result-bar-fill';
+    fill.style.width = `${percentage * 100}%`;
 
-    row.appendChild(nameCell);
-    row.appendChild(percentCell);
-    row.appendChild(barCell);
+    track.appendChild(fill);
+    row.appendChild(label);
+    row.appendChild(track);
 
     return row;
   }

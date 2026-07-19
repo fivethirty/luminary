@@ -80,19 +80,44 @@
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
   }
 
-  .stat-group-core {
-    grid-column: 1 / -1;
+  body:not(.no-steppers) .ship-type .stats {
+    grid-template-areas:
+      "core ."
+      "weapons missiles";
+  }
+
+  body:not(.no-steppers) .stat-group-core {
+    grid-area: core;
+  }
+
+  body:not(.no-steppers) .stat-group-weapons {
+    grid-area: weapons;
+  }
+
+  body:not(.no-steppers) .stat-group-missiles {
+    grid-area: missiles;
   }
 }
 
-/* Wider stat columns on touch screens so the stepper buttons fit real tap
-   targets. */
-@media (pointer: coarse) {
-  .stat-group {
-    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+/* Stepper-free mode: without the +/− buttons the cubes are narrow enough for
+   each group to sit on a single row — 5-5-4 stacked on phones, all three
+   groups side by side in one row on desktop. */
+body.no-steppers .stat-group {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (min-width: 52.0625rem) {
+  body.no-steppers .ship-type .stats {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
+    gap: var(--space-sm);
   }
 
-  .stat-group-missiles {
+  body.no-steppers .stat-group-core {
+    grid-column: auto;
+  }
+
+
+  body.no-steppers .stat-group-missiles {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

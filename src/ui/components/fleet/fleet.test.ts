@@ -69,6 +69,29 @@ describe('Fleet', () => {
     expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
   });
 
+  test('preset picker options only include selectable variants', async () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+
+    document.body.appendChild(element);
+    await customElements.whenDefined('calc-ship-type');
+
+    const ancientPicker = presetPicker(element, 'Add Ancient layout');
+    expect(
+      Array.from(ancientPicker.options).map((opt) => opt.textContent)
+    ).toEqual(['Base', 'A', 'WA']);
+    expect(
+      Array.from(ancientPicker.options).some(
+        (opt) => opt.textContent === 'Ancient'
+      )
+    ).toBe(false);
+    expect(ancientPicker.selectedIndex).toBe(-1);
+
+    choosePreset(ancientPicker, 'ancient');
+    expect(ancientPicker.selectedIndex).toBe(-1);
+  });
+
   test('preset chips swap NPC variants directly', async () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];

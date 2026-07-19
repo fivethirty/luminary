@@ -120,10 +120,23 @@
   touch-action: manipulation;
 }
 
+.preset-picker-wrap {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.preset-picker-wrap span {
+  pointer-events: none;
+}
+
 .preset-picker {
   appearance: none;
   -webkit-appearance: none;
-  min-width: 7rem;
+  min-width: 4.5rem;
   padding-right: var(--space-xl);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -158,6 +171,18 @@
   margin-left: auto;
 }
 
+.planner-type-select {
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  background-position: right 0.875rem center;
+  background-repeat: no-repeat;
+  background-size: 0.75rem;
+
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
 /* On phones the row can't hold both controls plus the planner select, so stack
    them and let the select take the full width. */
 @media (max-width: 42rem) {
@@ -173,6 +198,11 @@
   .preset-picker {
     flex: 0 1 calc(50% - var(--space-sm));
     min-width: 0;
+  }
+
+  .preset-picker-wrap {
+    flex: 0 1 calc(50% - var(--space-sm));
+    grid-template-columns: 1fr auto;
   }
 
   .fleet-tech {

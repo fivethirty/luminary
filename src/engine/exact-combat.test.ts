@@ -5,7 +5,7 @@ import { CombatSimulator } from './combat-simulator';
 import { DamageType } from 'src/constants';
 import { BattleModel } from './battle-state';
 import { WinProbabilitySolver } from './win-probability-solver';
-import { computeExactBattle } from './exact-combat';
+import { computeExactBattle, computeExactCombat } from './exact-combat';
 import { buildShips, MATCHUPS } from '../../scripts/matchups';
 
 describe('solveOutcome', () => {
@@ -373,5 +373,31 @@ describe('computeExactBattle', () => {
     );
     expect(result.ok).toBe(false);
     expect(result.reason).toBeDefined();
+  });
+});
+
+describe('computeExactCombat', () => {
+  test('composes a three-fleet exact battle in MultiBattle order', () => {
+    const interceptor = () =>
+      new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });
+
+    const result = computeExactCombat([
+      new Fleet('Defender', [interceptor()]),
+      new Fleet('Attacker 1', [interceptor()]),
+      new Fleet('Attacker 2', [interceptor()]),
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(result.lastFleetStanding['Defender']).toBeCloseTo(66 / 121, 9);
+    expect(result.lastFleetStanding['Attacker 1']).toBeCloseTo(30 / 121, 9);
+    expect(result.lastFleetStanding['Attacker 2']).toBeCloseTo(25 / 121, 9);
+    expect(result.drawPercentage).toBeCloseTo(0, 12);
+    expect(result.expectedSurvivors['Defender'][ShipType.Interceptor]).toBe(1);
+    expect(result.expectedSurvivors['Attacker 1'][ShipType.Interceptor]).toBe(
+      1
+    );
+    expect(result.expectedSurvivors['Attacker 2'][ShipType.Interceptor]).toBe(
+      1
+    );
   });
 });

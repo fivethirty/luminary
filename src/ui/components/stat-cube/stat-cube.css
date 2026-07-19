@@ -152,6 +152,17 @@ calc-stat-cube[disabled] .stat-step {
   appearance: textfield;
 }
 
+/* Stepper-free mode: the cube becomes a plain tap-to-type field, narrow
+   enough for the compressed single-row layouts. */
+body.no-steppers .stat-step {
+  display: none;
+}
+
+body.no-steppers .stat-cube input {
+  width: 100%;
+  min-width: 0;
+}
+
 calc-stat-cube[data-stat*='ion'] .stat-cube label {
   color: var(--color-stat-ion);
 }

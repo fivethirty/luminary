@@ -276,8 +276,60 @@ select {
 #recent-battles {
   width: auto;
   max-width: 60%;
+  padding-right: 2.5rem;
   border-radius: var(--radius-sm);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  background-position: right 0.875rem center;
+  background-repeat: no-repeat;
+  background-size: 0.75rem;
   cursor: pointer;
+
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.steppers-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+#steppers-toggle-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.steppers-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0.125rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.steppers-toggle button {
+  padding: var(--space-xs) var(--space-sm);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.steppers-toggle button:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.steppers-toggle button.active {
+  background: var(--color-info);
+  color: var(--color-text-primary);
 }
 
 /* Sticky verdict bar: always available while results exist. */
