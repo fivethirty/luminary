@@ -6,19 +6,12 @@ import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
 import { removeShipType, updateShipType } from '@ui/state';
-import { ShipType } from '@calc/ship';
-import type { WeaponType } from '@calc/ship';
-
-const SHIP_QUANTITY_LIMITS: Record<ShipType, number> = {
-  [ShipType.Interceptor]: 8,
-  [ShipType.Cruiser]: 4,
-  [ShipType.Dreadnought]: 2,
-  [ShipType.Starbase]: 4,
-  [ShipType.Orbital]: 1,
-  [ShipType.Ancient]: 2,
-  [ShipType.Guardian]: 1,
-  [ShipType.GCDS]: 1,
-};
+import { isPlayerShipType, type WeaponType } from '@calc/ship';
+import {
+  matchShipPreset,
+  SHIP_NAMES,
+  SHIP_QUANTITY_LIMITS,
+} from '@ui/ship-presets';
 
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
@@ -35,12 +28,14 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     const nameSpan = this.querySelector('.ship-type-name') as HTMLSpanElement;
-    nameSpan.textContent = this.shipType.type;
+    nameSpan.textContent =
+      SHIP_NAMES[matchShipPreset(this.shipType.type, this.shipType.config)];
 
     this.bindSelectors();
   }
 
   private bindSelectors() {
+    const statsEditable = isPlayerShipType(this.shipType.type);
     const qtyInput = this.querySelector('calc-selector') as SelectorElement;
     if (qtyInput) {
       qtyInput.min = 1;
@@ -100,7 +95,7 @@ export class ShipTypeElement extends HTMLElement {
       },
       {
         stat: 'rift-cannon',
-        label: 'Rift C',
+        label: 'Rift',
         getValue: () => this.shipType.config.rift || 0,
         setValue: (value) => {
           this.shipType.config.rift = value;
@@ -109,17 +104,17 @@ export class ShipTypeElement extends HTMLElement {
     ];
 
     const cannonTypes: Array<{ type: WeaponType; label: string }> = [
-      { type: 'ion', label: 'Ion C' },
-      { type: 'plasma', label: 'Pls C' },
-      { type: 'soliton', label: 'Sol C' },
-      { type: 'antimatter', label: 'Ant C' },
+      { type: 'ion', label: 'Ion' },
+      { type: 'plasma', label: 'Pls' },
+      { type: 'soliton', label: 'Sol' },
+      { type: 'antimatter', label: 'Ant' },
     ];
 
     const missileTypes: Array<{ type: WeaponType; label: string }> = [
-      { type: 'ion', label: 'Flux M' },
-      { type: 'plasma', label: 'Pls M' },
-      { type: 'soliton', label: 'Sol M' },
-      { type: 'antimatter', label: 'Ant M' },
+      { type: 'ion', label: 'Flux' },
+      { type: 'plasma', label: 'Pls' },
+      { type: 'soliton', label: 'Sol' },
+      { type: 'antimatter', label: 'Ant' },
     ];
 
     cannonTypes.forEach(({ type, label }) => {
@@ -168,8 +163,18 @@ export class ShipTypeElement extends HTMLElement {
       ) as StatCubeElement;
       if (cube) {
         cube.label = label;
-        cube.value = getValue();
+        if (stat === 'plasma-missile') cube.step = 2;
+        if (stat === 'soliton-missile' || stat === 'antimatter-missile') {
+          cube.max = 1;
+        }
+        const initialValue = getValue();
+        cube.value = initialValue;
+        if (cube.value !== initialValue) {
+          setValue(cube.value);
+        }
+        cube.disabled = !statsEditable;
         cube.addEventListener('change', () => {
+          if (cube.disabled) return;
           setValue(cube.value);
           updateShipType(this.fleetId, this.shipType.id, this.shipType);
         });

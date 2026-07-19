@@ -109,6 +109,77 @@ describe('StatCubeElement', () => {
     expect(numberPrevented).toBe(false);
   });
 
+  test('steppers increment and decrement with clamping', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+
+    const inc = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    const dec = cube.querySelector('.stat-dec') as HTMLButtonElement;
+    let changes = 0;
+    cube.addEventListener('change', () => changes++);
+
+    expect(dec.disabled).toBe(true);
+
+    inc.click();
+    inc.click();
+    expect(cube.value).toBe(2);
+    expect(dec.disabled).toBe(false);
+
+    dec.click();
+    dec.click();
+    dec.click();
+    expect(cube.value).toBe(0);
+
+    expect(changes).toBe(4);
+
+    cube.value = 99;
+    expect(inc.disabled).toBe(true);
+    inc.click();
+    expect(cube.value).toBe(99);
+  });
+
+  test('supports custom step and max constraints', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.step = 2;
+    cube.max = 5;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const inc = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    const dec = cube.querySelector('.stat-dec') as HTMLButtonElement;
+
+    inc.click();
+    expect(cube.value).toBe(2);
+    inc.click();
+    expect(cube.value).toBe(4);
+    expect(inc.disabled).toBe(true);
+    inc.click();
+    expect(cube.value).toBe(4);
+
+    input.value = '1';
+    input.dispatchEvent(new Event('change'));
+    expect(cube.value).toBe(2);
+    expect(input.value).toBe('2');
+
+    dec.click();
+    expect(cube.value).toBe(0);
+    expect(dec.disabled).toBe(true);
+  });
+
+  test('stepper clicks do not focus the input', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    let focusCalled = false;
+    input.focus = () => {
+      focusCalled = true;
+    };
+
+    (cube.querySelector('.stat-inc') as HTMLButtonElement).click();
+    expect(focusCalled).toBe(false);
+  });
+
   test('dispatches change event', () => {
     const cube = document.createElement('calc-stat-cube') as StatCubeElement;
     document.body.appendChild(cube);
@@ -123,5 +194,29 @@ describe('StatCubeElement', () => {
     input.dispatchEvent(new Event('change'));
 
     expect(changeEventFired).toBe(true);
+  });
+
+  test('disabled cube does not edit value', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.value = 4;
+    cube.disabled = true;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const inc = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    let changes = 0;
+    cube.addEventListener('change', () => changes++);
+
+    expect(input.disabled).toBe(true);
+    expect(inc.disabled).toBe(true);
+
+    inc.click();
+    expect(cube.value).toBe(4);
+
+    input.value = '9';
+    input.dispatchEvent(new Event('change'));
+    expect(cube.value).toBe(4);
+    expect(input.value).toBe('4');
+    expect(changes).toBe(0);
   });
 });

@@ -67,6 +67,18 @@ describe('CombatSimulator', () => {
         results.expectedSurvivors['Mixed'][ShipType.Dreadnought]
       ).toBeCloseTo(1.0);
 
+      expect(results.survivorDistribution).toHaveLength(1);
+      expect(results.survivorDistribution[0].probability).toBeCloseTo(1.0);
+      expect(
+        results.survivorDistribution[0].survivors['Mixed'][ShipType.Interceptor]
+      ).toBe(1);
+      expect(
+        results.survivorDistribution[0].survivors['Mixed'][ShipType.Cruiser]
+      ).toBe(1);
+      expect(
+        results.survivorDistribution[0].survivors['Mixed'][ShipType.Dreadnought]
+      ).toBe(1);
+
       expect(results.expectedSurvivors['Weak'][ShipType.Interceptor] || 0).toBe(
         0
       );

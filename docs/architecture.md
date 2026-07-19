@@ -117,6 +117,10 @@ The unrestricted defaults cap a solve at 500,000 states, 20,000 outcomes per slo
 value-iteration sweeps with convergence at `1e-10`. Unrestricted analysis has no wall-clock
 limit. Interactive exact combat and optimal planning use a 2-second, 250,000-state budget; any
 cap, timeout, or convergence failure falls back to DPS or Monte Carlo at the caller boundary.
+The app also preflights two-fleet optimal battles by fleet variety: when both sides have three
+or more ship types, it skips minimax and solves exact combat with DPS-policy assignments instead
+of spending the timeout budget first. If one fleet has only one ship type, the opposing fleet
+uses DPS-policy assignments and the ship-type cutoff is skipped for the remaining decision roles.
 
 ## Intentional Model Differences
 

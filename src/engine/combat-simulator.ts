@@ -18,11 +18,22 @@ export class CombatSimulator {
     lastFleetStanding: Record<string, number>;
     drawPercentage: number;
     expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
+    survivorDistribution: {
+      probability: number;
+      survivors: Record<string, Partial<Record<ShipType, number>>>;
+    }[];
     timeTaken: number;
   } {
     const startTime = Date.now();
     const wins: Record<string, number> = {};
     const survivors: Record<string, Partial<Record<ShipType, number>>> = {};
+    const compositionCounts = new Map<
+      string,
+      {
+        count: number;
+        survivors: Record<string, Partial<Record<ShipType, number>>>;
+      }
+    >();
     let draws = 0;
 
     for (const fleet of fleets) {
@@ -48,6 +59,18 @@ export class CombatSimulator {
             (survivors[winner.name][ship.type] || 0) + 1;
         }
       }
+
+      const finalSurvivors = this.survivorsByFleet(fleets);
+      const key = this.compositionKey(fleets, finalSurvivors);
+      const existing = compositionCounts.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        compositionCounts.set(key, {
+          count: 1,
+          survivors: finalSurvivors,
+        });
+      }
     }
 
     const endTime = Date.now();
@@ -56,11 +79,21 @@ export class CombatSimulator {
       lastFleetStanding: Record<string, number>;
       drawPercentage: number;
       expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
+      survivorDistribution: {
+        probability: number;
+        survivors: Record<string, Partial<Record<ShipType, number>>>;
+      }[];
       timeTaken: number;
     } = {
       lastFleetStanding: {},
       drawPercentage: draws / iterations,
       expectedSurvivors: {},
+      survivorDistribution: Array.from(compositionCounts.values())
+        .map((entry) => ({
+          probability: entry.count / iterations,
+          survivors: entry.survivors,
+        }))
+        .sort((a, b) => b.probability - a.probability),
       timeTaken: endTime - startTime,
     };
 
@@ -77,5 +110,35 @@ export class CombatSimulator {
     }
 
     return result;
+  }
+
+  private survivorsByFleet(
+    fleets: Fleet[]
+  ): Record<string, Partial<Record<ShipType, number>>> {
+    const survivors: Record<string, Partial<Record<ShipType, number>>> = {};
+    for (const fleet of fleets) {
+      const counts: Partial<Record<ShipType, number>> = {};
+      for (const ship of fleet.getLivingShips()) {
+        counts[ship.type] = (counts[ship.type] ?? 0) + 1;
+      }
+      survivors[fleet.name] = counts;
+    }
+    return survivors;
+  }
+
+  private compositionKey(
+    fleets: Fleet[],
+    survivors: Record<string, Partial<Record<ShipType, number>>>
+  ): string {
+    return fleets
+      .map((fleet) => {
+        const counts = survivors[fleet.name] ?? {};
+        const shipCounts = Object.entries(counts)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([type, count]) => `${type}:${count}`)
+          .join(',');
+        return `${fleet.name}=${shipCounts}`;
+      })
+      .join('|');
   }
 }

@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, describe } from 'bun:test';
 import './index';
 import type { FleetElement } from './index';
-import { state, resetFleets } from '@ui/state';
+import { state, resetFleets, removeShipType } from '@ui/state';
 import { ShipType } from '@calc/ship';
 
 describe('Fleet', () => {
@@ -40,6 +40,67 @@ describe('Fleet', () => {
     const shipElements = element.querySelectorAll('calc-ship-type');
     expect(shipElements.length).toBe(1);
     expect(shipSelector.value).toBe('');
+  });
+
+  test('preset chips add NPCs to the defender, tapping again adds more', async () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+
+    document.body.appendChild(element);
+    await customElements.whenDefined('calc-ship-type');
+
+    const chips = element.querySelector('.preset-chips') as HTMLElement;
+    expect(chips.hidden).toBe(false);
+
+    const ancientPicker = presetPicker(element, 'Add Ancient layout');
+
+    choosePreset(ancientPicker, 'ancient');
+    expect(state.fleets[0].shipTypes).toHaveLength(1);
+    expect(state.fleets[0].shipTypes[0].type).toBe(ShipType.Ancient);
+    expect(state.fleets[0].shipTypes[0].quantity).toBe(1);
+    expect(state.fleets[0].shipTypes[0].config.hull).toBe(1);
+
+    choosePreset(ancientPicker, 'ancient');
+    expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
+
+    // Ancients cap at 2; a third tap is a no-op.
+    choosePreset(ancientPicker, 'ancient');
+    expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
+  });
+
+  test('preset chips swap NPC variants directly', async () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+
+    document.body.appendChild(element);
+    await customElements.whenDefined('calc-ship-type');
+
+    const ancientPicker = presetPicker(element, 'Add Ancient layout');
+
+    choosePreset(ancientPicker, 'ancient');
+    state.fleets[0].shipTypes[0].quantity = 2;
+    choosePreset(ancientPicker, 'ancient-wa');
+
+    expect(state.fleets[0].shipTypes).toHaveLength(1);
+    const ship = state.fleets[0].shipTypes[0];
+    expect(ship.type).toBe(ShipType.Ancient);
+    expect(ship.quantity).toBe(2);
+    expect(ship.config.computers).toBe(2);
+    expect(ship.config.initiative).toBe(3);
+    expect(ship.config.cannons?.ion).toBe(1);
+  });
+
+  test('preset chips are hidden for attackers', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[1];
+    element.setAttribute('is-defender', 'false');
+
+    document.body.appendChild(element);
+
+    const chips = element.querySelector('.preset-chips') as HTMLElement;
+    expect(chips.hidden).toBe(true);
   });
 
   test('respects can-remove attribute', () => {
@@ -109,8 +170,50 @@ describe('Fleet', () => {
     expect(addedShip.config.initiative).toBe(2);
   });
 
+  test('restores a recently removed single-variant ship configuration', async () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    document.body.appendChild(element);
+
+    addShip(element, 'dreadnought');
+    const dreadnought = state.fleets[0].shipTypes[0];
+    dreadnought.quantity = 2;
+    dreadnought.config = {
+      hull: 4,
+      computers: 2,
+      cannons: { plasma: 1 },
+    };
+    removeShipType(state.fleets[0].id, dreadnought.id);
+
+    addShip(element, 'cruiser');
+    addShip(element, 'dreadnought');
+
+    expect(state.fleets[0].shipTypes).toHaveLength(2);
+    const restored = state.fleets[0].shipTypes.find(
+      (ship) => ship.type === ShipType.Dreadnought
+    )!;
+    expect(restored.type).toBe(ShipType.Dreadnought);
+    expect(restored.quantity).toBe(2);
+    expect(restored.config).toEqual({
+      hull: 4,
+      computers: 2,
+      cannons: { plasma: 1 },
+    });
+  });
+
   const plannerSelect = (element: FleetElement): HTMLSelectElement =>
     element.querySelector('.planner-type-select') as HTMLSelectElement;
+
+  const presetPicker = (
+    element: FleetElement,
+    label: string
+  ): HTMLSelectElement =>
+    element.querySelector(`[aria-label="${label}"]`) as HTMLSelectElement;
+
+  const choosePreset = (picker: HTMLSelectElement, value: string) => {
+    picker.value = value;
+    picker.dispatchEvent(new Event('change'));
+  };
 
   const addShip = (element: FleetElement, value: string) => {
     const selector = element.querySelector(
@@ -272,30 +375,37 @@ describe('Fleet', () => {
     expect(element.querySelectorAll('calc-ship-type').length).toBe(1);
   });
 
-  test('disables all variants when base ship type is added', async () => {
+  test('variants stay selectable while their type is fielded', async () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
     document.body.appendChild(element);
 
-    const shipSelector = element.querySelector(
-      '.ship-selector'
-    ) as HTMLSelectElement;
-    shipSelector.value = 'ancient';
-    shipSelector.dispatchEvent(new Event('change'));
+    addShip(element, 'ancient');
 
-    const ancientOption = Array.from(shipSelector.options).find(
-      (opt) => opt.value === 'ancient'
-    );
-    const ancientAdvOption = Array.from(shipSelector.options).find(
-      (opt) => opt.value === 'ancient-adv'
-    );
-    const ancientWaOption = Array.from(shipSelector.options).find(
-      (opt) => opt.value === 'ancient-wa'
-    );
+    expect(shipOption(element, 'ancient')?.disabled).toBe(false);
+    expect(shipOption(element, 'ancient-adv')?.disabled).toBe(false);
+    expect(shipOption(element, 'ancient-wa')?.disabled).toBe(false);
+  });
 
-    expect(ancientOption?.disabled).toBe(true);
-    expect(ancientAdvOption?.disabled).toBe(true);
-    expect(ancientWaOption?.disabled).toBe(true);
+  test('selecting a variant swaps the fielded ship stats in place', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+    document.body.appendChild(element);
+
+    addShip(element, 'ancient');
+    state.fleets[0].shipTypes[0].quantity = 2;
+
+    addShip(element, 'ancient-wa');
+
+    expect(state.fleets[0].shipTypes).toHaveLength(1);
+    const ship = state.fleets[0].shipTypes[0];
+    expect(ship.type).toBe(ShipType.Ancient);
+    expect(ship.quantity).toBe(2);
+    expect(ship.config.computers).toBe(2);
+    expect(ship.config.initiative).toBe(3);
+    expect(ship.config.cannons?.ion).toBe(1);
+    expect(element.querySelectorAll('calc-ship-type').length).toBe(1);
   });
 
   test('allows selecting a different NPC type when an NPC type is added', () => {

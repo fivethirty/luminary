@@ -5,6 +5,48 @@
 .fleet {
   margin-bottom: var(--space-lg);
   padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.fleet::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.25rem;
+  background: var(--fleet-accent, var(--color-border-strong));
+}
+
+.fleet-defender {
+  --fleet-accent: var(--color-defender);
+}
+
+.fleet-attacker {
+  --fleet-accent: var(--color-attacker);
+  --fleet-accent-soft: var(--color-attacker-soft);
+}
+
+.fleet-attacker-2 {
+  --fleet-accent: var(--color-attacker-2);
+  --fleet-accent-soft: var(--color-attacker-2-soft);
+}
+
+.fleet-attacker-3 {
+  --fleet-accent: var(--color-attacker-3);
+  --fleet-accent-soft: var(--color-attacker-3-soft);
+}
+
+.fleet-attacker-4 {
+  --fleet-accent: var(--color-attacker-4);
+  --fleet-accent-soft: var(--color-attacker-4-soft);
+}
+
+.fleet-defender .fleet-header {
+  background: linear-gradient(90deg, var(--color-defender-soft), var(--color-bg-secondary) 45%);
+}
+
+.fleet-attacker .fleet-header {
+  background: linear-gradient(90deg, var(--fleet-accent-soft), var(--color-bg-secondary) 45%);
 }
 
 .fleet-name {
@@ -44,6 +86,57 @@
   outline-offset: 2px;
 }
 
+.preset-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+/* `display: flex` above would otherwise override the UA's [hidden] rule and
+   render the chips on attacker fleets, where NPCs are illegal. */
+.preset-chips[hidden] {
+  display: none;
+}
+
+.preset-chips-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.preset-chip {
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.preset-picker {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 7rem;
+  padding-right: var(--space-xl);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 0.75rem;
+  text-align: center;
+}
+
+.preset-chip:hover {
+  background-color: var(--color-border);
+  border-color: var(--fleet-accent, var(--color-border-strong));
+}
+
 .fleet-tech {
   padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-secondary);
@@ -63,4 +156,40 @@
 
 .damage-planner-option {
   margin-left: auto;
+}
+
+/* On phones the row can't hold both controls plus the planner select, so stack
+   them and let the select take the full width. */
+@media (max-width: 42rem) {
+  .preset-chips {
+    justify-content: space-between;
+  }
+
+  .preset-chips-label {
+    flex: 0 0 auto;
+    margin-right: auto;
+  }
+
+  .preset-picker {
+    flex: 0 1 calc(50% - var(--space-sm));
+    min-width: 0;
+  }
+
+  .fleet-tech {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+
+  .damage-planner-option {
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .damage-planner-option .planner-type-select {
+    width: auto;
+    min-width: 0;
+    flex: 1;
+    max-width: 60%;
+  }
 }

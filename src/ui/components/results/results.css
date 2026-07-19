@@ -4,29 +4,129 @@ calc-results {
 
 .results-container {
   margin-top: var(--space-lg);
+  display: block;
+}
+
+.results-card {
+  overflow: hidden;
+}
+
+.results-header {
   display: flex;
-  gap: var(--space-lg);
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-md);
   align-items: flex-start;
 }
 
-.results-card,
-.survivors-card {
-  flex: 1 1 0;
-  min-width: 20rem;
+.results-kicker {
+  margin: 0 0 var(--space-xs) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.results-header h2 {
+.panel-heading h3 {
   margin: 0;
   font-size: var(--font-size-base);
 }
 
+/* Verdict header: the plain-language answer, leading the card. */
+.verdict-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.verdict-headline {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.verdict-tag {
+  display: inline-block;
+  padding: 0.1rem var(--space-sm);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.verdict-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.verdict-number {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.verdict-caption {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
 .results-body {
-  padding: 0;
+  padding: var(--space-md);
 }
 
 .results-time {
-  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) 0 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: right;
+}
+
+.odds-strip {
+  min-height: 5.25rem;
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-md);
+  background: color-mix(in srgb, var(--color-bg-primary) 42%, transparent);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.odds-segment {
+  min-width: 5rem;
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.odds-segment strong {
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+}
+
+.odds-segment span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
 }
 
 .results-table {
@@ -35,9 +135,9 @@ calc-results {
 }
 
 .results-table td {
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) 0;
   text-align: left;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
   font-size: var(--font-size-base);
 }
 
@@ -46,69 +146,161 @@ calc-results {
   white-space: nowrap;
 }
 
-.win-percentage {
+.results-table .win-percentage {
   white-space: nowrap;
   text-align: right;
-  padding-right: var(--space-sm);
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
 }
 
-.win-bar-cell {
+.results-table .win-bar-cell {
   width: 100%;
+  padding-left: var(--space-xs);
 }
 
 .win-bar {
-  background-color: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  height: 1.25rem;
-  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--color-bg-primary) 70%, black);
+  height: 0.5rem;
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 
 .win-bar-fill {
-  background-color: var(--color-success);
+  background-color: currentColor;
   height: 100%;
   transition: width 0.3s ease;
 }
 
-.result-row.draw .win-bar-fill {
-  background-color: var(--color-text-secondary);
+.defender-result {
+  color: var(--color-defender);
 }
 
-
-.survivors-header h3 {
-  margin: 0;
-  font-size: var(--font-size-base);
+.attacker-result {
+  color: var(--color-attacker);
+  --attacker-result: var(--color-attacker);
+  --attacker-result-soft: var(--color-attacker-soft);
 }
 
+.attacker-result-2 {
+  color: var(--color-attacker-2);
+  --attacker-result: var(--color-attacker-2);
+  --attacker-result-soft: var(--color-attacker-2-soft);
+}
 
-.survivors-body {
+.attacker-result-3 {
+  color: var(--color-attacker-3);
+  --attacker-result: var(--color-attacker-3);
+  --attacker-result-soft: var(--color-attacker-3-soft);
+}
+
+.attacker-result-4 {
+  color: var(--color-attacker-4);
+  --attacker-result: var(--color-attacker-4);
+  --attacker-result-soft: var(--color-attacker-4-soft);
+}
+
+.draw-result {
+  color: var(--color-draw);
+}
+
+.odds-segment.defender-result {
+  background: linear-gradient(135deg, var(--color-defender-soft), color-mix(in srgb, var(--color-defender) 28%, var(--color-bg-secondary)));
+}
+
+.odds-segment.attacker-result {
+  background: linear-gradient(135deg, var(--attacker-result-soft), color-mix(in srgb, var(--attacker-result) 28%, var(--color-bg-secondary)));
+}
+
+.odds-segment.draw-result {
+  background: linear-gradient(135deg, var(--color-draw-soft), color-mix(in srgb, var(--color-draw) 24%, var(--color-bg-secondary)));
+}
+
+.survivor-distribution-section,
+.survivors-section {
+  border-top: 1px solid var(--color-border);
+}
+
+.panel-heading {
   padding: var(--space-md);
-  overflow: hidden;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.panel-heading span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.composition-table-wrap {
+  overflow-x: auto;
+}
+
+.composition-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.composition-table th,
+.composition-table td {
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.composition-table th {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.composition-table th:nth-child(2),
+.composition-table td:nth-child(2) {
+  text-align: center;
+  width: 6rem;
+}
+
+.composition-table th:last-child,
+.composition-table td:last-child {
+  text-align: right;
+}
+
+.composition-table tr.defender-result:not(.attacker-result) {
+  background: color-mix(in srgb, var(--color-defender) 10%, transparent);
+}
+
+.composition-table tr.attacker-result:not(.defender-result) {
+  background: color-mix(in srgb, var(--attacker-result) 10%, transparent);
+}
+
+.composition-table tr.defender-result.attacker-result,
+.composition-other {
+  background: color-mix(in srgb, var(--color-draw) 8%, transparent);
+}
+
+.composition-probability {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
 }
 
 .survivors-grid {
-  display: flex;
-  flex-direction: column;
+  padding: 0 var(--space-md) var(--space-md);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-md);
 }
 
-.survivor-fleet-card:not(:last-child) {
-  padding-bottom: var(--space-md);
-  margin-bottom: var(--space-md);
-  position: relative;
+.survivor-fleet-card {
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--color-bg-primary) 42%, var(--color-bg-secondary));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
-.survivor-fleet-card:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: calc(-1 * var(--space-md));
-  right: calc(-1 * var(--space-md));
-  height: 1px;
-  background-color: var(--color-border);
-}
-
-.survivor-fleet-card:last-child {
-  padding-bottom: 0;
+.survivor-fleet-card.defender-result,
+.survivor-fleet-card.attacker-result {
+  border-color: currentColor;
 }
 
 .survivor-fleet-name {
@@ -122,7 +314,7 @@ calc-results {
 }
 
 .survivor-ships-table td {
-  padding: 0 var(--space-xs) 0 0;
+  padding: var(--space-xs) var(--space-xs) 0 0;
   font-size: var(--font-size-sm);
 }
 
@@ -133,4 +325,56 @@ calc-results {
 .survivor-ships-table td:last-child {
   text-align: right;
   padding-right: 0;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.results-actions {
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.results-actions .copy-link-btn {
+  border-color: var(--color-info);
+  color: var(--color-info);
+  background: transparent;
+}
+
+.results-actions .copy-link-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.results-actions button:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
+@media (max-width: 42rem) {
+  .results-header,
+  .panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  /* Stacked: keep the hero number reading left-to-right with the headline. */
+  .verdict-figure {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--space-sm);
+  }
+
+  .results-time {
+    text-align: left;
+  }
+
+  .odds-strip {
+    flex-direction: column;
+  }
+
+  .odds-segment {
+    min-height: 4rem;
+  }
 }

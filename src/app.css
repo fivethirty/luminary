@@ -12,6 +12,18 @@
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-info: #3b82f6;
+  --color-attacker: #35d0c8;
+  --color-attacker-soft: #123b43;
+  --color-attacker-2: #8fc45d;
+  --color-attacker-2-soft: #263a1e;
+  --color-attacker-3: #d58fe8;
+  --color-attacker-3-soft: #3b2743;
+  --color-attacker-4: #5fa8ff;
+  --color-attacker-4-soft: #1d314c;
+  --color-defender: #f0a35b;
+  --color-defender-soft: #462c1e;
+  --color-draw: #98a6bd;
+  --color-draw-soft: #293040;
   
   --color-stat-ion: #facc15;
   --color-stat-plasma: #fb923c;
@@ -261,6 +273,71 @@ select {
   padding: var(--space-sm) var(--space-md);
 }
 
+#recent-battles {
+  width: auto;
+  max-width: 60%;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* Sticky verdict bar: always available while results exist. */
+.live-bar {
+  display: none;
+}
+
+.live-bar:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--space-sm) var(--space-md);
+  padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0rem));
+  background: color-mix(in srgb, var(--color-bg-secondary) 94%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--color-border-strong);
+  cursor: pointer;
+  z-index: 10;
+}
+
+body:has(.live-bar:not([hidden])) {
+  padding-bottom: 5rem;
+}
+
+.live-bar-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.live-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.live-verdict {
+  font-weight: var(--font-weight-bold);
+}
+
+.live-odds {
+  display: flex;
+  gap: 2px;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-bg-primary) 70%, black);
+}
+
+.live-odds i {
+  background: currentColor;
+}
+
 #results-container {
   margin-top: var(--space-lg);
 }
@@ -272,6 +349,7 @@ select {
 .card {
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
 }
 
 .card-header {

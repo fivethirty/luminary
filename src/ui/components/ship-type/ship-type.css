@@ -1,7 +1,8 @@
 .ship-type {
   margin: 0 0 var(--space-sm) 0;
   padding: 0;
-  background: var(--color-bg-secondary);
+  background: color-mix(in srgb, var(--color-bg-secondary) 88%, var(--color-bg-primary));
+  border-top: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
@@ -11,12 +12,14 @@
 
 .ship-type > header {
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 72%, transparent);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .ship-type-name {
   flex: 1;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
 }
 
 .quantity {
@@ -27,7 +30,66 @@
 .ship-type .stats {
   padding: var(--space-sm) var(--space-md);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+.stat-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
   gap: var(--space-xs);
+}
+
+.stat-group-title {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+@media (max-width: 52rem) {
+  .ship-type .stats {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  }
+
+  .ship-type > header {
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .stat-group {
+    grid-template-columns: repeat(3, minmax(4rem, 1fr));
+  }
+
+  .stat-group-missiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .stat-group-title {
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+  }
+}
+
+@media (min-width: 52.0625rem) {
+  .ship-type .stats {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+  }
+
+  .stat-group-core {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Wider stat columns on touch screens so the stepper buttons fit real tap
+   targets. */
+@media (pointer: coarse) {
+  .stat-group {
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  }
 }
 

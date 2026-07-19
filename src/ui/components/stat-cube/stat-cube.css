@@ -4,13 +4,111 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  aspect-ratio: 1;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-strong);
+  min-height: 3.25rem;
+  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 0.375rem 0;
+  padding: 0.375rem 0 0.125rem;
   box-sizing: border-box;
   cursor: pointer;
+}
+
+.stat-cube-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+}
+
+.stat-step {
+  width: 1.25rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stat-step:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.stat-step:active {
+  color: var(--color-text-primary);
+  background: var(--color-border);
+}
+
+.stat-step:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+  opacity: 0.32;
+}
+
+.stat-step:disabled:hover,
+.stat-step:disabled:active {
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
+/* Table mode: on touch screens the steppers are the primary input, so give
+   them real tap targets. */
+@media (pointer: coarse) {
+  .stat-cube {
+    min-height: 3.25rem;
+  }
+
+  .stat-step {
+    width: 1.5rem;
+    height: 2rem;
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+  }
+}
+
+@media (max-width: 42rem) {
+  .stat-cube {
+    min-height: 3rem;
+    padding-top: 0.25rem;
+  }
+
+  .stat-step {
+    width: 1.5rem;
+    height: 1.875rem;
+  }
+
+  .stat-cube input {
+    width: 1.75rem;
+    height: 1.25rem;
+    font-size: 0.9375rem;
+  }
+}
+
+.stat-cube:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-tertiary);
+}
+
+calc-stat-cube[disabled] .stat-cube {
+  cursor: default;
+  opacity: 0.72;
+}
+
+calc-stat-cube[disabled] .stat-cube:hover {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+}
+
+calc-stat-cube[disabled] .stat-step {
+  visibility: hidden;
 }
 
 .stat-cube label {
@@ -34,7 +132,13 @@
 }
 
 .stat-cube input:focus {
-  color: var(--color-accent);
+  color: var(--color-attacker);
+}
+
+.stat-cube input:disabled {
+  cursor: default;
+  -webkit-text-fill-color: var(--color-text-primary);
+  opacity: 1;
 }
 
 .stat-cube input::-webkit-inner-spin-button,

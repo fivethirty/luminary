@@ -5,14 +5,34 @@ import { Ship } from '@calc/ship';
 import '@ui/components/fleet';
 import type { FleetElement } from '@ui/components/fleet';
 import '@ui/components/results';
-import { state, addFleet, resetFleets, setSimulationResults } from '@ui/state';
+import {
+  state,
+  addFleet,
+  onFleetsChanged,
+  resetFleets,
+  replaceFleets,
+  setSimulationResults,
+} from '@ui/state';
 import type { PlannerType } from '@ui/state';
+import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
+import {
+  loadRecentBattles,
+  loadSetup,
+  recordRecentBattle,
+  saveSetup,
+} from '@ui/storage';
 import { DamageType } from 'src/constants';
 
 const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
   dps: DamageType.DPS,
   optimal: DamageType.OPTIMAL,
 };
+
+// Results recompute automatically shortly after the last edit; the pause keeps
+// hold-to-repeat steppers from re-solving on every tick.
+const AUTO_SIMULATE_DELAY_MS = 200;
+
+const OPTIMAL_EXACT_SHIP_TYPE_CUTOFF = 3;
 
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
@@ -44,6 +64,7 @@ function renderFleets() {
 
     // Only the defender (fleet 0) may contain AI ships.
     fleetElement.setAttribute('is-defender', index === 0 ? 'true' : 'false');
+    fleetElement.setAttribute('fleet-index', index.toString());
 
     fleetsContainer.appendChild(fleetElement);
   });
@@ -61,13 +82,120 @@ function clearAll() {
   renderResults();
 }
 
+// Mirrors the current fleets into the query string on every change, so the
+// address bar is always a shareable link to the battle being set up.
+function syncBattleUrl() {
+  const query = encodeBattleQuery(state.fleets);
+  window.history.replaceState(
+    null,
+    '',
+    window.location.pathname + (query ? `?${query}` : '')
+  );
+}
+
+// Loads a shared battle from the query string. Returns true if one was loaded.
+// Rendering the answer is left to the auto-simulate pass the load triggers.
+function loadSharedBattle(): boolean {
+  const fleets = parseBattleQuery(window.location.search);
+  if (!fleets) return false;
+
+  replaceFleets(fleets);
+  renderFleets();
+  return true;
+}
+
+// Restores the last in-progress setup from local storage (table play: reopen
+// the phone, tweak the previous fight). Returns true if one was restored.
+function restoreSavedSetup(): boolean {
+  const fleets = loadSetup();
+  if (!fleets) return false;
+
+  replaceFleets(fleets);
+  renderFleets();
+  return true;
+}
+
+let autoSimulateTimer: ReturnType<typeof setTimeout> | undefined;
+
+// There is no Simulate button: every fleet change re-solves the battle after a
+// short pause. Battles with an empty fleet clear the results instead, so stale
+// odds never linger next to a half-edited setup.
+function scheduleAutoSimulate() {
+  clearTimeout(autoSimulateTimer);
+  autoSimulateTimer = setTimeout(() => {
+    const ready =
+      state.fleets.length >= 2 &&
+      state.fleets.every((fleet) => fleet.shipTypes.length > 0);
+    if (ready) {
+      simulate();
+    } else {
+      setSimulationResults(null);
+      renderResults();
+    }
+  }, AUTO_SIMULATE_DELAY_MS);
+}
+
 function simulate() {
-  const activeElement = document.activeElement as HTMLElement;
-  if (activeElement && activeElement.blur) {
-    activeElement.blur();
+  const engineFleets = buildEngineFleets();
+
+  // Two-fleet battles are solved exactly: every dice outcome's probability is
+  // propagated through the state graph instead of sampled, so the numbers are
+  // noise-free and identical on every run. Battles outside exact combat's
+  // interactive budget, plus battles with 3+ fleets, fall back to Monte Carlo.
+  if (engineFleets.length === 2) {
+    const plannerOverrides = exactDpsPlannerOverrides(engineFleets);
+    const exactFleets = plannerOverrides.some(Boolean)
+      ? buildEngineFleets(plannerOverrides)
+      : engineFleets;
+    const exact = computeExactBattle(
+      exactFleets[0],
+      exactFleets[1],
+      EXACT_INTERACTIVE_CAPS
+    );
+    if (exact.ok) {
+      setSimulationResults({
+        victoryProbability: exact.lastFleetStanding,
+        drawProbability: exact.drawPercentage,
+        expectedSurvivors: exact.expectedSurvivors as Record<
+          string,
+          Record<string, number>
+        >,
+        survivorDistribution: exact.survivorDistribution as {
+          probability: number;
+          survivors: Record<string, Record<string, number>>;
+        }[],
+        timeTaken: exact.timeTaken,
+        method: 'exact',
+      });
+      afterSimulate();
+      return;
+    }
   }
 
-  const engineFleets = state.fleets.map((fleet) => {
+  const MC_ITERATIONS = 5000;
+  const simulator = new CombatSimulator();
+  const results = simulator.simulate(engineFleets, MC_ITERATIONS);
+
+  setSimulationResults({
+    victoryProbability: results.lastFleetStanding,
+    drawProbability: results.drawPercentage,
+    expectedSurvivors: results.expectedSurvivors,
+    survivorDistribution: results.survivorDistribution as {
+      probability: number;
+      survivors: Record<string, Record<string, number>>;
+    }[],
+    timeTaken: results.timeTaken,
+    method: 'monte-carlo',
+    iterations: MC_ITERATIONS,
+  });
+
+  afterSimulate();
+}
+
+function buildEngineFleets(
+  plannerOverrides: readonly (DamageType | undefined)[] = []
+): Fleet[] {
+  return state.fleets.map((fleet, index) => {
     const ships: Ship[] = [];
 
     fleet.shipTypes.forEach((shipType) => {
@@ -81,49 +209,52 @@ function simulate() {
       fleet.name,
       ships,
       fleet.antimatterSplitter,
-      PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
+      plannerOverrides[index] ?? PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
     );
   });
+}
 
-  // Two-fleet battles are solved exactly: every dice outcome's probability is
-  // propagated through the state graph instead of sampled, so the numbers are
-  // noise-free and identical on every run. Battles outside exact combat's
-  // interactive budget, plus battles with 3+ fleets, fall back to Monte Carlo.
-  if (engineFleets.length === 2) {
-    const exact = computeExactBattle(
-      engineFleets[0],
-      engineFleets[1],
-      EXACT_INTERACTIVE_CAPS
-    );
-    if (exact.ok) {
-      setSimulationResults({
-        victoryProbability: exact.lastFleetStanding,
-        drawProbability: exact.drawPercentage,
-        expectedSurvivors: exact.expectedSurvivors as Record<
-          string,
-          Record<string, number>
-        >,
-        timeTaken: exact.timeTaken,
-        method: 'exact',
-      });
-      renderResults();
-      return;
-    }
+function exactDpsPlannerOverrides(fleets: Fleet[]): (DamageType | undefined)[] {
+  const overrides = fleets.map(() => undefined as DamageType | undefined);
+
+  if (fleets.length !== 2) return overrides;
+
+  if (hasSingleShipType(fleets[0]) && isOptimalFleet(fleets[1])) {
+    overrides[1] = DamageType.DPS;
+  }
+  if (hasSingleShipType(fleets[1]) && isOptimalFleet(fleets[0])) {
+    overrides[0] = DamageType.DPS;
+  }
+  if (overrides.some(Boolean)) return overrides;
+
+  if (!fleets.every(hasManyShipTypes)) {
+    return overrides;
   }
 
-  const MC_ITERATIONS = 5000;
-  const simulator = new CombatSimulator();
-  const results = simulator.simulate(engineFleets, MC_ITERATIONS);
+  return fleets.map((fleet) =>
+    isOptimalFleet(fleet) ? DamageType.DPS : undefined
+  );
+}
 
-  setSimulationResults({
-    victoryProbability: results.lastFleetStanding,
-    drawProbability: results.drawPercentage,
-    expectedSurvivors: results.expectedSurvivors,
-    timeTaken: results.timeTaken,
-    method: 'monte-carlo',
-    iterations: MC_ITERATIONS,
-  });
+function hasSingleShipType(fleet: Fleet): boolean {
+  return shipTypeCount(fleet) <= 1;
+}
 
+function hasManyShipTypes(fleet: Fleet): boolean {
+  return shipTypeCount(fleet) >= OPTIMAL_EXACT_SHIP_TYPE_CUTOFF;
+}
+
+function shipTypeCount(fleet: Fleet): number {
+  return new Set(fleet.getRoster().map((ship) => ship.type)).size;
+}
+
+function isOptimalFleet(fleet: Fleet): boolean {
+  return fleet.getDamageType() === DamageType.OPTIMAL;
+}
+
+function afterSimulate() {
+  recordRecentBattle(state.fleets);
+  refreshRecentsPicker();
   renderResults();
 }
 
@@ -136,6 +267,90 @@ function renderResults() {
     const resultsElement = document.createElement('calc-results');
     resultsContainer.appendChild(resultsElement);
   }
+
+  renderLiveBar();
+}
+
+// The sticky bar: leading outcome plus a mini odds strip, always in reach while
+// editing. Hidden when there are no results.
+function renderLiveBar() {
+  const bar = document.getElementById('live-bar');
+  if (!bar) return;
+
+  const results = state.simulationResults;
+  if (!results) {
+    bar.hidden = true;
+    return;
+  }
+
+  const outcomes = state.fleets.map((fleet, index) => ({
+    label: fleet.name,
+    probability: results.victoryProbability[fleet.name] ?? 0,
+    className:
+      index === 0
+        ? 'defender-result'
+        : `attacker-result${index > 1 ? ` attacker-result-${Math.min(index, 4)}` : ''}`,
+  }));
+  if (results.drawProbability > 0) {
+    outcomes.push({
+      label: 'Draw',
+      probability: results.drawProbability,
+      className: 'draw-result',
+    });
+  }
+
+  const leader = outcomes.reduce((best, outcome) =>
+    outcome.probability > best.probability ? outcome : best
+  );
+  const verdict = bar.querySelector('.live-verdict')!;
+  verdict.textContent = `${leader.label} ${(leader.probability * 100).toFixed(1)}%`;
+  verdict.className = `live-verdict ${leader.className}`;
+
+  const odds = bar.querySelector('.live-odds')!;
+  odds.innerHTML = '';
+  outcomes
+    .filter((outcome) => outcome.probability > 0)
+    .forEach((outcome) => {
+      const segment = document.createElement('i');
+      segment.className = outcome.className;
+      segment.style.width = `${outcome.probability * 100}%`;
+      odds.appendChild(segment);
+    });
+
+  bar.hidden = false;
+}
+
+// The recent-battles dropdown: settled battles from this session, most recent
+// first. Hidden until there is something to pick.
+function refreshRecentsPicker() {
+  const select = document.getElementById(
+    'recent-battles'
+  ) as HTMLSelectElement | null;
+  if (!select) return;
+
+  const recents = loadRecentBattles();
+  select.hidden = recents.length === 0;
+  select.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Recent battles…';
+  select.appendChild(placeholder);
+
+  // A width:auto <select> grows to fit its widest option, so multi-fleet
+  // matchups overflow on phones. Abbreviate ship names on narrow screens to
+  // keep the picker compact.
+  const short =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(max-width: 42rem)').matches;
+  recents.forEach((recent) => {
+    const option = document.createElement('option');
+    option.value = recent.query;
+    const fleets = parseBattleQuery(recent.query);
+    option.textContent = fleets ? battleLabel(fleets, short) : recent.label;
+    select.appendChild(option);
+  });
+  select.value = '';
 }
 
 function handleRouteChange() {
@@ -156,7 +371,8 @@ function handleRouteChange() {
       aboutContent.style.display = 'block';
       break;
     default:
-      window.history.replaceState(null, '', '/');
+      // Preserve the query string: shared battle links carry their state there.
+      window.history.replaceState(null, '', '/' + window.location.search);
       homeContent.style.display = 'block';
       aboutContent.style.display = 'none';
       break;
@@ -171,10 +387,25 @@ function init() {
   document
     .getElementById('add-fleet-btn')!
     .addEventListener('click', addFleetHandler);
-  document
-    .getElementById('run-simulation-btn')!
-    .addEventListener('click', simulate);
   document.getElementById('clear-all-btn')!.addEventListener('click', clearAll);
+
+  const recentsSelect = document.getElementById(
+    'recent-battles'
+  ) as HTMLSelectElement | null;
+  recentsSelect?.addEventListener('change', () => {
+    const fleets = parseBattleQuery(recentsSelect.value);
+    recentsSelect.value = '';
+    if (!fleets) return;
+    replaceFleets(fleets);
+    renderFleets();
+  });
+
+  // Tapping the live bar jumps to the full report.
+  document.getElementById('live-bar')?.addEventListener('click', () => {
+    document
+      .getElementById('results-container')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   document.addEventListener('fleet-removed', () => {
     renderFleets();
@@ -185,16 +416,26 @@ function init() {
       e.preventDefault();
       const href = (e.currentTarget as HTMLAnchorElement).getAttribute('href');
       if (href && href !== window.location.pathname) {
-        window.history.pushState(null, '', href);
+        // Carry the battle query along so navigating doesn't lose the setup.
+        window.history.pushState(null, '', href + window.location.search);
         handleRouteChange();
       }
     });
   });
 
-  renderFleets();
+  onFleetsChanged(syncBattleUrl);
+  onFleetsChanged(() => saveSetup(state.fleets));
+  onFleetsChanged(scheduleAutoSimulate);
 
+  // A battle in the URL wins; otherwise pick up where the last session left
+  // off. Either path triggers an auto-simulate via the change notification.
+  if (!loadSharedBattle() && !restoreSavedSetup()) {
+    renderFleets();
+  }
+
+  refreshRecentsPicker();
   handleRouteChange();
   window.addEventListener('popstate', handleRouteChange);
 }
 
-export { init };
+export { init, exactDpsPlannerOverrides };

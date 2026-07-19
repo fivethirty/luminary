@@ -28,6 +28,15 @@ describe('solveOutcome', () => {
     expect(outcome.pDraw).toBeCloseTo(0, 12);
     expect(outcome.attackerSurvivors[ShipType.Interceptor]).toBeCloseTo(1, 9);
     expect(outcome.defenderSurvivors[ShipType.Interceptor]).toBeCloseTo(1, 9);
+    expect(outcome.survivorDistribution).toHaveLength(2);
+    expect(outcome.survivorDistribution[0].probability).toBeCloseTo(6 / 11, 9);
+    expect(
+      outcome.survivorDistribution[0].defenderSurvivors[ShipType.Interceptor]
+    ).toBe(1);
+    expect(outcome.survivorDistribution[1].probability).toBeCloseTo(5 / 11, 9);
+    expect(
+      outcome.survivorDistribution[1].attackerSurvivors[ShipType.Interceptor]
+    ).toBe(1);
   });
 
   test('outcome probabilities always sum to 1', () => {

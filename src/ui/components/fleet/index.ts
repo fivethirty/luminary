@@ -2,195 +2,24 @@ import html from './fleet.html' with { type: 'text' };
 import './fleet.css';
 import '../ship-type';
 import type { ShipTypeElement } from '../ship-type';
-import { ShipType, ShipConfig, isPlayerShipType } from '@calc/ship';
+import { ShipType, isPlayerShipType, type ShipConfig } from '@calc/ship';
 import type { FleetState } from '@ui/state';
 import {
   removeFleet,
   addShipType,
+  getCachedShipType,
   removeShipType,
+  updateShipType,
   toggleAntimatterSplitter,
   setFleetPlannerType,
 } from '@ui/state';
 
-type ShipDropdownOption =
-  | 'interceptor'
-  | 'cruiser'
-  | 'dreadnought'
-  | 'starbase'
-  | 'orbital'
-  | 'ancient'
-  | 'ancient-adv'
-  | 'ancient-wa'
-  | 'guardian'
-  | 'guardian-adv'
-  | 'guardian-wa'
-  | 'gcds'
-  | 'gcds-adv'
-  | 'gcds-wa';
-
-interface ShipVariantData {
-  type: ShipType;
-  config: Required<ShipConfig>;
-}
-
-function createEmptyConfig(initiative: number): Required<ShipConfig> {
-  return {
-    hull: 0,
-    computers: 0,
-    shields: 0,
-    initiative,
-    cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-    missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-    rift: 0,
-    heal: 0,
-  };
-}
-
-function getDefaultShipConfig(
-  dropdownValue: ShipDropdownOption
-): ShipVariantData {
-  const configs: Record<ShipDropdownOption, ShipVariantData> = {
-    interceptor: {
-      type: ShipType.Interceptor,
-      config: createEmptyConfig(3),
-    },
-    cruiser: {
-      type: ShipType.Cruiser,
-      config: createEmptyConfig(2),
-    },
-    dreadnought: {
-      type: ShipType.Dreadnought,
-      config: createEmptyConfig(1),
-    },
-    starbase: {
-      type: ShipType.Starbase,
-      config: createEmptyConfig(4),
-    },
-    orbital: {
-      type: ShipType.Orbital,
-      config: createEmptyConfig(4),
-    },
-    ancient: {
-      type: ShipType.Ancient,
-      config: {
-        hull: 1,
-        computers: 1,
-        shields: 0,
-        initiative: 2,
-        cannons: { ion: 2, plasma: 0, soliton: 0, antimatter: 0 },
-        missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    'ancient-adv': {
-      type: ShipType.Ancient,
-      config: {
-        hull: 2,
-        computers: 1,
-        shields: 0,
-        initiative: 1,
-        cannons: { ion: 0, plasma: 1, soliton: 0, antimatter: 0 },
-        missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    'ancient-wa': {
-      type: ShipType.Ancient,
-      config: {
-        hull: 1,
-        computers: 2,
-        shields: 0,
-        initiative: 3,
-        cannons: { ion: 1, plasma: 0, soliton: 0, antimatter: 0 },
-        missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    guardian: {
-      type: ShipType.Guardian,
-      config: {
-        hull: 2,
-        computers: 2,
-        shields: 0,
-        initiative: 3,
-        cannons: { ion: 3, plasma: 0, soliton: 0, antimatter: 0 },
-        missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    'guardian-adv': {
-      type: ShipType.Guardian,
-      config: {
-        hull: 3,
-        computers: 1,
-        shields: 0,
-        initiative: 1,
-        cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
-        missiles: { ion: 0, plasma: 2, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    'guardian-wa': {
-      type: ShipType.Guardian,
-      config: {
-        hull: 3,
-        computers: 1,
-        shields: 1,
-        initiative: 2,
-        cannons: { ion: 0, plasma: 2, soliton: 0, antimatter: 0 },
-        missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    gcds: {
-      type: ShipType.GCDS,
-      config: {
-        hull: 7,
-        computers: 2,
-        shields: 0,
-        initiative: 0,
-        cannons: { ion: 4, plasma: 0, soliton: 0, antimatter: 0 },
-        missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    'gcds-adv': {
-      type: ShipType.GCDS,
-      config: {
-        hull: 3,
-        computers: 2,
-        shields: 0,
-        initiative: 2,
-        cannons: { ion: 0, plasma: 0, soliton: 0, antimatter: 1 },
-        missiles: { ion: 4, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-    'gcds-wa': {
-      type: ShipType.GCDS,
-      config: {
-        hull: 4,
-        computers: 2,
-        shields: 2,
-        initiative: 3,
-        cannons: { ion: 0, plasma: 2, soliton: 0, antimatter: 0 },
-        missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
-        rift: 0,
-        heal: 0,
-      },
-    },
-  };
-
-  return configs[dropdownValue];
-}
+import {
+  getDefaultShipConfig,
+  presetKeysForType,
+  SHIP_QUANTITY_LIMITS,
+  type ShipDropdownOption,
+} from '@ui/ship-presets';
 
 export class FleetElement extends HTMLElement {
   fleet!: FleetState;
@@ -200,6 +29,20 @@ export class FleetElement extends HTMLElement {
 
     const nameSpan = this.querySelector('.fleet-name') as HTMLSpanElement;
     nameSpan.textContent = this.fleet.name;
+    this.querySelector('.fleet')?.classList.toggle(
+      'fleet-defender',
+      this.getAttribute('is-defender') !== 'false'
+    );
+    this.querySelector('.fleet')?.classList.toggle(
+      'fleet-attacker',
+      this.getAttribute('is-defender') === 'false'
+    );
+    const fleetIndex = Number(this.getAttribute('fleet-index') ?? '0');
+    if (fleetIndex > 1) {
+      this.querySelector('.fleet')?.classList.add(
+        `fleet-attacker-${Math.min(fleetIndex, 4)}`
+      );
+    }
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     const canRemove = this.getAttribute('can-remove') !== 'false';
@@ -233,6 +76,8 @@ export class FleetElement extends HTMLElement {
       }
     });
 
+    this.bindPresetChips();
+
     const antimatterCheckbox = this.querySelector(
       '.antimatter-splitter-checkbox'
     ) as HTMLInputElement;
@@ -254,6 +99,46 @@ export class FleetElement extends HTMLElement {
     this.updateShipSelector();
     this.updatePlannerControl();
     this.renderShips();
+  }
+
+  // One-tap NPC opponents for the defender: tap adds the ship, tapping again
+  // adds another (up to the ship's limit). The most common table-mode question
+  // is "can I take this Ancient/Guardian/GCDS hex?", so those live one tap
+  // away instead of inside the dropdown.
+  private bindPresetChips() {
+    const chips = this.querySelector('.preset-chips') as HTMLElement;
+    if (this.getAttribute('is-defender') === 'false') return;
+    chips.hidden = false;
+
+    chips.querySelectorAll('.preset-picker').forEach((picker) => {
+      picker.addEventListener('change', () => {
+        const select = picker as HTMLSelectElement;
+        const preset = select.value as ShipDropdownOption;
+        select.value = '';
+        if (!preset) return;
+        const variantData = getDefaultShipConfig(preset);
+        const existing = this.fleet.shipTypes.find(
+          (st) => st.type === variantData.type
+        );
+
+        if (!existing) {
+          this.addShip(preset);
+          return;
+        }
+
+        if (!sameShipConfig(existing.config, variantData.config)) {
+          this.addShip(preset);
+          return;
+        }
+
+        if (existing.quantity < SHIP_QUANTITY_LIMITS[existing.type]) {
+          updateShipType(this.fleet.id, existing.id, {
+            quantity: existing.quantity + 1,
+          });
+          this.renderShips();
+        }
+      });
+    });
   }
 
   private renderShips() {
@@ -291,8 +176,13 @@ export class FleetElement extends HTMLElement {
           variantData.type === ShipType.Starbase ||
           variantData.type === ShipType.Orbital);
       option.hidden = attackerForbidden;
+      // Types with variants (Ancient/Guardian/GCDS) stay selectable while
+      // fielded — picking a variant swaps the ship's stats. Single-variant
+      // types would be duplicates, so those disable.
+      const hasVariants = presetKeysForType(variantData.type).length > 1;
       option.disabled =
-        attackerForbidden || existingTypes.includes(variantData.type);
+        attackerForbidden ||
+        (existingTypes.includes(variantData.type) && !hasVariants);
     });
   }
 
@@ -300,7 +190,19 @@ export class FleetElement extends HTMLElement {
     const variantData = getDefaultShipConfig(dropdownOption);
     const newIsPlayer = isPlayerShipType(variantData.type);
 
-    if (this.fleet.shipTypes.some((st) => st.type === variantData.type)) {
+    // Selecting a variant of an already-fielded type (e.g. Ancient (WA) with
+    // Ancients on the board) swaps that ship's stats to the variant's preset,
+    // keeping the quantity.
+    const existing = this.fleet.shipTypes.find(
+      (st) => st.type === variantData.type
+    );
+    if (existing) {
+      updateShipType(this.fleet.id, existing.id, {
+        config: variantData.config,
+      });
+      this.renderShips();
+      this.updateShipSelector();
+      this.updatePlannerControl();
       return;
     }
 
@@ -312,8 +214,16 @@ export class FleetElement extends HTMLElement {
     );
     incompatible.forEach((st) => removeShipType(this.fleet.id, st.id));
 
-    const newShip = addShipType(this.fleet.id, variantData.type);
-    newShip.config = variantData.config;
+    const hasVariants = presetKeysForType(variantData.type).length > 1;
+    const cached = hasVariants
+      ? undefined
+      : getCachedShipType(this.fleet.id, variantData.type);
+    const newShip = addShipType(
+      this.fleet.id,
+      variantData.type,
+      cached?.config ?? variantData.config,
+      Math.min(cached?.quantity ?? 1, SHIP_QUANTITY_LIMITS[variantData.type])
+    );
 
     if (incompatible.length > 0) {
       // Some ship elements were removed; rebuild the list from state.
@@ -359,6 +269,28 @@ export class FleetElement extends HTMLElement {
       select.value = this.fleet.plannerType;
     }
   }
+}
+
+function sameShipConfig(a: ShipConfig, b: ShipConfig): boolean {
+  return (
+    (a.hull ?? 0) === (b.hull ?? 0) &&
+    (a.computers ?? 0) === (b.computers ?? 0) &&
+    (a.shields ?? 0) === (b.shields ?? 0) &&
+    (a.initiative ?? 0) === (b.initiative ?? 0) &&
+    (a.heal ?? 0) === (b.heal ?? 0) &&
+    (a.rift ?? 0) === (b.rift ?? 0) &&
+    sameWeapons(a.cannons, b.cannons) &&
+    sameWeapons(a.missiles, b.missiles)
+  );
+}
+
+function sameWeapons(a: ShipConfig['cannons'], b: ShipConfig['cannons']) {
+  return (
+    (a?.ion ?? 0) === (b?.ion ?? 0) &&
+    (a?.plasma ?? 0) === (b?.plasma ?? 0) &&
+    (a?.soliton ?? 0) === (b?.soliton ?? 0) &&
+    (a?.antimatter ?? 0) === (b?.antimatter ?? 0)
+  );
 }
 
 customElements.define('calc-fleet', FleetElement);
