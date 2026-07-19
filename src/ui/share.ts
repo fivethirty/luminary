@@ -1,0 +1,416 @@
+import {
+  ShipType,
+  isPlayerShipType,
+  type ShipConfig,
+  type WeaponType,
+} from '@calc/ship';
+import {
+  getDefaultShipConfig,
+  isShipPresetKey,
+  presetKeysForType,
+  SHIP_QUANTITY_LIMITS,
+  type ShipDropdownOption,
+} from '@ui/ship-presets';
+import type {
+  FleetState,
+  PlannerType,
+  ShipTypeConfig,
+  SimulationResults,
+} from '@ui/state';
+
+// Battle setups are shared as a human-readable query string, e.g.
+//   ?v=1&d.guardian-wa=1&a.cruiser=2&a.cruiser.hull=1&a.cruiser.ion=2
+// Params are `<fleet>.<preset>=<quantity>` plus `<fleet>.<preset>.<stat>=<n>`
+// for stats that differ from the preset's defaults, and per-fleet flags
+// `<fleet>.ams=1` (antimatter splitter) and `<fleet>.planner=dps`. Fleet keys
+// are `d` (defender) and `a`, `a2`, `a3`, `a4` (attackers). Ships whose config
+// exactly matches a preset variant (e.g. `guardian-wa`) are named as that
+// variant with no stat params. Decoding is lenient: unknown params are
+// ignored, numbers are clamped to UI limits, and fleet composition rules
+// (NPCs defend only, no mixed player/NPC fleets) are enforced.
+const SHARE_VERSION = '1';
+const MAX_FLEETS = 5;
+const MAX_STAT = 99;
+
+interface StatField {
+  key: string;
+  get: (config: Required<ShipConfig>) => number;
+  set: (config: Required<ShipConfig>, value: number) => void;
+}
+
+function weaponFields(
+  slot: 'cannons' | 'missiles',
+  suffix: string
+): StatField[] {
+  const weapons: WeaponType[] = ['ion', 'plasma', 'soliton', 'antimatter'];
+  return weapons.map((weapon) => ({
+    key: `${weapon}${suffix}`,
+    get: (config) => config[slot][weapon] ?? 0,
+    set: (config, value) => {
+      config[slot][weapon] = value;
+    },
+  }));
+}
+
+const STAT_FIELDS: StatField[] = [
+  {
+    key: 'hull',
+    get: (c) => c.hull,
+    set: (c, v) => {
+      c.hull = v;
+    },
+  },
+  {
+    key: 'comp',
+    get: (c) => c.computers,
+    set: (c, v) => {
+      c.computers = v;
+    },
+  },
+  {
+    key: 'shield',
+    get: (c) => c.shields,
+    set: (c, v) => {
+      c.shields = v;
+    },
+  },
+  {
+    key: 'init',
+    get: (c) => c.initiative,
+    set: (c, v) => {
+      c.initiative = v;
+    },
+  },
+  {
+    key: 'heal',
+    get: (c) => c.heal,
+    set: (c, v) => {
+      c.heal = v;
+    },
+  },
+  {
+    key: 'rift',
+    get: (c) => c.rift,
+    set: (c, v) => {
+      c.rift = v;
+    },
+  },
+  ...weaponFields('cannons', ''),
+  ...weaponFields('missiles', '-m'),
+];
+
+const STAT_FIELDS_BY_KEY = new Map(
+  STAT_FIELDS.map((field) => [field.key, field])
+);
+
+function fleetKey(index: number): string {
+  if (index === 0) return 'd';
+  return index === 1 ? 'a' : `a${index}`;
+}
+
+function fleetIndexFromKey(key: string): number | null {
+  if (key === 'd') return 0;
+  if (key === 'a' || key === 'a1') return 1;
+  const match = /^a([2-9])$/.exec(key);
+  if (!match) return null;
+  const index = Number(match[1]);
+  return index < MAX_FLEETS ? index : null;
+}
+
+function normalizeConfig(config: Partial<ShipConfig>): Required<ShipConfig> {
+  return {
+    hull: config.hull ?? 0,
+    computers: config.computers ?? 0,
+    shields: config.shields ?? 0,
+    initiative: config.initiative ?? 0,
+    heal: config.heal ?? 0,
+    rift: config.rift ?? 0,
+    cannons: {
+      ion: 0,
+      plasma: 0,
+      soliton: 0,
+      antimatter: 0,
+      ...config.cannons,
+    },
+    missiles: {
+      ion: 0,
+      plasma: 0,
+      soliton: 0,
+      antimatter: 0,
+      ...config.missiles,
+    },
+  };
+}
+
+function configsEqual(
+  a: Required<ShipConfig>,
+  b: Required<ShipConfig>
+): boolean {
+  return STAT_FIELDS.every((field) => field.get(a) === field.get(b));
+}
+
+function encodeShip(
+  key: string,
+  shipType: ShipTypeConfig,
+  params: [string, string][]
+) {
+  const config = normalizeConfig(shipType.config);
+  const candidates = presetKeysForType(shipType.type);
+
+  const exact = candidates.find((candidate) =>
+    configsEqual(
+      config,
+      normalizeConfig(getDefaultShipConfig(candidate).config)
+    )
+  );
+  const preset = exact ?? candidates[0];
+  params.push([`${key}.${preset}`, String(shipType.quantity)]);
+
+  if (!exact) {
+    const base = normalizeConfig(getDefaultShipConfig(preset).config);
+    for (const field of STAT_FIELDS) {
+      if (field.get(config) !== field.get(base)) {
+        params.push([
+          `${key}.${preset}.${field.key}`,
+          String(field.get(config)),
+        ]);
+      }
+    }
+  }
+}
+
+// Returns the query string for a battle ('' when there is nothing to share).
+export function encodeBattleQuery(fleets: FleetState[]): string {
+  const params: [string, string][] = [];
+
+  fleets.slice(0, MAX_FLEETS).forEach((fleet, index) => {
+    const key = fleetKey(index);
+    fleet.shipTypes.forEach((shipType) => encodeShip(key, shipType, params));
+    if (fleet.antimatterSplitter) {
+      params.push([`${key}.ams`, '1']);
+    }
+    if (fleet.plannerType === 'dps') {
+      params.push([`${key}.planner`, 'dps']);
+    }
+  });
+
+  if (params.length === 0) return '';
+  return new URLSearchParams([['v', SHARE_VERSION], ...params]).toString();
+}
+
+function clampStat(value: number): number {
+  return Math.min(MAX_STAT, Math.max(0, Math.round(value)));
+}
+
+interface FleetDraft {
+  ships: Map<ShipDropdownOption, ShipTypeConfig>;
+  antimatterSplitter: boolean;
+  plannerType: PlannerType;
+}
+
+function draftShip(
+  draft: FleetDraft,
+  preset: ShipDropdownOption,
+  fleetIndex: number,
+  shipIndex: number
+): ShipTypeConfig | null {
+  const existing = draft.ships.get(preset);
+  if (existing) return existing;
+
+  const variant = getDefaultShipConfig(preset);
+  // One entry per ship type: a second preset of the same type (e.g. `ancient`
+  // and `ancient-wa`) is ignored, matching the UI's dropdown behavior.
+  const typeTaken = [...draft.ships.values()].some(
+    (ship) => ship.type === variant.type
+  );
+  if (typeTaken) return null;
+
+  const ship: ShipTypeConfig = {
+    id: `ship-shared-${fleetIndex}-${shipIndex}`,
+    type: variant.type,
+    quantity: 1,
+    config: variant.config,
+  };
+  draft.ships.set(preset, ship);
+  return ship;
+}
+
+// A fleet can't mix player and NPC ships, or multiple NPC types, and only the
+// defender may field NPCs, starbases, or orbitals. The first valid ship in
+// param order decides the fleet's category, matching the UI's add-ship rules.
+function enforceCompositionRules(
+  ships: ShipTypeConfig[],
+  isDefender: boolean
+): ShipTypeConfig[] {
+  const allowed = ships.filter(
+    (ship) =>
+      isDefender ||
+      (isPlayerShipType(ship.type) &&
+        ship.type !== ShipType.Starbase &&
+        ship.type !== ShipType.Orbital)
+  );
+  if (allowed.length === 0) return [];
+
+  const firstIsPlayer = isPlayerShipType(allowed[0].type);
+  return allowed.filter((ship) =>
+    firstIsPlayer ? isPlayerShipType(ship.type) : ship.type === allowed[0].type
+  );
+}
+
+export function parseBattleQuery(search: string): FleetState[] | null {
+  const params = new URLSearchParams(search);
+  if (params.get('v') !== SHARE_VERSION) return null;
+
+  const drafts = new Map<number, FleetDraft>();
+  const getDraft = (index: number): FleetDraft => {
+    let draft = drafts.get(index);
+    if (!draft) {
+      draft = {
+        ships: new Map(),
+        antimatterSplitter: false,
+        plannerType: 'optimal',
+      };
+      drafts.set(index, draft);
+    }
+    return draft;
+  };
+
+  let recognized = false;
+  for (const [key, value] of params.entries()) {
+    const parts = key.split('.');
+    if (parts.length < 2 || parts.length > 3) continue;
+    const fleetIndex = fleetIndexFromKey(parts[0]);
+    if (fleetIndex === null) continue;
+
+    if (parts.length === 2 && parts[1] === 'ams') {
+      getDraft(fleetIndex).antimatterSplitter = value === '1';
+      recognized = true;
+      continue;
+    }
+    if (parts.length === 2 && parts[1] === 'planner') {
+      if (value === 'dps' || value === 'optimal') {
+        getDraft(fleetIndex).plannerType = value;
+        recognized = true;
+      }
+      continue;
+    }
+
+    if (!isShipPresetKey(parts[1])) continue;
+    const draft = getDraft(fleetIndex);
+    const ship = draftShip(draft, parts[1], fleetIndex, draft.ships.size);
+    if (!ship) continue;
+
+    const numeric = Number(value);
+    if (parts.length === 2) {
+      recognized = true;
+      if (Number.isFinite(numeric)) {
+        ship.quantity = Math.min(
+          SHIP_QUANTITY_LIMITS[ship.type],
+          Math.max(1, Math.round(numeric))
+        );
+      }
+      continue;
+    }
+
+    const field = STAT_FIELDS_BY_KEY.get(parts[2]);
+    if (field && Number.isFinite(numeric)) {
+      field.set(ship.config as Required<ShipConfig>, clampStat(numeric));
+      recognized = true;
+    }
+  }
+
+  if (!recognized) return null;
+
+  const fleetCount = Math.max(2, ...[...drafts.keys()].map((i) => i + 1));
+  return Array.from({ length: fleetCount }, (_, index) => {
+    const draft = drafts.get(index);
+    return {
+      id: `fleet-${index}`,
+      name: '',
+      shipTypes: draft
+        ? enforceCompositionRules([...draft.ships.values()], index === 0)
+        : [],
+      antimatterSplitter: draft?.antimatterSplitter ?? false,
+      plannerType: draft?.plannerType ?? 'optimal',
+    };
+  });
+}
+
+// The full shareable URL for a battle, based on the current page location.
+export function battleUrl(fleets: FleetState[]): string {
+  const query = encodeBattleQuery(fleets);
+  const base = window.location.origin + window.location.pathname;
+  return query ? `${base}?${query}` : base;
+}
+
+function fleetLineup(fleet: FleetState): string {
+  if (fleet.shipTypes.length === 0) return 'Empty fleet';
+  return fleet.shipTypes
+    .map((shipType) =>
+      shipType.quantity > 1
+        ? `${shipType.quantity}× ${shipType.type}`
+        : shipType.type
+    )
+    .join(', ');
+}
+
+function formatCount(count: number): string {
+  return count % 1 === 0 ? count.toString() : count.toFixed(1);
+}
+
+const BAR_WIDTH = 20;
+
+function oddsBar(probability: number): string {
+  const filled = Math.round(probability * BAR_WIDTH);
+  return '█'.repeat(filled) + '░'.repeat(BAR_WIDTH - filled);
+}
+
+// A plain-text battle report sized for chat: a one-line matchup, a fenced
+// monospace block with the odds bars, and the share URL left bare so chat
+// clients unfurl it.
+export function formatChatReport(
+  fleets: FleetState[],
+  results: SimulationResults,
+  url?: string
+): string {
+  const rows: [string, number][] = fleets.map((fleet) => [
+    fleet.name,
+    results.victoryProbability[fleet.name] ?? 0,
+  ]);
+  if (results.drawProbability > 0) {
+    rows.push(['Draw', results.drawProbability]);
+  }
+
+  const nameWidth = Math.max(...rows.map(([name]) => name.length));
+  const lines = rows.map(([name, probability]) => {
+    const percent = `${(probability * 100).toFixed(1)}%`;
+    return `${name.padEnd(nameWidth)}  ${percent.padStart(6)}  ${oddsBar(probability)}`;
+  });
+
+  const survivorParts = fleets.flatMap((fleet) => {
+    const survivors = Object.entries(
+      results.expectedSurvivors[fleet.name] ?? {}
+    )
+      .filter(([, count]) => count > 0)
+      .map(([type, count]) => `${formatCount(count)}× ${type}`);
+    return survivors.length > 0
+      ? [`${fleet.name} ${survivors.join(', ')}`]
+      : [];
+  });
+  if (survivorParts.length > 0) {
+    lines.push('', `Avg survivors (wins): ${survivorParts.join(' · ')}`);
+  }
+
+  const matchup = fleets.map(fleetLineup).join('  vs  ');
+  const report = `⚔ ${matchup}\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
+  return url ? `${report}\n${url}` : report;
+}
+
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}

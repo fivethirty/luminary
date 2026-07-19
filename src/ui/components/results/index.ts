@@ -1,10 +1,12 @@
 import html from './results.html' with { type: 'text' };
 import './results.css';
 import { state, type SimulationResults } from '@ui/state';
+import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
 
 export class ResultsElement extends HTMLElement {
   connectedCallback() {
     this.innerHTML = html;
+    this.bindShareActions();
     this.render();
   }
 
@@ -21,6 +23,36 @@ export class ResultsElement extends HTMLElement {
         block: 'start',
       });
     }, 100);
+  }
+
+  private bindShareActions() {
+    const linkBtn = this.querySelector('.copy-link-btn') as HTMLButtonElement;
+    const chatBtn = this.querySelector('.copy-chat-btn') as HTMLButtonElement;
+
+    linkBtn.addEventListener('click', async () => {
+      const copied = await copyToClipboard(battleUrl(state.fleets));
+      this.flashCopyFeedback(linkBtn, copied);
+    });
+
+    chatBtn.addEventListener('click', async () => {
+      const report = formatChatReport(
+        state.fleets,
+        state.simulationResults!,
+        battleUrl(state.fleets)
+      );
+      const copied = await copyToClipboard(report);
+      this.flashCopyFeedback(chatBtn, copied);
+    });
+  }
+
+  private flashCopyFeedback(button: HTMLButtonElement, copied: boolean) {
+    const label = button.textContent;
+    button.textContent = copied ? 'Copied ✓' : 'Copy failed';
+    button.disabled = true;
+    setTimeout(() => {
+      button.textContent = label;
+      button.disabled = false;
+    }, 1500);
   }
 
   private renderWinPercentages(results: SimulationResults) {

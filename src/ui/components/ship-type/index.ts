@@ -6,19 +6,8 @@ import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
 import { removeShipType, updateShipType } from '@ui/state';
-import { ShipType } from '@calc/ship';
 import type { WeaponType } from '@calc/ship';
-
-const SHIP_QUANTITY_LIMITS: Record<ShipType, number> = {
-  [ShipType.Interceptor]: 8,
-  [ShipType.Cruiser]: 4,
-  [ShipType.Dreadnought]: 2,
-  [ShipType.Starbase]: 4,
-  [ShipType.Orbital]: 1,
-  [ShipType.Ancient]: 2,
-  [ShipType.Guardian]: 1,
-  [ShipType.GCDS]: 1,
-};
+import { SHIP_QUANTITY_LIMITS } from '@ui/ship-presets';
 
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;

@@ -80,6 +80,18 @@ export const state: State = {
   simulationResults: null,
 };
 
+// Fleet-change subscribers (e.g. the URL sync in app.ts). Every mutation of
+// fleet composition or settings notifies; simulation results do not.
+const fleetChangeListeners: Array<() => void> = [];
+
+export function onFleetsChanged(listener: () => void) {
+  fleetChangeListeners.push(listener);
+}
+
+function notifyFleetsChanged() {
+  fleetChangeListeners.forEach((listener) => listener());
+}
+
 export function addFleet(): FleetState {
   const newFleet: FleetState = {
     id: `fleet-${nextFleetId}`,
@@ -91,6 +103,7 @@ export function addFleet(): FleetState {
   nextFleetId++;
 
   state.fleets.push(newFleet);
+  notifyFleetsChanged();
   return newFleet;
 }
 
@@ -98,6 +111,7 @@ export function removeFleet(fleetId: string) {
   const index = state.fleets.findIndex((f) => f.id === fleetId);
   if (index > -1) {
     state.fleets.splice(index, 1);
+    notifyFleetsChanged();
   }
 }
 
@@ -111,7 +125,8 @@ function getFleetById(fleetId: string): FleetState {
 
 export function addShipType(
   fleetId: string,
-  shipType: ShipType
+  shipType: ShipType,
+  config: Partial<ShipConfig> = {}
 ): ShipTypeConfig {
   const fleet = getFleetById(fleetId);
 
@@ -119,10 +134,11 @@ export function addShipType(
     id: `ship-${Date.now()}-${Math.random()}`,
     type: shipType,
     quantity: 1,
-    config: {},
+    config,
   };
 
   fleet.shipTypes.push(newShip);
+  notifyFleetsChanged();
   return newShip;
 }
 
@@ -135,6 +151,7 @@ export function updateShipType(
   const ship = fleet.shipTypes.find((s) => s.id === shipId);
   if (ship) {
     Object.assign(ship, updates);
+    notifyFleetsChanged();
   }
 }
 
@@ -143,12 +160,22 @@ export function removeShipType(fleetId: string, shipId: string) {
   const index = fleet.shipTypes.findIndex((s) => s.id === shipId);
   if (index > -1) {
     fleet.shipTypes.splice(index, 1);
+    notifyFleetsChanged();
   }
 }
 
 export function resetFleets() {
   state.fleets = DEFAULT_FLEETS.map((f) => ({ ...f, shipTypes: [] }));
   nextFleetId = 2;
+  notifyFleetsChanged();
+}
+
+// Replaces all fleets wholesale (e.g. when loading a shared battle link).
+// Incoming fleets are expected to use sequential `fleet-<n>` ids from 0.
+export function replaceFleets(fleets: FleetState[]) {
+  state.fleets = fleets;
+  nextFleetId = fleets.length;
+  notifyFleetsChanged();
 }
 
 export function setSimulationResults(results: SimulationResults | null) {
@@ -158,9 +185,11 @@ export function setSimulationResults(results: SimulationResults | null) {
 export function toggleAntimatterSplitter(fleetId: string) {
   const fleet = getFleetById(fleetId);
   fleet.antimatterSplitter = !fleet.antimatterSplitter;
+  notifyFleetsChanged();
 }
 
 export function setFleetPlannerType(fleetId: string, plannerType: PlannerType) {
   const fleet = getFleetById(fleetId);
   fleet.plannerType = plannerType;
+  notifyFleetsChanged();
 }

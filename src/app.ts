@@ -5,8 +5,16 @@ import { Ship } from '@calc/ship';
 import '@ui/components/fleet';
 import type { FleetElement } from '@ui/components/fleet';
 import '@ui/components/results';
-import { state, addFleet, resetFleets, setSimulationResults } from '@ui/state';
+import {
+  state,
+  addFleet,
+  onFleetsChanged,
+  resetFleets,
+  replaceFleets,
+  setSimulationResults,
+} from '@ui/state';
 import type { PlannerType } from '@ui/state';
+import { encodeBattleQuery, parseBattleQuery } from '@ui/share';
 import { DamageType } from 'src/constants';
 
 const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
@@ -60,6 +68,34 @@ function clearAll() {
   setSimulationResults(null);
   renderFleets();
   renderResults();
+}
+
+// Mirrors the current fleets into the query string on every change, so the
+// address bar is always a shareable link to the battle being set up.
+function syncBattleUrl() {
+  const query = encodeBattleQuery(state.fleets);
+  window.history.replaceState(
+    null,
+    '',
+    window.location.pathname + (query ? `?${query}` : '')
+  );
+}
+
+// Loads a shared battle from the query string. Returns true if one was loaded.
+function loadSharedBattle(): boolean {
+  const fleets = parseBattleQuery(window.location.search);
+  if (!fleets) return false;
+
+  replaceFleets(fleets);
+  renderFleets();
+
+  // The link was cut from a simulated battle, so show the recipient the
+  // answer, not a filled-in form. Empty fleets can't battle; leave those for
+  // the user to finish.
+  if (state.fleets.every((fleet) => fleet.shipTypes.length > 0)) {
+    simulate();
+  }
+  return true;
 }
 
 function simulate() {
@@ -165,7 +201,8 @@ function handleRouteChange() {
       aboutContent.style.display = 'block';
       break;
     default:
-      window.history.replaceState(null, '', '/');
+      // Preserve the query string: shared battle links carry their state there.
+      window.history.replaceState(null, '', '/' + window.location.search);
       homeContent.style.display = 'block';
       aboutContent.style.display = 'none';
       break;
@@ -194,13 +231,18 @@ function init() {
       e.preventDefault();
       const href = (e.currentTarget as HTMLAnchorElement).getAttribute('href');
       if (href && href !== window.location.pathname) {
-        window.history.pushState(null, '', href);
+        // Carry the battle query along so navigating doesn't lose the setup.
+        window.history.pushState(null, '', href + window.location.search);
         handleRouteChange();
       }
     });
   });
 
-  renderFleets();
+  onFleetsChanged(syncBattleUrl);
+
+  if (!loadSharedBattle()) {
+    renderFleets();
+  }
 
   handleRouteChange();
   window.addEventListener('popstate', handleRouteChange);
