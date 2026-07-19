@@ -309,7 +309,7 @@ describe('App shared battle links', () => {
     expect(statValue(ships[1], 'hull')).toBe('2');
     expect(statValue(ships[1], 'computer')).toBe('1');
     expect(statValue(ships[1], 'plasma-cannon')).toBe('1');
-    expect(statValue(ships[1], 'plasma-missile')).toBe('1');
+    expect(statValue(ships[1], 'plasma-missile')).toBe('2');
   });
 
   test('a battle in the URL wins over the saved setup', () => {
