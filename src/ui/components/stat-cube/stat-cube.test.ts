@@ -118,20 +118,52 @@ describe('StatCubeElement', () => {
     let changes = 0;
     cube.addEventListener('change', () => changes++);
 
+    expect(dec.disabled).toBe(true);
+
     inc.click();
     inc.click();
     expect(cube.value).toBe(2);
+    expect(dec.disabled).toBe(false);
 
     dec.click();
     dec.click();
     dec.click();
     expect(cube.value).toBe(0);
 
-    expect(changes).toBe(5);
+    expect(changes).toBe(4);
 
     cube.value = 99;
+    expect(inc.disabled).toBe(true);
     inc.click();
     expect(cube.value).toBe(99);
+  });
+
+  test('supports custom step and max constraints', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.step = 2;
+    cube.max = 5;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const inc = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    const dec = cube.querySelector('.stat-dec') as HTMLButtonElement;
+
+    inc.click();
+    expect(cube.value).toBe(2);
+    inc.click();
+    expect(cube.value).toBe(4);
+    expect(inc.disabled).toBe(true);
+    inc.click();
+    expect(cube.value).toBe(4);
+
+    input.value = '1';
+    input.dispatchEvent(new Event('change'));
+    expect(cube.value).toBe(2);
+    expect(input.value).toBe('2');
+
+    dec.click();
+    expect(cube.value).toBe(0);
+    expect(dec.disabled).toBe(true);
   });
 
   test('stepper clicks do not focus the input', () => {

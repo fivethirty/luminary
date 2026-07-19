@@ -47,6 +47,18 @@
   background: var(--color-border);
 }
 
+.stat-step:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+  opacity: 0.32;
+}
+
+.stat-step:disabled:hover,
+.stat-step:disabled:active {
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
 /* Table mode: on touch screens the steppers are the primary input, so give
    them real tap targets. */
 @media (pointer: coarse) {

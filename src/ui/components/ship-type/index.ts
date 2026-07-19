@@ -163,7 +163,15 @@ export class ShipTypeElement extends HTMLElement {
       ) as StatCubeElement;
       if (cube) {
         cube.label = label;
-        cube.value = getValue();
+        if (stat === 'plasma-missile') cube.step = 2;
+        if (stat === 'soliton-missile' || stat === 'antimatter-missile') {
+          cube.max = 1;
+        }
+        const initialValue = getValue();
+        cube.value = initialValue;
+        if (cube.value !== initialValue) {
+          setValue(cube.value);
+        }
         cube.disabled = !statsEditable;
         cube.addEventListener('change', () => {
           if (cube.disabled) return;

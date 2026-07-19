@@ -130,6 +130,74 @@ describe('ShipType', () => {
     expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
   });
 
+  test('enforces player missile component limits', () => {
+    const shipTypeConfig = {
+      id: 'test-missile-limits',
+      type: ShipType.Cruiser,
+      quantity: 1,
+      config: {},
+    };
+
+    state.fleets[0].shipTypes.push(shipTypeConfig);
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    const plasma = element.querySelector(
+      '[data-stat="plasma-missile"]'
+    ) as HTMLElement;
+    const soliton = element.querySelector(
+      '[data-stat="soliton-missile"]'
+    ) as HTMLElement;
+    const antimatter = element.querySelector(
+      '[data-stat="antimatter-missile"]'
+    ) as HTMLElement;
+
+    (plasma.querySelector('.stat-inc') as HTMLButtonElement).click();
+    expect(state.fleets[0].shipTypes[0].config.missiles?.plasma).toBe(2);
+
+    const solitonInc = soliton.querySelector('.stat-inc') as HTMLButtonElement;
+    solitonInc.click();
+    expect(solitonInc.disabled).toBe(true);
+    solitonInc.click();
+    expect(state.fleets[0].shipTypes[0].config.missiles?.soliton).toBe(1);
+
+    const antimatterInput = antimatter.querySelector(
+      'input'
+    ) as HTMLInputElement;
+    const antimatterInc = antimatter.querySelector(
+      '.stat-inc'
+    ) as HTMLButtonElement;
+    antimatterInput.value = '9';
+    antimatterInput.dispatchEvent(new Event('change'));
+    expect(state.fleets[0].shipTypes[0].config.missiles?.antimatter).toBe(1);
+    expect(antimatterInc.disabled).toBe(true);
+  });
+
+  test('normalizes existing missile component values when rendering', () => {
+    const shipTypeConfig = {
+      id: 'test-existing-missile-limits',
+      type: ShipType.Cruiser,
+      quantity: 1,
+      config: {
+        missiles: { plasma: 1, soliton: 2, antimatter: 3 },
+      },
+    };
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    expect(shipTypeConfig.config.missiles?.plasma).toBe(2);
+    expect(shipTypeConfig.config.missiles?.soliton).toBe(1);
+    expect(shipTypeConfig.config.missiles?.antimatter).toBe(1);
+  });
+
   test('disables NPC ship layout stats', () => {
     const shipTypeConfig = {
       id: 'test-ancient',
