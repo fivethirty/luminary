@@ -13,6 +13,14 @@ import {
   SHIP_QUANTITY_LIMITS,
   type ShipDropdownOption,
 } from '@ui/ship-presets';
+import {
+  defaultFleetColorId,
+  isFactionId,
+  isFleetColorId,
+  MAX_FLEETS,
+  type FactionId,
+  type FleetColorId,
+} from '@ui/fleet-metadata';
 import type {
   FleetState,
   PlannerType,
@@ -24,14 +32,14 @@ import type {
 //   ?v=1&d.guardian-wa=1&a.cruiser=2&a.cruiser.hull=1&a.cruiser.ion=2
 // Params are `<fleet>.<preset>=<quantity>` plus `<fleet>.<preset>.<stat>=<n>`
 // for stats that differ from the preset's defaults, and per-fleet flags
-// `<fleet>.ams=1` (antimatter splitter) and `<fleet>.planner=dps`. Fleet keys
-// are `d` (defender) and `a`, `a2`, `a3`, `a4` (attackers). Ships whose config
+// `<fleet>.ams=1` (antimatter splitter), `<fleet>.planner=dps`,
+// `<fleet>.faction=rho-indi`, and `<fleet>.color=red`. Fleet keys
+// are `d` (defender) and `a`, `a2`...`a6` (attackers). Ships whose config
 // exactly matches a preset variant (e.g. `guardian-wa`) are named as that
 // variant with no stat params. Decoding is lenient: unknown params are
 // ignored, numbers are clamped to UI limits, and fleet composition rules
 // (NPCs defend only, no mixed player/NPC fleets) are enforced.
 const SHARE_VERSION = '1';
-const MAX_FLEETS = 5;
 const MAX_STAT = 99;
 
 interface StatField {
@@ -188,6 +196,12 @@ export function encodeBattleQuery(fleets: FleetState[]): string {
     if (fleet.plannerType === 'dps') {
       params.push([`${key}.planner`, 'dps']);
     }
+    if (fleet.factionId) {
+      params.push([`${key}.faction`, fleet.factionId]);
+    }
+    if (fleet.colorId && fleet.colorId !== defaultFleetColorId(index)) {
+      params.push([`${key}.color`, fleet.colorId]);
+    }
   });
 
   if (params.length === 0) return '';
@@ -200,6 +214,8 @@ function clampStat(value: number): number {
 
 interface FleetDraft {
   ships: Map<ShipDropdownOption, ShipTypeConfig>;
+  factionId: FactionId;
+  colorId?: FleetColorId;
   antimatterSplitter: boolean;
   plannerType: PlannerType;
 }
@@ -263,6 +279,8 @@ export function parseBattleQuery(search: string): FleetState[] | null {
     if (!draft) {
       draft = {
         ships: new Map(),
+        factionId: '',
+        colorId: undefined,
         antimatterSplitter: false,
         plannerType: 'optimal',
       };
@@ -286,6 +304,20 @@ export function parseBattleQuery(search: string): FleetState[] | null {
     if (parts.length === 2 && parts[1] === 'planner') {
       if (value === 'dps' || value === 'optimal') {
         getDraft(fleetIndex).plannerType = value;
+        recognized = true;
+      }
+      continue;
+    }
+    if (parts.length === 2 && parts[1] === 'faction') {
+      if (isFactionId(value)) {
+        getDraft(fleetIndex).factionId = value;
+        recognized = true;
+      }
+      continue;
+    }
+    if (parts.length === 2 && parts[1] === 'color') {
+      if (isFleetColorId(value)) {
+        getDraft(fleetIndex).colorId = value;
         recognized = true;
       }
       continue;
@@ -326,6 +358,8 @@ export function parseBattleQuery(search: string): FleetState[] | null {
       shipTypes: draft
         ? enforceCompositionRules([...draft.ships.values()], index === 0)
         : [],
+      factionId: draft?.factionId ?? '',
+      colorId: draft?.colorId ?? defaultFleetColorId(index),
       antimatterSplitter: draft?.antimatterSplitter ?? false,
       plannerType: draft?.plannerType ?? 'optimal',
     };

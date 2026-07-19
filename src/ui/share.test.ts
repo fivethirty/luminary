@@ -123,6 +123,42 @@ describe('encodeBattleQuery', () => {
     );
     expect(encodeBattleQuery(fleets)).toContain('a2.interceptor=4');
   });
+
+  test('encodes faction and non-default board colors', () => {
+    const fleets = battle();
+    fleets[0].factionId = 'terran';
+    fleets[1].factionId = 'rho-indi';
+    fleets[1].colorId = 'red';
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('d.faction=terran');
+    expect(query).toContain('a.faction=rho-indi');
+    expect(query).toContain('a.color=red');
+  });
+
+  test('supports six player attackers plus neutrals', () => {
+    const fleets = battle();
+    for (let index = 2; index < 7; index++) {
+      fleets.push(
+        fleet({
+          id: `fleet-${index}`,
+          name: `Attacker ${index}`,
+          shipTypes: [
+            {
+              id: `ship-${index}`,
+              type: ShipType.Interceptor,
+              quantity: 1,
+              config: { initiative: 3 },
+            },
+          ],
+        })
+      );
+    }
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('a6.interceptor=1');
+    expect(parseBattleQuery(query)).toHaveLength(7);
+  });
 });
 
 describe('parseBattleQuery', () => {
@@ -142,6 +178,8 @@ describe('parseBattleQuery', () => {
     );
     expect(decoded[1].antimatterSplitter).toBe(true);
     expect(decoded[1].plannerType).toBe('dps');
+    expect(decoded[0].colorId).toBe('neutral');
+    expect(decoded[1].colorId).toBe('blue');
     expect(decoded.map((f) => f.id)).toEqual(['fleet-0', 'fleet-1']);
     expect(decoded.every((f) => f.name === '')).toBe(true);
   });
@@ -212,6 +250,17 @@ describe('parseBattleQuery', () => {
     expect(decoded).toHaveLength(4);
     expect(decoded[3].shipTypes[0].type).toBe(ShipType.Cruiser);
     expect(decoded[1].shipTypes).toHaveLength(0);
+  });
+
+  test('round-trips faction and board color metadata', () => {
+    const decoded = parseBattleQuery(
+      'v=1&d.faction=terran&d.color=green&a.faction=rho-indi&a.color=blue'
+    )!;
+
+    expect(decoded[0].factionId).toBe('terran');
+    expect(decoded[0].colorId).toBe('green');
+    expect(decoded[1].factionId).toBe('rho-indi');
+    expect(decoded[1].colorId).toBe('blue');
   });
 });
 

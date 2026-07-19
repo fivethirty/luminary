@@ -7,6 +7,7 @@ import {
   updateShipType,
   resetFleets,
   setSimulationResults,
+  setFleetFaction,
 } from '@ui/state';
 import { monteCarloResults } from '@ui/test-helpers';
 import {
@@ -52,6 +53,54 @@ describe('App', () => {
 
     const fleetElements = document.querySelectorAll('calc-fleet');
     expect(fleetElements.length).toBe(3);
+  });
+
+  test('uses selected faction as the fleet name', () => {
+    const factionSelect = document.querySelector(
+      'calc-fleet .faction-select'
+    ) as HTMLSelectElement;
+    factionSelect.value = 'terran';
+    factionSelect.dispatchEvent(new Event('change'));
+
+    expect(state.fleets[0].name).toBe('Terran Directorate');
+    expect(state.fleets[1].name).toBe('Attacker');
+
+    const fleetNames = Array.from(document.querySelectorAll('.fleet-name')).map(
+      (name) => name.textContent
+    );
+    expect(fleetNames).toEqual(['Terran Directorate', 'Attacker']);
+  });
+
+  test('uses The Ancients for an NPC defender fleet', async () => {
+    const defender = document.querySelector('calc-fleet')!;
+    const ancientPicker = defender.querySelector(
+      '[aria-label="Add Ancient layout"]'
+    ) as HTMLSelectElement;
+
+    ancientPicker.value = 'ancient';
+    ancientPicker.dispatchEvent(new Event('change'));
+
+    await settle();
+
+    expect(state.fleets[0].name).toBe('The Ancients');
+    expect(defender.querySelector('.fleet-name')?.textContent).toBe(
+      'The Ancients'
+    );
+    expect(state.fleets[0].colorId).toBe('neutral');
+  });
+
+  test('add fleet button stops at six players plus neutrals', () => {
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+
+    for (let index = 0; index < 5; index++) addBtn.click();
+
+    expect(state.fleets.length).toBe(7);
+    expect(addBtn.disabled).toBe(true);
+
+    addBtn.click();
+    expect(state.fleets.length).toBe(7);
   });
 
   test('clear all button resets to default state', () => {
@@ -129,6 +178,38 @@ describe('App', () => {
     expect(
       state.simulationResults!.victoryProbability['Attacker 2']
     ).toBeCloseTo(25 / 121, 9);
+  });
+
+  test('keeps duplicate faction attackers separate in live odds', async () => {
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+    addBtn.click();
+
+    setFleetFaction(state.fleets[1].id, 'terran');
+    setFleetFaction(state.fleets[2].id, 'terran');
+    addShipType(state.fleets[0].id, ShipType.Ancient, {
+      hull: 1,
+      computers: 1,
+      initiative: 2,
+      cannons: { ion: 2 },
+    });
+    addShipType(state.fleets[1].id, ShipType.Interceptor);
+    addShipType(state.fleets[2].id, ShipType.Interceptor, {
+      hull: 1,
+      cannons: { ion: 1 },
+    });
+
+    await settle();
+
+    expect(state.fleets[1].name).toBe('Terran Directorate 1');
+    expect(state.fleets[2].name).toBe('Terran Directorate 2');
+    expect(
+      state.simulationResults!.victoryProbability['Terran Directorate 1']
+    ).toBe(0);
+    expect(
+      state.simulationResults!.victoryProbability['Terran Directorate 2']
+    ).toBeGreaterThan(0);
   });
 
   test('uses DPS exact fallback when both fleets have 3+ ship types', () => {

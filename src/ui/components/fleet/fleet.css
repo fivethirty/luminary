@@ -49,8 +49,98 @@
   background: linear-gradient(90deg, var(--fleet-accent-soft), var(--color-bg-secondary) 45%);
 }
 
+.fleet-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
 .fleet-name {
-  padding-right: var(--space-md);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fleet-settings-dialog {
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.fleet-settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.fleet-settings-form {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.fleet-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.fleet-settings-field {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.fleet-settings-field > span,
+.fleet-settings-field > legend {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.faction-select {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.color-options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.color-option {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: var(--option-color);
+}
+
+.color-option.selected {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
+.role-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 0 0 auto;
+}
+
+.move-up-btn:disabled,
+.move-down-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .fleet:not(:has(calc-ship-type)) .fleet-tech {
@@ -216,6 +306,36 @@
 @media (max-width: 42rem) {
   .preset-chips {
     justify-content: space-between;
+  }
+
+  .fleet-header {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .fleet-name {
+    flex: 1 1 auto;
+  }
+
+  .fleet-title-row {
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    gap: var(--space-sm);
+  }
+
+  .role-controls {
+    margin-left: 0;
+  }
+
+  .ship-selector {
+    flex: 1 1 0;
+    margin-left: 0;
+    margin-right: 0;
+    min-width: 0;
+  }
+
+  .remove-btn {
+    flex: 0 0 auto;
   }
 
   .preset-chips-label {

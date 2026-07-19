@@ -5,14 +5,25 @@ import type { ShipTypeElement } from '../ship-type';
 import { ShipType, isPlayerShipType, type ShipConfig } from '@calc/ship';
 import type { FleetState } from '@ui/state';
 import {
+  isNpcFleet,
+  moveFleet,
   removeFleet,
   addShipType,
   getCachedShipType,
   removeShipType,
+  setFleetColor,
+  setFleetFaction,
   updateShipType,
   toggleAntimatterSplitter,
   setFleetPlannerType,
 } from '@ui/state';
+import {
+  FACTIONS,
+  factionLabel,
+  fleetColor,
+  type FactionId,
+  PLAYER_FLEET_COLORS,
+} from '@ui/fleet-metadata';
 
 import {
   getDefaultShipConfig,
@@ -23,12 +34,15 @@ import {
 
 export class FleetElement extends HTMLElement {
   fleet!: FleetState;
+  private fleetIndex = 0;
 
   connectedCallback() {
     this.innerHTML = html;
 
-    const nameSpan = this.querySelector('.fleet-name') as HTMLSpanElement;
-    nameSpan.textContent = this.fleet.name;
+    this.fleetIndex = Number(this.getAttribute('fleet-index') ?? '0');
+    const fleetCount = Number(this.getAttribute('fleet-count') ?? '1');
+    this.updateDisplayedName();
+    this.applyFleetColor();
     this.querySelector('.fleet')?.classList.toggle(
       'fleet-defender',
       this.getAttribute('is-defender') !== 'false'
@@ -37,12 +51,14 @@ export class FleetElement extends HTMLElement {
       'fleet-attacker',
       this.getAttribute('is-defender') === 'false'
     );
-    const fleetIndex = Number(this.getAttribute('fleet-index') ?? '0');
-    if (fleetIndex > 1) {
+    if (this.fleetIndex > 1) {
       this.querySelector('.fleet')?.classList.add(
-        `fleet-attacker-${Math.min(fleetIndex, 4)}`
+        `fleet-attacker-${Math.min(this.fleetIndex, 4)}`
       );
     }
+
+    this.bindSettingsDialog();
+    this.bindRoleControls(this.fleetIndex, fleetCount);
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     const canRemove = this.getAttribute('can-remove') !== 'false';
@@ -61,6 +77,9 @@ export class FleetElement extends HTMLElement {
     }
 
     this.addEventListener('ship-removed', () => {
+      this.updateDisplayedName();
+      this.applyFleetColor();
+      this.updateColorControls();
       this.updateShipSelector();
       this.updatePlannerControl();
     });
@@ -99,6 +118,125 @@ export class FleetElement extends HTMLElement {
     this.updateShipSelector();
     this.updatePlannerControl();
     this.renderShips();
+  }
+
+  private applyFleetColor() {
+    const fleetRoot = this.querySelector('.fleet') as HTMLElement | null;
+    if (!fleetRoot) return;
+    const color = fleetColor(this.fleet.colorId, this.fleetIndex);
+    fleetRoot.style.setProperty('--fleet-accent', color.color);
+    fleetRoot.style.setProperty('--fleet-accent-soft', color.soft);
+  }
+
+  private updateDisplayedName() {
+    const nameSpan = this.querySelector('.fleet-name') as HTMLSpanElement;
+    const isDefender = this.getAttribute('is-defender') !== 'false';
+    const displayName =
+      isDefender && isNpcFleet(this.fleet)
+        ? 'The Ancients'
+        : (factionLabel(this.fleet.factionId) ?? this.fleet.name);
+    nameSpan.textContent = displayName;
+  }
+
+  private bindSettingsDialog() {
+    const dialog = this.querySelector(
+      '.fleet-settings-dialog'
+    ) as HTMLDialogElement;
+    const title = this.querySelector('.fleet-settings-title') as HTMLElement;
+    title.textContent = this.fleet.name;
+
+    const settingsBtn = this.querySelector(
+      '.fleet-settings-btn'
+    ) as HTMLButtonElement;
+    settingsBtn.addEventListener('click', () => {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.setAttribute('open', '');
+      }
+    });
+
+    const factionSelect = this.querySelector(
+      '.faction-select'
+    ) as HTMLSelectElement;
+    factionSelect.innerHTML = '';
+    FACTIONS.forEach((faction) => {
+      const option = document.createElement('option');
+      option.value = faction.id;
+      option.textContent = faction.label;
+      factionSelect.appendChild(option);
+    });
+    factionSelect.value = this.fleet.factionId ?? '';
+    factionSelect.addEventListener('change', () => {
+      setFleetFaction(this.fleet.id, factionSelect.value as FactionId);
+      this.updateDisplayedName();
+      this.dispatchFleetMetadataChanged();
+    });
+
+    PLAYER_FLEET_COLORS.forEach((color) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'color-option';
+      button.value = color.id;
+      button.title = color.label;
+      button.setAttribute('aria-label', color.label);
+      button.style.setProperty('--option-color', color.color);
+      button.classList.toggle('selected', color.id === this.fleet.colorId);
+      button.addEventListener('click', () => {
+        setFleetColor(this.fleet.id, color.id);
+        this.applyFleetColor();
+        this.dispatchFleetMetadataChanged();
+      });
+      this.querySelector('.color-options')?.appendChild(button);
+    });
+    this.updateColorControls();
+  }
+
+  private updateColorControls() {
+    const colorFieldset = this.querySelector(
+      '.color-fieldset'
+    ) as HTMLFieldSetElement | null;
+    colorFieldset?.toggleAttribute('hidden', this.fleet.colorId === 'neutral');
+
+    this.querySelectorAll('.color-option').forEach((option) => {
+      const button = option as HTMLButtonElement;
+      button.classList.toggle('selected', button.value === this.fleet.colorId);
+    });
+  }
+
+  private bindRoleControls(fleetIndex: number, fleetCount: number) {
+    const moveUpBtn = this.querySelector('.move-up-btn') as HTMLButtonElement;
+    const moveDownBtn = this.querySelector(
+      '.move-down-btn'
+    ) as HTMLButtonElement;
+
+    moveUpBtn.disabled = fleetIndex === 0;
+    moveDownBtn.disabled = fleetIndex >= fleetCount - 1;
+
+    moveUpBtn.addEventListener('click', () => {
+      moveFleet(this.fleet.id, fleetIndex - 1);
+      this.dispatchFleetOrderChanged();
+    });
+    moveDownBtn.addEventListener('click', () => {
+      moveFleet(this.fleet.id, fleetIndex + 1);
+      this.dispatchFleetOrderChanged();
+    });
+  }
+
+  private dispatchFleetOrderChanged() {
+    this.dispatchEvent(
+      new CustomEvent('fleet-order-changed', {
+        bubbles: true,
+      })
+    );
+  }
+
+  private dispatchFleetMetadataChanged() {
+    this.dispatchEvent(
+      new CustomEvent('fleet-metadata-changed', {
+        bubbles: true,
+      })
+    );
   }
 
   // One-tap NPC opponents for the defender: tap adds the ship, tapping again
@@ -203,6 +341,9 @@ export class FleetElement extends HTMLElement {
       updateShipType(this.fleet.id, existing.id, {
         config: variantData.config,
       });
+      this.updateDisplayedName();
+      this.applyFleetColor();
+      this.updateColorControls();
       this.renderShips();
       this.updateShipSelector();
       this.updatePlannerControl();
@@ -243,6 +384,9 @@ export class FleetElement extends HTMLElement {
       shipsContainer.appendChild(shipElement);
     }
 
+    this.updateDisplayedName();
+    this.applyFleetColor();
+    this.updateColorControls();
     this.updateShipSelector();
     this.updatePlannerControl();
   }

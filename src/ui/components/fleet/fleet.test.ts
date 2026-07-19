@@ -20,6 +20,128 @@ describe('Fleet', () => {
     expect(nameSpan.textContent).toBe('Defender');
   });
 
+  test('keeps reorder buttons, name, and edit button in one title row', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+
+    document.body.appendChild(element);
+
+    const titleRow = element.querySelector('.fleet-title-row')!;
+    expect(
+      Array.from(titleRow.children).map((child) => child.className)
+    ).toEqual([
+      'role-controls',
+      'fleet-name text-bold',
+      'fleet-settings-btn btn-icon',
+    ]);
+  });
+
+  test('opens metadata editing from the role name and excludes neutral color', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+
+    document.body.appendChild(element);
+
+    const dialog = element.querySelector(
+      '.fleet-settings-dialog'
+    ) as HTMLDialogElement;
+    const editButton = element.querySelector(
+      '.fleet-settings-btn'
+    ) as HTMLButtonElement;
+    editButton.click();
+
+    expect(dialog.open).toBe(true);
+    expect(element.querySelectorAll('.color-option')).toHaveLength(6);
+    expect(element.querySelector('.color-option[value="neutral"]')).toBeNull();
+  });
+
+  test('metadata dialog updates faction and selected color', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[1];
+
+    document.body.appendChild(element);
+
+    const factionSelect = element.querySelector(
+      '.faction-select'
+    ) as HTMLSelectElement;
+    factionSelect.value = 'rho-indi';
+    factionSelect.dispatchEvent(new Event('change'));
+
+    const redButton = element.querySelector(
+      '.color-option[value="red"]'
+    ) as HTMLButtonElement;
+    redButton.click();
+
+    expect(state.fleets[1].factionId).toBe('rho-indi');
+    expect(state.fleets[1].colorId).toBe('red');
+    expect(state.fleets[0].colorId).toBe('neutral');
+  });
+
+  test('names an NPC defender The Ancients', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+
+    document.body.appendChild(element);
+
+    addShip(element, 'ancient');
+
+    expect(state.fleets[0].name).toBe('Defender');
+    expect(element.querySelector('.fleet-name')?.textContent).toBe(
+      'The Ancients'
+    );
+    expect(state.fleets[0].colorId).toBe('neutral');
+  });
+
+  test('restores defender display after removing an NPC ship', async () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+
+    document.body.appendChild(element);
+    await customElements.whenDefined('calc-ship-type');
+
+    addShip(element, 'ancient');
+    const shipElement = element.querySelector('calc-ship-type')!;
+    const removeButton = shipElement.querySelector(
+      '.remove-btn'
+    ) as HTMLButtonElement;
+    removeButton.click();
+
+    expect(state.fleets[0].name).toBe('Defender');
+    expect(element.querySelector('.fleet-name')?.textContent).toBe('Defender');
+    expect(state.fleets[0].colorId).toBe('neutral');
+  });
+
+  test('uses up and down controls to shift battle position', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[1];
+    element.setAttribute('fleet-index', '1');
+    element.setAttribute('fleet-count', '2');
+
+    document.body.appendChild(element);
+
+    let eventFired = false;
+    element.addEventListener('fleet-order-changed', () => {
+      eventFired = true;
+    });
+
+    const moveUpBtn = element.querySelector(
+      '.move-up-btn'
+    ) as HTMLButtonElement;
+    const moveDownBtn = element.querySelector(
+      '.move-down-btn'
+    ) as HTMLButtonElement;
+
+    expect(moveUpBtn.disabled).toBe(false);
+    expect(moveDownBtn.disabled).toBe(true);
+
+    moveUpBtn.click();
+
+    expect(state.fleets[0].id).toBe('fleet-1');
+    expect(eventFired).toBe(true);
+  });
+
   test('can add ships', async () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];

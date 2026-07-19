@@ -2,6 +2,7 @@ import html from './results.html' with { type: 'text' };
 import './results.css';
 import { state, type SimulationResults } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
+import { fleetColor } from '@ui/fleet-metadata';
 import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
 
 const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
@@ -181,6 +182,7 @@ export class ResultsElement extends HTMLElement {
     const row = document.createElement('div');
     row.className = isDraw ? 'result-bar-row draw' : 'result-bar-row';
     row.classList.add(...this.sideClasses(fleetName, isDraw));
+    this.applyFleetResultColor(row, fleetName, isDraw);
 
     const label = document.createElement('div');
     label.className = 'result-bar-label';
@@ -215,6 +217,7 @@ export class ResultsElement extends HTMLElement {
   ): HTMLElement {
     const segment = document.createElement('div');
     segment.className = `odds-segment ${this.sideClass(fleetName, isDraw)}`;
+    this.applyFleetResultColor(segment, fleetName, isDraw);
     if (percentage < ODDS_SLIVER_THRESHOLD) {
       segment.classList.add('odds-segment--sliver');
     } else if (percentage < ODDS_PERCENT_ONLY_THRESHOLD) {
@@ -259,8 +262,10 @@ export class ResultsElement extends HTMLElement {
       .filter((entry) => entry.text !== '—');
 
     if (defenderText !== '—') row.classList.add('defender-result');
+    if (defenderText !== '—') this.applyFleetResultColor(row, defenderName);
     if (attackerCompositions.length === 1) {
       row.classList.add(...this.sideClasses(attackerCompositions[0].name));
+      this.applyFleetResultColor(row, attackerCompositions[0].name);
     } else if (attackerCompositions.length > 1) {
       row.classList.add('attacker-result');
     }
@@ -282,6 +287,7 @@ export class ResultsElement extends HTMLElement {
         }
         const label = document.createElement('span');
         label.classList.add(...this.sideClasses(entry.name));
+        this.applyFleetResultColor(label, entry.name);
         label.textContent = entry.text;
         attackerCell.appendChild(label);
       });
@@ -320,6 +326,7 @@ export class ResultsElement extends HTMLElement {
     const card = document.createElement('div');
     card.className = 'survivor-fleet-card';
     card.classList.add(...this.sideClasses(fleetName));
+    this.applyFleetResultColor(card, fleetName);
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'survivor-fleet-name';
@@ -395,6 +402,26 @@ export class ResultsElement extends HTMLElement {
       return ['attacker-result', `attacker-result-${Math.min(fleetIndex, 4)}`];
     }
     return ['attacker-result'];
+  }
+
+  private applyFleetResultColor(
+    element: HTMLElement,
+    fleetName: string,
+    isDraw = false
+  ) {
+    if (isDraw || fleetName === 'Draw') {
+      element.style.removeProperty('--fleet-result');
+      element.style.removeProperty('--fleet-result-soft');
+      return;
+    }
+
+    const fleetIndex = state.fleets.findIndex(
+      (fleet) => fleet.name === fleetName
+    );
+    if (fleetIndex === -1) return;
+    const color = fleetColor(state.fleets[fleetIndex].colorId, fleetIndex);
+    element.style.setProperty('--fleet-result', color.color);
+    element.style.setProperty('--fleet-result-soft', color.soft);
   }
 }
 

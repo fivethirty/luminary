@@ -85,39 +85,39 @@ calc-results {
 }
 
 .defender-result {
-  color: var(--color-defender);
+  color: var(--fleet-result, var(--color-defender));
 }
 
 .attacker-result {
-  color: var(--color-attacker);
-  --attacker-result: var(--color-attacker);
-  --attacker-result-soft: var(--color-attacker-soft);
+  color: var(--fleet-result, var(--color-attacker));
+  --attacker-result: var(--fleet-result, var(--color-attacker));
+  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-soft));
 }
 
 .attacker-result-2 {
-  color: var(--color-attacker-2);
-  --attacker-result: var(--color-attacker-2);
-  --attacker-result-soft: var(--color-attacker-2-soft);
+  color: var(--fleet-result, var(--color-attacker-2));
+  --attacker-result: var(--fleet-result, var(--color-attacker-2));
+  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-2-soft));
 }
 
 .attacker-result-3 {
-  color: var(--color-attacker-3);
-  --attacker-result: var(--color-attacker-3);
-  --attacker-result-soft: var(--color-attacker-3-soft);
+  color: var(--fleet-result, var(--color-attacker-3));
+  --attacker-result: var(--fleet-result, var(--color-attacker-3));
+  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-3-soft));
 }
 
 .attacker-result-4 {
-  color: var(--color-attacker-4);
-  --attacker-result: var(--color-attacker-4);
-  --attacker-result-soft: var(--color-attacker-4-soft);
+  color: var(--fleet-result, var(--color-attacker-4));
+  --attacker-result: var(--fleet-result, var(--color-attacker-4));
+  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-4-soft));
 }
 
 .draw-result {
-  color: var(--color-draw);
+  color: var(--fleet-result, var(--color-draw));
 }
 
 .odds-segment.defender-result {
-  background: linear-gradient(135deg, var(--color-defender-soft), color-mix(in srgb, var(--color-defender) 28%, var(--color-bg-secondary)));
+  background: linear-gradient(135deg, var(--fleet-result-soft, var(--color-defender-soft)), color-mix(in srgb, var(--fleet-result, var(--color-defender)) 28%, var(--color-bg-secondary)));
 }
 
 .odds-segment.attacker-result {
@@ -219,7 +219,7 @@ calc-results {
 }
 
 .composition-table tr.defender-result:not(.attacker-result) {
-  background: color-mix(in srgb, var(--color-defender) 10%, transparent);
+  background: color-mix(in srgb, var(--fleet-result, var(--color-defender)) 10%, transparent);
 }
 
 .composition-table tr.attacker-result:not(.defender-result) {

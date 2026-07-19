@@ -170,6 +170,28 @@ describe('Results', () => {
     expect(segments[2].classList.contains('attacker-result-2')).toBe(true);
   });
 
+  test('applies selected board colors to result segments', () => {
+    state.fleets[1].colorId = 'blue';
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          Defender: 0.25,
+          Attacker: 0.75,
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const attackerSegment = element.querySelectorAll(
+      '.odds-segment'
+    )[1] as HTMLElement;
+    expect(attackerSegment.style.getPropertyValue('--fleet-result')).toBe(
+      '#2f6fb7'
+    );
+  });
+
   test('displays draw probability when present', () => {
     setSimulationResults(
       monteCarloResults({

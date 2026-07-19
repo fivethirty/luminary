@@ -16,9 +16,11 @@ import {
   resetFleets,
   replaceFleets,
   setSimulationResults,
+  isNpcFleet,
 } from '@ui/state';
 import type { PlannerType } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
+import { factionLabel, fleetColor, MAX_FLEETS } from '@ui/fleet-metadata';
 import {
   applySteppersPreference,
   loadSteppersPreference,
@@ -46,18 +48,14 @@ function renderFleets() {
   if (!fleetsContainer) return;
   fleetsContainer.innerHTML = '';
 
-  state.fleets.forEach((fleet, index) => {
-    if (index === 0) {
-      fleet.name = 'Defender';
-    } else {
-      const attackerCount = state.fleets.length - 1;
-      if (attackerCount === 1) {
-        fleet.name = 'Attacker';
-      } else {
-        fleet.name = `Attacker ${index}`;
-      }
-    }
-  });
+  const addFleetBtn = document.getElementById(
+    'add-fleet-btn'
+  ) as HTMLButtonElement | null;
+  if (addFleetBtn) {
+    addFleetBtn.disabled = state.fleets.length >= MAX_FLEETS;
+  }
+
+  updateFleetNames();
 
   state.fleets.forEach((fleet, index) => {
     const fleetElement = document.createElement('calc-fleet') as FleetElement;
@@ -72,12 +70,47 @@ function renderFleets() {
     // Only the defender (fleet 0) may contain AI ships.
     fleetElement.setAttribute('is-defender', index === 0 ? 'true' : 'false');
     fleetElement.setAttribute('fleet-index', index.toString());
+    fleetElement.setAttribute('fleet-count', state.fleets.length.toString());
 
     fleetsContainer.appendChild(fleetElement);
   });
 }
 
+function roleName(index: number): string {
+  if (index === 0) return 'Defender';
+
+  const attackerCount = state.fleets.length - 1;
+  if (attackerCount === 1) return 'Attacker';
+  return `Attacker ${index}`;
+}
+
+function baseFleetName(fleet: (typeof state.fleets)[number], index: number) {
+  return index === 0 && isNpcFleet(fleet)
+    ? 'The Ancients'
+    : (factionLabel(fleet.factionId) ?? roleName(index));
+}
+
+function updateFleetNames() {
+  const baseNames = state.fleets.map(baseFleetName);
+  const nameCounts = new Map<string, number>();
+  baseNames.forEach((name) =>
+    nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1)
+  );
+  const seenNames = new Map<string, number>();
+
+  state.fleets.forEach((fleet, index) => {
+    const baseName = baseNames[index];
+    const occurrence = (seenNames.get(baseName) ?? 0) + 1;
+    seenNames.set(baseName, occurrence);
+    fleet.name =
+      (nameCounts.get(baseName) ?? 0) > 1
+        ? `${baseName} ${occurrence}`
+        : baseName;
+  });
+}
+
 function addFleetHandler() {
+  if (state.fleets.length >= MAX_FLEETS) return;
   addFleet();
   renderFleets();
 }
@@ -130,6 +163,7 @@ let autoSimulateTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleAutoSimulate() {
   clearTimeout(autoSimulateTimer);
   autoSimulateTimer = setTimeout(() => {
+    updateFleetNames();
     const ready =
       state.fleets.length >= 2 &&
       state.fleets.every((fleet) => fleet.shipTypes.length > 0);
@@ -143,6 +177,7 @@ function scheduleAutoSimulate() {
 }
 
 function simulate() {
+  updateFleetNames();
   const engineFleets = buildEngineFleets();
 
   // Exact combat propagates every dice outcome through the same adjacent-fleet
@@ -241,19 +276,26 @@ function renderLiveBar() {
     return;
   }
 
-  const outcomes = state.fleets.map((fleet, index) => ({
+  const outcomes: Array<{
+    label: string;
+    probability: number;
+    className: string;
+    color?: string;
+  }> = state.fleets.map((fleet, index) => ({
     label: fleet.name,
     probability: results.victoryProbability[fleet.name] ?? 0,
     className:
       index === 0
         ? 'defender-result'
         : `attacker-result${index > 1 ? ` attacker-result-${Math.min(index, 4)}` : ''}`,
+    color: fleetColor(fleet.colorId, index).color,
   }));
   if (results.drawProbability > 0) {
     outcomes.push({
       label: 'Draw',
       probability: results.drawProbability,
       className: 'draw-result',
+      color: undefined,
     });
   }
 
@@ -263,6 +305,7 @@ function renderLiveBar() {
   const verdict = bar.querySelector('.live-verdict')!;
   verdict.textContent = `${leader.label} ${(leader.probability * 100).toFixed(1)}%`;
   verdict.className = `live-verdict ${leader.className}`;
+  (verdict as HTMLElement).style.color = leader.color ?? '';
 
   const odds = bar.querySelector('.live-odds')!;
   odds.innerHTML = '';
@@ -272,6 +315,7 @@ function renderLiveBar() {
       const segment = document.createElement('i');
       segment.className = outcome.className;
       segment.style.width = `${outcome.probability * 100}%`;
+      segment.style.color = outcome.color ?? '';
       odds.appendChild(segment);
     });
 
@@ -388,6 +432,12 @@ function init() {
   });
 
   document.addEventListener('fleet-removed', () => {
+    renderFleets();
+  });
+  document.addEventListener('fleet-order-changed', () => {
+    renderFleets();
+  });
+  document.addEventListener('fleet-metadata-changed', () => {
     renderFleets();
   });
 

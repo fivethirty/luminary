@@ -5,6 +5,10 @@ import {
   removeFleet,
   addShipType,
   getCachedShipType,
+  makeFleetDefender,
+  moveFleet,
+  setFleetColor,
+  setFleetFaction,
   updateShipType,
   removeShipType,
   resetFleets,
@@ -25,9 +29,12 @@ describe('State', () => {
       expect(state.fleets[0].id).toBe('fleet-0');
       expect(state.fleets[0].name).toBe('Defender');
       expect(state.fleets[0].plannerType).toBe('optimal');
+      expect(state.fleets[0].factionId).toBe('');
+      expect(state.fleets[0].colorId).toBe('neutral');
       expect(state.fleets[1].id).toBe('fleet-1');
       expect(state.fleets[1].name).toBe('Attacker');
       expect(state.fleets[1].plannerType).toBe('optimal');
+      expect(state.fleets[1].colorId).toBe('blue');
     });
 
     test('has no simulation results', () => {
@@ -43,6 +50,18 @@ describe('State', () => {
       expect(newFleet.name).toBe('');
       expect(newFleet.id).toBe('fleet-2');
       expect(newFleet.plannerType).toBe('optimal');
+      expect(newFleet.colorId).toBe('green');
+    });
+
+    test('caps fleets at six players plus neutrals', () => {
+      addFleet();
+      addFleet();
+      addFleet();
+      addFleet();
+      addFleet();
+
+      expect(state.fleets).toHaveLength(7);
+      expect(() => addFleet()).toThrow('At most 7 fleets are supported');
     });
 
     test('returns a newly created fleet', () => {
@@ -93,6 +112,74 @@ describe('State', () => {
 
       expect(ship.quantity).toBe(5);
       expect(ship.config).toEqual({ hull: 2 });
+    });
+  });
+
+  describe('fleet metadata', () => {
+    test('updates faction and board color', () => {
+      setFleetFaction('fleet-1', 'rho-indi');
+      setFleetColor('fleet-1', 'blue');
+
+      expect(state.fleets[1].factionId).toBe('rho-indi');
+      expect(state.fleets[1].colorId).toBe('blue');
+    });
+
+    test('swaps board colors when another fleet already uses the selected color', () => {
+      setFleetColor('fleet-0', 'green');
+      setFleetColor('fleet-1', 'green');
+
+      expect(state.fleets[0].colorId).toBe('blue');
+      expect(state.fleets[1].colorId).toBe('green');
+    });
+
+    test('sets the defender to neutral while it is an NPC fleet', () => {
+      const ancient = addShipType('fleet-0', ShipType.Ancient);
+
+      expect(state.fleets[0].colorId).toBe('neutral');
+
+      removeShipType('fleet-0', ancient.id);
+
+      expect(state.fleets[0].colorId).toBe('neutral');
+    });
+
+    test('restores the defender player color after temporary NPC ships', () => {
+      setFleetFaction('fleet-0', 'terran');
+      setFleetColor('fleet-0', 'blue');
+
+      const ancient = addShipType('fleet-0', ShipType.Ancient);
+      expect(state.fleets[0].factionId).toBe('terran');
+      expect(state.fleets[0].colorId).toBe('neutral');
+
+      removeShipType('fleet-0', ancient.id);
+      addShipType('fleet-0', ShipType.Interceptor);
+
+      expect(state.fleets[0].factionId).toBe('terran');
+      expect(state.fleets[0].colorId).toBe('blue');
+    });
+
+    test('restores neutral NPC color when the fleet moves out of defender', () => {
+      setFleetColor('fleet-0', 'blue');
+      addShipType('fleet-0', ShipType.Ancient);
+
+      expect(state.fleets[0].colorId).toBe('neutral');
+
+      moveFleet('fleet-0', 1);
+
+      expect(state.fleets[0].id).toBe('fleet-1');
+      expect(state.fleets[1].id).toBe('fleet-0');
+      expect(state.fleets[1].shipTypes).toHaveLength(0);
+      expect(state.fleets[1].colorId).toBe('blue');
+    });
+
+    test('making a fleet defender prunes defender-only ships from attackers', () => {
+      addShipType('fleet-0', ShipType.Ancient);
+      addShipType('fleet-1', ShipType.Cruiser);
+
+      makeFleetDefender('fleet-1');
+
+      expect(state.fleets[0].id).toBe('fleet-1');
+      expect(state.fleets[1].id).toBe('fleet-0');
+      expect(state.fleets[1].shipTypes).toHaveLength(0);
     });
   });
 
