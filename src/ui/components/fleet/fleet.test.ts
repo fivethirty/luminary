@@ -53,22 +53,43 @@ describe('Fleet', () => {
     const chips = element.querySelector('.preset-chips') as HTMLElement;
     expect(chips.hidden).toBe(false);
 
-    const ancientChip = element.querySelector(
-      '[data-preset="ancient"]'
-    ) as HTMLButtonElement;
+    const ancientPicker = presetPicker(element, 'Add Ancient layout');
 
-    ancientChip.click();
+    choosePreset(ancientPicker, 'ancient');
     expect(state.fleets[0].shipTypes).toHaveLength(1);
     expect(state.fleets[0].shipTypes[0].type).toBe(ShipType.Ancient);
     expect(state.fleets[0].shipTypes[0].quantity).toBe(1);
     expect(state.fleets[0].shipTypes[0].config.hull).toBe(1);
 
-    ancientChip.click();
+    choosePreset(ancientPicker, 'ancient');
     expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
 
     // Ancients cap at 2; a third tap is a no-op.
-    ancientChip.click();
+    choosePreset(ancientPicker, 'ancient');
     expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
+  });
+
+  test('preset chips swap NPC variants directly', async () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+
+    document.body.appendChild(element);
+    await customElements.whenDefined('calc-ship-type');
+
+    const ancientPicker = presetPicker(element, 'Add Ancient layout');
+
+    choosePreset(ancientPicker, 'ancient');
+    state.fleets[0].shipTypes[0].quantity = 2;
+    choosePreset(ancientPicker, 'ancient-wa');
+
+    expect(state.fleets[0].shipTypes).toHaveLength(1);
+    const ship = state.fleets[0].shipTypes[0];
+    expect(ship.type).toBe(ShipType.Ancient);
+    expect(ship.quantity).toBe(2);
+    expect(ship.config.computers).toBe(2);
+    expect(ship.config.initiative).toBe(3);
+    expect(ship.config.cannons?.ion).toBe(1);
   });
 
   test('preset chips are hidden for attackers', () => {
@@ -182,6 +203,17 @@ describe('Fleet', () => {
 
   const plannerSelect = (element: FleetElement): HTMLSelectElement =>
     element.querySelector('.planner-type-select') as HTMLSelectElement;
+
+  const presetPicker = (
+    element: FleetElement,
+    label: string
+  ): HTMLSelectElement =>
+    element.querySelector(`[aria-label="${label}"]`) as HTMLSelectElement;
+
+  const choosePreset = (picker: HTMLSelectElement, value: string) => {
+    picker.value = value;
+    picker.dispatchEvent(new Event('change'));
+  };
 
   const addShip = (element: FleetElement, value: string) => {
     const selector = element.querySelector(

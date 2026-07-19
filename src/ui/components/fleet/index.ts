@@ -2,7 +2,7 @@ import html from './fleet.html' with { type: 'text' };
 import './fleet.css';
 import '../ship-type';
 import type { ShipTypeElement } from '../ship-type';
-import { ShipType, isPlayerShipType } from '@calc/ship';
+import { ShipType, isPlayerShipType, type ShipConfig } from '@calc/ship';
 import type { FleetState } from '@ui/state';
 import {
   removeFleet,
@@ -110,15 +110,23 @@ export class FleetElement extends HTMLElement {
     if (this.getAttribute('is-defender') === 'false') return;
     chips.hidden = false;
 
-    chips.querySelectorAll('.preset-chip').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        const preset = chip.getAttribute('data-preset') as ShipDropdownOption;
+    chips.querySelectorAll('.preset-picker').forEach((picker) => {
+      picker.addEventListener('change', () => {
+        const select = picker as HTMLSelectElement;
+        const preset = select.value as ShipDropdownOption;
+        select.value = '';
+        if (!preset) return;
         const variantData = getDefaultShipConfig(preset);
         const existing = this.fleet.shipTypes.find(
           (st) => st.type === variantData.type
         );
 
         if (!existing) {
+          this.addShip(preset);
+          return;
+        }
+
+        if (!sameShipConfig(existing.config, variantData.config)) {
           this.addShip(preset);
           return;
         }
@@ -261,6 +269,28 @@ export class FleetElement extends HTMLElement {
       select.value = this.fleet.plannerType;
     }
   }
+}
+
+function sameShipConfig(a: ShipConfig, b: ShipConfig): boolean {
+  return (
+    (a.hull ?? 0) === (b.hull ?? 0) &&
+    (a.computers ?? 0) === (b.computers ?? 0) &&
+    (a.shields ?? 0) === (b.shields ?? 0) &&
+    (a.initiative ?? 0) === (b.initiative ?? 0) &&
+    (a.heal ?? 0) === (b.heal ?? 0) &&
+    (a.rift ?? 0) === (b.rift ?? 0) &&
+    sameWeapons(a.cannons, b.cannons) &&
+    sameWeapons(a.missiles, b.missiles)
+  );
+}
+
+function sameWeapons(a: ShipConfig['cannons'], b: ShipConfig['cannons']) {
+  return (
+    (a?.ion ?? 0) === (b?.ion ?? 0) &&
+    (a?.plasma ?? 0) === (b?.plasma ?? 0) &&
+    (a?.soliton ?? 0) === (b?.soliton ?? 0) &&
+    (a?.antimatter ?? 0) === (b?.antimatter ?? 0)
+  );
 }
 
 customElements.define('calc-fleet', FleetElement);

@@ -78,6 +78,30 @@ describe('ShipType', () => {
     ).toBe('Rift');
   });
 
+  test('displays NPC variant names', () => {
+    const shipTypeConfig = {
+      id: 'test-ancient-wa-name',
+      type: ShipType.Ancient,
+      quantity: 1,
+      config: {
+        hull: 1,
+        computers: 2,
+        initiative: 3,
+        cannons: { ion: 1 },
+      },
+    };
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    expect(element.querySelector('.ship-type-name')?.textContent).toBe(
+      'Ancient (WA)'
+    );
+  });
+
   test('updates state on change', async () => {
     const shipTypeConfig = {
       id: 'test-ship-2',
@@ -104,6 +128,36 @@ describe('ShipType', () => {
     incrementBtn.click();
 
     expect(state.fleets[0].shipTypes[0].quantity).toBe(2);
+  });
+
+  test('disables NPC ship layout stats', () => {
+    const shipTypeConfig = {
+      id: 'test-ancient',
+      type: ShipType.Ancient,
+      quantity: 1,
+      config: {
+        computers: 1,
+        cannons: { ion: 2 },
+      },
+    };
+
+    state.fleets[0].shipTypes.push(shipTypeConfig);
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    const compCube = element.querySelector(
+      '[data-stat="computer"]'
+    ) as HTMLElement;
+    const input = compCube.querySelector('input') as HTMLInputElement;
+    const inc = compCube.querySelector('.stat-inc') as HTMLButtonElement;
+
+    expect(compCube.hasAttribute('disabled')).toBe(true);
+    expect(input.disabled).toBe(true);
+    expect(inc.disabled).toBe(true);
   });
 
   test.each([

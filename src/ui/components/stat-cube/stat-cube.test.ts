@@ -163,4 +163,28 @@ describe('StatCubeElement', () => {
 
     expect(changeEventFired).toBe(true);
   });
+
+  test('disabled cube does not edit value', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.value = 4;
+    cube.disabled = true;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const inc = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    let changes = 0;
+    cube.addEventListener('change', () => changes++);
+
+    expect(input.disabled).toBe(true);
+    expect(inc.disabled).toBe(true);
+
+    inc.click();
+    expect(cube.value).toBe(4);
+
+    input.value = '9';
+    input.dispatchEvent(new Event('change'));
+    expect(cube.value).toBe(4);
+    expect(input.value).toBe('4');
+    expect(changes).toBe(0);
+  });
 });

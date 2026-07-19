@@ -4,8 +4,13 @@ import './stat-cube.css';
 export class StatCubeElement extends HTMLElement {
   private _value: number = 0;
   private _label = '';
+  private _disabled = false;
   private input!: HTMLInputElement;
   private originalValue = '';
+
+  static get observedAttributes() {
+    return ['disabled'];
+  }
 
   get value(): number {
     return this._value;
@@ -18,6 +23,23 @@ export class StatCubeElement extends HTMLElement {
     }
   }
 
+  get disabled(): boolean {
+    return this._disabled;
+  }
+
+  set disabled(val: boolean) {
+    this._disabled = val;
+    this.toggleAttribute('disabled', val);
+    this.applyDisabledState();
+  }
+
+  attributeChangedCallback(name: string) {
+    if (name === 'disabled') {
+      this._disabled = this.hasAttribute('disabled');
+      this.applyDisabledState();
+    }
+  }
+
   connectedCallback() {
     this.innerHTML = html;
 
@@ -26,8 +48,10 @@ export class StatCubeElement extends HTMLElement {
 
     this.input.value = String(this.value);
     label.textContent = this._label;
+    this.applyDisabledState();
 
     this.addEventListener('click', (e) => {
+      if (this.disabled) return;
       // Clicks on the stepper buttons adjust the value; anywhere else on the
       // cube focuses the input for direct typing.
       if ((e.target as HTMLElement).closest('.stat-step')) return;
@@ -63,6 +87,10 @@ export class StatCubeElement extends HTMLElement {
     });
 
     this.input.addEventListener('change', () => {
+      if (this.disabled) {
+        this.input.value = String(this.value);
+        return;
+      }
       const newValue = parseInt(this.input.value) || 0;
       this.value = Math.max(0, Math.min(99, newValue));
       this.input.value = String(this.value);
@@ -72,8 +100,17 @@ export class StatCubeElement extends HTMLElement {
   }
 
   private step(delta: number) {
+    if (this.disabled) return;
     this.value = Math.max(0, Math.min(99, this.value + delta));
     this.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  private applyDisabledState() {
+    if (!this.input) return;
+    this.input.disabled = this.disabled;
+    this.querySelectorAll('.stat-step').forEach((button) => {
+      (button as HTMLButtonElement).disabled = this.disabled;
+    });
   }
 
   // Tap steps once; press-and-hold repeats. The repeat suppresses the click

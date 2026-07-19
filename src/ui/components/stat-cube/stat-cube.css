@@ -67,6 +67,20 @@
   background: var(--color-bg-tertiary);
 }
 
+calc-stat-cube[disabled] .stat-cube {
+  cursor: default;
+  opacity: 0.72;
+}
+
+calc-stat-cube[disabled] .stat-cube:hover {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+}
+
+calc-stat-cube[disabled] .stat-step {
+  visibility: hidden;
+}
+
 .stat-cube label {
   font-size: 0.625rem;
   color: var(--color-text-secondary);
@@ -89,6 +103,12 @@
 
 .stat-cube input:focus {
   color: var(--color-attacker);
+}
+
+.stat-cube input:disabled {
+  cursor: default;
+  -webkit-text-fill-color: var(--color-text-primary);
+  opacity: 1;
 }
 
 .stat-cube input::-webkit-inner-spin-button,

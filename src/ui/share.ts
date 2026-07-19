@@ -7,7 +7,7 @@ import {
 import {
   getDefaultShipConfig,
   isShipPresetKey,
-  presetKeysForType,
+  matchShipPreset,
   SHIP_ABBREVIATIONS,
   SHIP_NAMES,
   SHIP_QUANTITY_LIMITS,
@@ -151,29 +151,13 @@ function configsEqual(
   return STAT_FIELDS.every((field) => field.get(a) === field.get(b));
 }
 
-// The preset variant a ship's config matches (e.g. a stock Guardian (WA) →
-// `guardian-wa`), falling back to the type's base preset when custom stats
-// match no variant. Shared by the URL encoder and the short battle labels.
-function matchPresetKey(shipType: ShipTypeConfig): ShipDropdownOption {
-  const config = normalizeConfig(shipType.config);
-  const candidates = presetKeysForType(shipType.type);
-  return (
-    candidates.find((candidate) =>
-      configsEqual(
-        config,
-        normalizeConfig(getDefaultShipConfig(candidate).config)
-      )
-    ) ?? candidates[0]
-  );
-}
-
 function encodeShip(
   key: string,
   shipType: ShipTypeConfig,
   params: [string, string][]
 ) {
   const config = normalizeConfig(shipType.config);
-  const preset = matchPresetKey(shipType);
+  const preset = matchShipPreset(shipType.type, shipType.config);
   const presetConfig = normalizeConfig(getDefaultShipConfig(preset).config);
   const exact = configsEqual(config, presetConfig);
 
@@ -360,7 +344,7 @@ function fleetLineup(fleet: FleetState, short = false): string {
   const names = short ? SHIP_ABBREVIATIONS : SHIP_NAMES;
   return fleet.shipTypes
     .map((shipType) => {
-      const name = names[matchPresetKey(shipType)];
+      const name = names[matchShipPreset(shipType.type, shipType.config)];
       return shipType.quantity > 1 ? `${shipType.quantity}× ${name}` : name;
     })
     .join(', ');

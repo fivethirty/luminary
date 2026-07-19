@@ -6,8 +6,12 @@ import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
 import { removeShipType, updateShipType } from '@ui/state';
-import type { WeaponType } from '@calc/ship';
-import { SHIP_QUANTITY_LIMITS } from '@ui/ship-presets';
+import { isPlayerShipType, type WeaponType } from '@calc/ship';
+import {
+  matchShipPreset,
+  SHIP_NAMES,
+  SHIP_QUANTITY_LIMITS,
+} from '@ui/ship-presets';
 
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
@@ -24,12 +28,14 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     const nameSpan = this.querySelector('.ship-type-name') as HTMLSpanElement;
-    nameSpan.textContent = this.shipType.type;
+    nameSpan.textContent =
+      SHIP_NAMES[matchShipPreset(this.shipType.type, this.shipType.config)];
 
     this.bindSelectors();
   }
 
   private bindSelectors() {
+    const statsEditable = isPlayerShipType(this.shipType.type);
     const qtyInput = this.querySelector('calc-selector') as SelectorElement;
     if (qtyInput) {
       qtyInput.min = 1;
@@ -158,7 +164,9 @@ export class ShipTypeElement extends HTMLElement {
       if (cube) {
         cube.label = label;
         cube.value = getValue();
+        cube.disabled = !statsEditable;
         cube.addEventListener('change', () => {
+          if (cube.disabled) return;
           setValue(cube.value);
           updateShipType(this.fleetId, this.shipType.id, this.shipType);
         });
