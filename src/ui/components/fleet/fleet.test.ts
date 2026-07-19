@@ -231,6 +231,7 @@ describe('Fleet', () => {
     expect(select.disabled).toBe(false);
     expect(select.value).toBe(state.fleets[0].plannerType);
     expect(select.value).not.toBe('npc');
+    expect(select.querySelector('option[value="npc"]')?.disabled).toBe(true);
   });
 
   test('locks the planner to NPC when the fleet is all AI ships', () => {
@@ -247,6 +248,7 @@ describe('Fleet', () => {
     ]);
     expect(select.disabled).toBe(true);
     expect(select.value).toBe('npc');
+    expect(select.querySelector('option[value="npc"]')?.disabled).toBe(false);
   });
 
   test('ignores NPC planner change events', () => {
