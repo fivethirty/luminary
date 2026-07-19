@@ -204,6 +204,9 @@ describe('Fleet', () => {
   const plannerSelect = (element: FleetElement): HTMLSelectElement =>
     element.querySelector('.planner-type-select') as HTMLSelectElement;
 
+  const npcPlannerOption = (select: HTMLSelectElement): HTMLOptionElement =>
+    select.querySelector('option[value="npc"]') as HTMLOptionElement;
+
   const presetPicker = (
     element: FleetElement,
     label: string
@@ -231,7 +234,7 @@ describe('Fleet', () => {
     expect(select.disabled).toBe(false);
     expect(select.value).toBe(state.fleets[0].plannerType);
     expect(select.value).not.toBe('npc');
-    expect(select.querySelector('option[value="npc"]')?.disabled).toBe(true);
+    expect(npcPlannerOption(select).disabled).toBe(true);
   });
 
   test('locks the planner to NPC when the fleet is all AI ships', () => {
@@ -248,7 +251,7 @@ describe('Fleet', () => {
     ]);
     expect(select.disabled).toBe(true);
     expect(select.value).toBe('npc');
-    expect(select.querySelector('option[value="npc"]')?.disabled).toBe(false);
+    expect(npcPlannerOption(select).disabled).toBe(false);
   });
 
   test('ignores NPC planner change events', () => {
