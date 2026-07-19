@@ -4,6 +4,7 @@ import {
   addFleet,
   removeFleet,
   addShipType,
+  getCachedShipType,
   updateShipType,
   removeShipType,
   resetFleets,
@@ -102,6 +103,22 @@ describe('State', () => {
       removeShipType('fleet-0', ship.id);
 
       expect(state.fleets[0].shipTypes).toHaveLength(0);
+    });
+
+    test('caches the removed ship configuration for the fleet', () => {
+      const ship = addShipType(
+        'fleet-0',
+        ShipType.Dreadnought,
+        { hull: 3, cannons: { plasma: 1 } },
+        2
+      );
+
+      removeShipType('fleet-0', ship.id);
+
+      expect(getCachedShipType('fleet-0', ShipType.Dreadnought)).toEqual({
+        quantity: 2,
+        config: { hull: 3, cannons: { plasma: 1 } },
+      });
     });
   });
 

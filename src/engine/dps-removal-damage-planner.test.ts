@@ -149,6 +149,27 @@ describe('DpsRemovalDamagePlanner', () => {
       expect(sortedShips[1]).toBe(intDamaged);
       expect(sortedShips[2]).toBe(int);
     });
+    test('does not reuse priority across same-type ships with different weapons', () => {
+      const planner = new DpsRemovalDamagePlanner();
+      const weaponlessInterceptor = new Ship(ShipType.Interceptor, {
+        hull: 2,
+      });
+      const armedInterceptor = new Ship(ShipType.Interceptor, {
+        hull: 2,
+        cannons: { ion: 1 },
+      });
+      const weaponlessCruiser = new Ship(ShipType.Cruiser, {
+        hull: 2,
+      });
+
+      planner.optimallySortShips([weaponlessInterceptor], []);
+
+      const sortedShips = planner.optimallySortShips(
+        [weaponlessCruiser, armedInterceptor],
+        []
+      );
+      expect(sortedShips[0]).toBe(armedInterceptor);
+    });
     test('handles no ships', () => {
       const sortedShips = new DpsRemovalDamagePlanner().optimallySortShips(
         [],

@@ -280,33 +280,31 @@ select {
   cursor: pointer;
 }
 
-/* Sticky verdict bar: mobile only — on wide screens the report is in view. */
+/* Sticky verdict bar: always available while results exist. */
 .live-bar {
   display: none;
 }
 
-@media (max-width: 42rem) {
-  .live-bar:not([hidden]) {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: var(--space-sm) var(--space-md);
-    padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0rem));
-    background: color-mix(in srgb, var(--color-bg-secondary) 94%, transparent);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-top: 1px solid var(--color-border-strong);
-    cursor: pointer;
-    z-index: 10;
-  }
+.live-bar:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--space-sm) var(--space-md);
+  padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0rem));
+  background: color-mix(in srgb, var(--color-bg-secondary) 94%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--color-border-strong);
+  cursor: pointer;
+  z-index: 10;
+}
 
-  body:has(.live-bar:not([hidden])) {
-    padding-bottom: 5rem;
-  }
+body:has(.live-bar:not([hidden])) {
+  padding-bottom: 5rem;
 }
 
 .live-bar-row {

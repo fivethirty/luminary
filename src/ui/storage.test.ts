@@ -41,6 +41,12 @@ function fleets(attackerQuantity: number): FleetState[] {
   ];
 }
 
+function fleetsWithAttackerHull(hull: number): FleetState[] {
+  const result = fleets(2);
+  result[1].shipTypes[0].config = { initiative: 2, hull };
+  return result;
+}
+
 const EMPTY_FLEETS: FleetState[] = [
   {
     id: 'fleet-0',
@@ -116,6 +122,15 @@ describe('recent battles', () => {
     expect(recents).toHaveLength(2);
     expect(recents[0].label).toBe('Guardian vs 2× Cruiser');
     expect(recents[1].label).toBe('Guardian vs Cruiser');
+  });
+
+  test('stat edits to the same composition update the newest entry after the merge window', () => {
+    recordRecentBattle(fleetsWithAttackerHull(1), T0);
+    recordRecentBattle(fleetsWithAttackerHull(2), LATER);
+
+    const recents = loadRecentBattles();
+    expect(recents).toHaveLength(1);
+    expect(recents[0].query).toContain('a.cruiser.hull=2');
   });
 
   test('re-simulating an identical battle never duplicates it', () => {

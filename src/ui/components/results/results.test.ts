@@ -97,6 +97,32 @@ describe('Results', () => {
     expect(oddsLabels).toEqual(['Defender', 'Attacker']);
   });
 
+  test('leads with a verdict headline, tag, and hero number', () => {
+    setSimulationResults(
+      exactResults({
+        victoryProbability: { Defender: 0.266, Attacker: 0.734 },
+        timeTaken: 5,
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const headline = element.querySelector('.verdict-headline')!;
+    expect(headline.textContent).toBe('Attacker favored');
+    expect(headline.classList.contains('attacker-result')).toBe(true);
+
+    const tag = element.querySelector('.verdict-tag') as HTMLElement;
+    expect(tag.textContent).toBe('Clear edge');
+    expect(tag.hidden).toBe(false);
+
+    const number = element.querySelector('.verdict-number')!;
+    expect(number.textContent).toBe('73.4%');
+    expect(element.querySelector('.verdict-caption')!.textContent).toBe(
+      'Attacker'
+    );
+  });
+
   test('uses distinct color classes for multiple attackers', () => {
     addFleet();
     state.fleets[2].name = 'Attacker 2';
@@ -290,7 +316,13 @@ describe('Results', () => {
             probability: 0.42,
             survivors: {
               Defender: {},
-              Attacker: { Cruiser: 1, Interceptor: 2 },
+              Attacker: {
+                Interceptor: 2,
+                Starbase: 1,
+                Cruiser: 1,
+                Orbital: 1,
+                Dreadnought: 1,
+              },
             },
           },
           {
@@ -309,10 +341,13 @@ describe('Results', () => {
 
     const rows = element.querySelectorAll('#survivor-distribution-tbody tr');
     expect(rows.length).toBe(2);
-    expect(rows[0].textContent).toContain('2 Interceptor');
-    expect(rows[0].textContent).toContain('Cruiser');
+    expect(rows[0].querySelector('td:last-child')?.textContent).toBe(
+      'D, C, 2 I, O, S'
+    );
+    expect(rows[0].textContent).not.toContain('Interceptor');
+    expect(rows[0].textContent).not.toContain('Cruiser');
     expect(rows[0].textContent).toContain('42.0%');
-    expect(rows[1].textContent).toContain('Ancient');
+    expect(rows[1].textContent).toContain('Anc');
     expect(rows[1].textContent).toContain('24.0%');
   });
 

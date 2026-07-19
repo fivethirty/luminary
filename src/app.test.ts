@@ -9,9 +9,11 @@ import {
   setSimulationResults,
 } from '@ui/state';
 import { monteCarloResults } from '@ui/test-helpers';
-import { init } from './app';
+import { exactDpsPlannerOverrides, init } from './app';
 import indexHtml from './index.html' with { type: 'text' };
-import { ShipType } from '@calc/ship';
+import { Ship, ShipType } from '@calc/ship';
+import { Fleet } from '@calc/fleet';
+import { DamageType } from './constants';
 
 // Waits out the auto-simulate debounce.
 const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
@@ -100,6 +102,105 @@ describe('App', () => {
     expect(liveBar.querySelector('.live-verdict')!.textContent).not.toBe('');
   });
 
+  test('uses DPS exact fallback when both fleets have 3+ ship types', () => {
+    const defender = new Fleet(
+      'Defender',
+      [
+        new Ship(ShipType.Interceptor, { hull: 1 }),
+        new Ship(ShipType.Cruiser, { hull: 2 }),
+        new Ship(ShipType.Dreadnought, { hull: 2 }),
+        new Ship(ShipType.Starbase, { hull: 1 }),
+      ],
+      false,
+      DamageType.OPTIMAL
+    );
+    const attacker = new Fleet(
+      'Attacker',
+      [
+        new Ship(ShipType.Interceptor, { hull: 2 }),
+        new Ship(ShipType.Cruiser, { hull: 2 }),
+        new Ship(ShipType.Dreadnought, { hull: 6 }),
+        new Ship(ShipType.Dreadnought, { hull: 6 }),
+      ],
+      false,
+      DamageType.OPTIMAL
+    );
+
+    expect(exactDpsPlannerOverrides([defender, attacker])).toEqual([
+      DamageType.DPS,
+      DamageType.DPS,
+    ]);
+
+    const dpsDefender = new Fleet(
+      'Defender',
+      defender.getRoster(),
+      false,
+      DamageType.DPS
+    );
+    const dpsAttacker = new Fleet(
+      'Attacker',
+      attacker.getRoster(),
+      false,
+      DamageType.DPS
+    );
+
+    expect(exactDpsPlannerOverrides([dpsDefender, dpsAttacker])).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
+  test('keeps optimal exact when either fleet has fewer than 3 ship types', () => {
+    const defender = new Fleet(
+      'Defender',
+      [
+        new Ship(ShipType.Cruiser, { hull: 10 }),
+        new Ship(ShipType.Dreadnought, { hull: 10 }),
+      ],
+      false,
+      DamageType.OPTIMAL
+    );
+    const attacker = new Fleet(
+      'Attacker',
+      [
+        new Ship(ShipType.Interceptor, { hull: 10 }),
+        new Ship(ShipType.Starbase, { hull: 10 }),
+      ],
+      false,
+      DamageType.OPTIMAL
+    );
+
+    expect(exactDpsPlannerOverrides([defender, attacker])).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
+  test('uses DPS against a target fleet with one ship type', () => {
+    const singleTypeDefender = new Fleet(
+      'Defender',
+      [
+        new Ship(ShipType.Interceptor, { hull: 10 }),
+        new Ship(ShipType.Interceptor, { hull: 10 }),
+      ],
+      false,
+      DamageType.OPTIMAL
+    );
+    const mixedAttacker = new Fleet(
+      'Attacker',
+      [
+        new Ship(ShipType.Cruiser, { hull: 2 }),
+        new Ship(ShipType.Dreadnought, { hull: 6 }),
+      ],
+      false,
+      DamageType.OPTIMAL
+    );
+
+    expect(
+      exactDpsPlannerOverrides([singleTypeDefender, mixedAttacker])
+    ).toEqual([undefined, DamageType.DPS]);
+  });
+
   test('clears results when a fleet empties', async () => {
     addShipType(state.fleets[0].id, ShipType.Interceptor, {
       cannons: { ion: 1 },
@@ -173,6 +274,42 @@ describe('App shared battle links', () => {
       .getElementById('results-container')!
       .querySelector('calc-results');
     expect(resultsElement).not.toBeNull();
+  });
+
+  test('renders ship stat configurations from the query string', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?v=1&d.interceptor=1&d.interceptor.hull=1&d.interceptor.comp=1' +
+        '&d.interceptor.ion=1&a.cruiser=1&a.cruiser.hull=2' +
+        '&a.cruiser.comp=1&a.cruiser.plasma=1&a.cruiser.plasma-m=1'
+    );
+
+    init();
+    await customElements.whenDefined('calc-stat-cube');
+
+    const ships = document.querySelectorAll('calc-ship-type');
+    const statValue = (ship: Element, stat: string) =>
+      ship
+        .querySelector(`[data-stat="${stat}"] input`)
+        ?.getAttribute('value') ??
+      (ship.querySelector(`[data-stat="${stat}"] input`) as HTMLInputElement)
+        ?.value;
+
+    expect(ships[0].querySelector('.ship-type-name')?.textContent).toBe(
+      'Interceptor'
+    );
+    expect(statValue(ships[0], 'hull')).toBe('1');
+    expect(statValue(ships[0], 'computer')).toBe('1');
+    expect(statValue(ships[0], 'ion-cannon')).toBe('1');
+
+    expect(ships[1].querySelector('.ship-type-name')?.textContent).toBe(
+      'Cruiser'
+    );
+    expect(statValue(ships[1], 'hull')).toBe('2');
+    expect(statValue(ships[1], 'computer')).toBe('1');
+    expect(statValue(ships[1], 'plasma-cannon')).toBe('1');
+    expect(statValue(ships[1], 'plasma-missile')).toBe('1');
   });
 
   test('a battle in the URL wins over the saved setup', () => {

@@ -32,6 +32,8 @@ const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
 // hold-to-repeat steppers from re-solving on every tick.
 const AUTO_SIMULATE_DELAY_MS = 200;
 
+const OPTIMAL_EXACT_SHIP_TYPE_CUTOFF = 3;
+
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
   if (!fleetsContainer) return;
@@ -134,32 +136,20 @@ function scheduleAutoSimulate() {
 }
 
 function simulate() {
-  const engineFleets = state.fleets.map((fleet) => {
-    const ships: Ship[] = [];
-
-    fleet.shipTypes.forEach((shipType) => {
-      for (let i = 0; i < shipType.quantity; i++) {
-        const ship = new Ship(shipType.type, shipType.config);
-        ships.push(ship);
-      }
-    });
-
-    return new Fleet(
-      fleet.name,
-      ships,
-      fleet.antimatterSplitter,
-      PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
-    );
-  });
+  const engineFleets = buildEngineFleets();
 
   // Two-fleet battles are solved exactly: every dice outcome's probability is
   // propagated through the state graph instead of sampled, so the numbers are
   // noise-free and identical on every run. Battles outside exact combat's
   // interactive budget, plus battles with 3+ fleets, fall back to Monte Carlo.
   if (engineFleets.length === 2) {
+    const plannerOverrides = exactDpsPlannerOverrides(engineFleets);
+    const exactFleets = plannerOverrides.some(Boolean)
+      ? buildEngineFleets(plannerOverrides)
+      : engineFleets;
     const exact = computeExactBattle(
-      engineFleets[0],
-      engineFleets[1],
+      exactFleets[0],
+      exactFleets[1],
       EXACT_INTERACTIVE_CAPS
     );
     if (exact.ok) {
@@ -202,6 +192,66 @@ function simulate() {
   afterSimulate();
 }
 
+function buildEngineFleets(
+  plannerOverrides: readonly (DamageType | undefined)[] = []
+): Fleet[] {
+  return state.fleets.map((fleet, index) => {
+    const ships: Ship[] = [];
+
+    fleet.shipTypes.forEach((shipType) => {
+      for (let i = 0; i < shipType.quantity; i++) {
+        const ship = new Ship(shipType.type, shipType.config);
+        ships.push(ship);
+      }
+    });
+
+    return new Fleet(
+      fleet.name,
+      ships,
+      fleet.antimatterSplitter,
+      plannerOverrides[index] ?? PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
+    );
+  });
+}
+
+function exactDpsPlannerOverrides(fleets: Fleet[]): (DamageType | undefined)[] {
+  const overrides = fleets.map(() => undefined as DamageType | undefined);
+
+  if (fleets.length !== 2) return overrides;
+
+  if (hasSingleShipType(fleets[0]) && isOptimalFleet(fleets[1])) {
+    overrides[1] = DamageType.DPS;
+  }
+  if (hasSingleShipType(fleets[1]) && isOptimalFleet(fleets[0])) {
+    overrides[0] = DamageType.DPS;
+  }
+  if (overrides.some(Boolean)) return overrides;
+
+  if (!fleets.every(hasManyShipTypes)) {
+    return overrides;
+  }
+
+  return fleets.map((fleet) =>
+    isOptimalFleet(fleet) ? DamageType.DPS : undefined
+  );
+}
+
+function hasSingleShipType(fleet: Fleet): boolean {
+  return shipTypeCount(fleet) <= 1;
+}
+
+function hasManyShipTypes(fleet: Fleet): boolean {
+  return shipTypeCount(fleet) >= OPTIMAL_EXACT_SHIP_TYPE_CUTOFF;
+}
+
+function shipTypeCount(fleet: Fleet): number {
+  return new Set(fleet.getRoster().map((ship) => ship.type)).size;
+}
+
+function isOptimalFleet(fleet: Fleet): boolean {
+  return fleet.getDamageType() === DamageType.OPTIMAL;
+}
+
 function afterSimulate() {
   recordRecentBattle(state.fleets);
   refreshRecentsPicker();
@@ -221,9 +271,8 @@ function renderResults() {
   renderLiveBar();
 }
 
-// The sticky mobile bar: leading outcome plus a mini odds strip, always in
-// thumb reach while editing. Hidden (via CSS) on wide screens and (via the
-// hidden attribute) when there are no results.
+// The sticky bar: leading outcome plus a mini odds strip, always in reach while
+// editing. Hidden when there are no results.
 function renderLiveBar() {
   const bar = document.getElementById('live-bar');
   if (!bar) return;
@@ -389,4 +438,4 @@ function init() {
   window.addEventListener('popstate', handleRouteChange);
 }
 
-export { init };
+export { init, exactDpsPlannerOverrides };

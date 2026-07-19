@@ -48,6 +48,36 @@ describe('ShipType', () => {
     expect(hullSelector.value).toBe(2);
   });
 
+  test('groups stats under section headings with short weapon labels', () => {
+    const shipTypeConfig = {
+      id: 'test-ship-labels',
+      type: ShipType.Interceptor,
+      quantity: 1,
+      config: {},
+    };
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    expect(
+      Array.from(element.querySelectorAll('.stat-group-title')).map(
+        (title) => title.textContent
+      )
+    ).toEqual(['Systems', 'Cannons', 'Missiles']);
+    expect(
+      element.querySelector('[data-stat="ion-cannon"] label')?.textContent
+    ).toBe('Ion');
+    expect(
+      element.querySelector('[data-stat="ion-missile"] label')?.textContent
+    ).toBe('Flux');
+    expect(
+      element.querySelector('[data-stat="rift-cannon"] label')?.textContent
+    ).toBe('Rift');
+  });
+
   test('updates state on change', async () => {
     const shipTypeConfig = {
       id: 'test-ship-2',

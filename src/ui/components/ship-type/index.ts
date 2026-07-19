@@ -89,7 +89,7 @@ export class ShipTypeElement extends HTMLElement {
       },
       {
         stat: 'rift-cannon',
-        label: 'Rift C',
+        label: 'Rift',
         getValue: () => this.shipType.config.rift || 0,
         setValue: (value) => {
           this.shipType.config.rift = value;
@@ -98,17 +98,17 @@ export class ShipTypeElement extends HTMLElement {
     ];
 
     const cannonTypes: Array<{ type: WeaponType; label: string }> = [
-      { type: 'ion', label: 'Ion C' },
-      { type: 'plasma', label: 'Pls C' },
-      { type: 'soliton', label: 'Sol C' },
-      { type: 'antimatter', label: 'Ant C' },
+      { type: 'ion', label: 'Ion' },
+      { type: 'plasma', label: 'Pls' },
+      { type: 'soliton', label: 'Sol' },
+      { type: 'antimatter', label: 'Ant' },
     ];
 
     const missileTypes: Array<{ type: WeaponType; label: string }> = [
-      { type: 'ion', label: 'Flux M' },
-      { type: 'plasma', label: 'Pls M' },
-      { type: 'soliton', label: 'Sol M' },
-      { type: 'antimatter', label: 'Ant M' },
+      { type: 'ion', label: 'Flux' },
+      { type: 'plasma', label: 'Pls' },
+      { type: 'soliton', label: 'Sol' },
+      { type: 'antimatter', label: 'Ant' },
     ];
 
     cannonTypes.forEach(({ type, label }) => {

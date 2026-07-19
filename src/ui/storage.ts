@@ -71,11 +71,14 @@ export function recordRecentBattle(fleets: FleetState[], now = Date.now()) {
   if (!query) return;
 
   const label = battleLabel(fleets);
+  const compositionKey = battleCompositionKey(fleets);
   const recents = loadRecentBattles();
   const head = recents[0];
 
   if (head && head.query === query) {
     head.updatedAt = now;
+  } else if (head && recentCompositionKey(head) === compositionKey) {
+    recents[0] = { query, label, updatedAt: now };
   } else if (head && now - head.updatedAt < RECENT_MERGE_WINDOW_MS) {
     recents[0] = { query, label, updatedAt: now };
   } else {
@@ -83,4 +86,21 @@ export function recordRecentBattle(fleets: FleetState[], now = Date.now()) {
   }
 
   write(RECENTS_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)));
+}
+
+function recentCompositionKey(recent: RecentBattle): string | null {
+  const fleets = parseBattleQuery(recent.query);
+  return fleets ? battleCompositionKey(fleets) : null;
+}
+
+function battleCompositionKey(fleets: FleetState[]): string {
+  return fleets
+    .map((fleet, index) => {
+      const ships = fleet.shipTypes
+        .map((ship) => `${ship.type}:${ship.quantity}`)
+        .sort()
+        .join(',');
+      return `${index}=${ships}`;
+    })
+    .join('|');
 }

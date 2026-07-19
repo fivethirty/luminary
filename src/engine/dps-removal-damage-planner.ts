@@ -20,11 +20,12 @@ const MIN_PRIORITY = 0.1;
 
 export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
   private shipPriority: Partial<
-    Record<ShipType, { total: number; cannons: number }>
+    Record<string, { total: number; cannons: number }>
   > = {};
 
   private getShipPriority(ship: Ship, upcomingPhases: Phase[]): number {
-    let priority = this.shipPriority[ship.type];
+    const priorityKey = ship.configKey();
+    let priority = this.shipPriority[priorityKey];
     if (!priority) {
       const riftDamage = ship.rift * TOTAL_RIFT_DIE_DAMAGE;
       const compMult = ship.computers + 1;
@@ -44,7 +45,7 @@ export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
         total: riftDamage + cannonDamage + missileDamage,
         cannons: riftDamage + cannonDamage,
       };
-      this.shipPriority[ship.type] = priority;
+      this.shipPriority[priorityKey] = priority;
     }
     for (const phase of upcomingPhases) {
       if (!phase.missilePhase) {

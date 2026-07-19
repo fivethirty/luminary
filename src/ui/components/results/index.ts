@@ -2,6 +2,21 @@ import html from './results.html' with { type: 'text' };
 import './results.css';
 import { state, type SimulationResults } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
+import { computeVerdict } from '@ui/verdict';
+import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
+
+const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
+  Object.entries(SHIP_NAMES).map(([key, name]) => [
+    name,
+    SHIP_ABBREVIATIONS[key as keyof typeof SHIP_ABBREVIATIONS],
+  ])
+) as Record<string, string>;
+
+const PLAYER_COMPOSITION_ORDER = new Map(
+  ['Dreadnought', 'Cruiser', 'Interceptor', 'Orbital', 'Starbase'].map(
+    (name, index) => [name, index]
+  )
+);
 
 export class ResultsElement extends HTMLElement {
   connectedCallback() {
@@ -16,9 +31,32 @@ export class ResultsElement extends HTMLElement {
   render() {
     const results = state.simulationResults!;
 
+    this.renderVerdict(results);
     this.renderWinPercentages(results);
     this.renderSurvivorDistribution(results);
     this.renderSurvivors(results);
+  }
+
+  // The lead of the report: a plain-language sentence a player would say out
+  // loud ("Attacker favored — 73%") plus a margin-calibrated tag, so the
+  // answer reads at a glance before the tables.
+  private renderVerdict(results: SimulationResults) {
+    const verdict = computeVerdict(results, state.fleets);
+
+    const headline = this.querySelector('.verdict-headline') as HTMLElement;
+    headline.textContent = verdict.headline;
+    headline.className = `verdict-headline ${verdict.className}`;
+
+    const tag = this.querySelector('.verdict-tag') as HTMLElement;
+    tag.textContent = verdict.tag;
+    tag.hidden = false;
+
+    const number = this.querySelector('.verdict-number') as HTMLElement;
+    number.textContent = `${(verdict.leaderProbability * 100).toFixed(1)}%`;
+    number.className = `verdict-number ${verdict.className}`;
+
+    const caption = this.querySelector('.verdict-caption') as HTMLElement;
+    caption.textContent = verdict.leaderLabel;
   }
 
   private bindShareActions() {
@@ -328,11 +366,22 @@ export class ResultsElement extends HTMLElement {
     if (!survivors) return '—';
     const entries = Object.entries(survivors)
       .filter(([, count]) => count > 0)
-      .sort(([a], [b]) => a.localeCompare(b));
+      .sort(([a], [b]) => {
+        const orderDelta =
+          this.compositionShipOrder(a) - this.compositionShipOrder(b);
+        return orderDelta || a.localeCompare(b);
+      });
     if (entries.length === 0) return '—';
     return entries
-      .map(([type, count]) => (count === 1 ? type : `${count} ${type}`))
+      .map(([type, count]) => {
+        const label = SHIP_NAME_ABBREVIATIONS[type] ?? type;
+        return count === 1 ? label : `${count} ${label}`;
+      })
       .join(', ');
+  }
+
+  private compositionShipOrder(type: string): number {
+    return PLAYER_COMPOSITION_ORDER.get(type) ?? Number.MAX_SAFE_INTEGER;
   }
 
   private formatPercent(value: number): string {

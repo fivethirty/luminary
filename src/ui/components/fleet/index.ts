@@ -7,6 +7,7 @@ import type { FleetState } from '@ui/state';
 import {
   removeFleet,
   addShipType,
+  getCachedShipType,
   removeShipType,
   updateShipType,
   toggleAntimatterSplitter,
@@ -205,10 +206,15 @@ export class FleetElement extends HTMLElement {
     );
     incompatible.forEach((st) => removeShipType(this.fleet.id, st.id));
 
+    const hasVariants = presetKeysForType(variantData.type).length > 1;
+    const cached = hasVariants
+      ? undefined
+      : getCachedShipType(this.fleet.id, variantData.type);
     const newShip = addShipType(
       this.fleet.id,
       variantData.type,
-      variantData.config
+      cached?.config ?? variantData.config,
+      Math.min(cached?.quantity ?? 1, SHIP_QUANTITY_LIMITS[variantData.type])
     );
 
     if (incompatible.length > 0) {

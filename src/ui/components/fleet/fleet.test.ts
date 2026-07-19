@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, describe } from 'bun:test';
 import './index';
 import type { FleetElement } from './index';
-import { state, resetFleets } from '@ui/state';
+import { state, resetFleets, removeShipType } from '@ui/state';
 import { ShipType } from '@calc/ship';
 
 describe('Fleet', () => {
@@ -147,6 +147,37 @@ describe('Fleet', () => {
     expect(addedShip.type).toBe(ShipType.Cruiser);
     expect(addedShip.config.hull).toBe(0);
     expect(addedShip.config.initiative).toBe(2);
+  });
+
+  test('restores a recently removed single-variant ship configuration', async () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    document.body.appendChild(element);
+
+    addShip(element, 'dreadnought');
+    const dreadnought = state.fleets[0].shipTypes[0];
+    dreadnought.quantity = 2;
+    dreadnought.config = {
+      hull: 4,
+      computers: 2,
+      cannons: { plasma: 1 },
+    };
+    removeShipType(state.fleets[0].id, dreadnought.id);
+
+    addShip(element, 'cruiser');
+    addShip(element, 'dreadnought');
+
+    expect(state.fleets[0].shipTypes).toHaveLength(2);
+    const restored = state.fleets[0].shipTypes.find(
+      (ship) => ship.type === ShipType.Dreadnought
+    )!;
+    expect(restored.type).toBe(ShipType.Dreadnought);
+    expect(restored.quantity).toBe(2);
+    expect(restored.config).toEqual({
+      hull: 4,
+      computers: 2,
+      cannons: { plasma: 1 },
+    });
   });
 
   const plannerSelect = (element: FleetElement): HTMLSelectElement =>
