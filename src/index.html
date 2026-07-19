@@ -112,7 +112,9 @@
         </section>
 
         <div class="controls">
-          <button id="run-simulation-btn">Simulate</button>
+          <select id="recent-battles" hidden>
+            <option value="">Recent battles…</option>
+          </select>
           <button id="clear-all-btn" class="danger">Clear</button>
         </div>
       </div>
@@ -146,5 +148,13 @@
         </p>
       </div>
     </main>
+
+    <div id="live-bar" class="live-bar" hidden>
+      <div class="live-bar-row">
+        <span class="live-label">Live odds</span>
+        <span class="live-verdict"></span>
+      </div>
+      <div class="live-odds"></div>
+    </div>
   </body>
 </html>

@@ -86,6 +86,43 @@
   outline-offset: 2px;
 }
 
+.preset-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+/* `display: flex` above would otherwise override the UA's [hidden] rule and
+   render the chips on attacker fleets, where NPCs are illegal. */
+.preset-chips[hidden] {
+  display: none;
+}
+
+.preset-chips-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.preset-chip {
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.preset-chip:hover {
+  background: var(--color-border);
+  border-color: var(--fleet-accent, var(--color-border-strong));
+}
+
 .fleet-tech {
   padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-secondary);
@@ -105,4 +142,26 @@
 
 .damage-planner-option {
   margin-left: auto;
+}
+
+/* On phones the row can't hold both controls plus the planner select, so stack
+   them and let the select take the full width. */
+@media (max-width: 42rem) {
+  .fleet-tech {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+
+  .damage-planner-option {
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .damage-planner-option .planner-type-select {
+    width: auto;
+    min-width: 0;
+    flex: 1;
+    max-width: 60%;
+  }
 }

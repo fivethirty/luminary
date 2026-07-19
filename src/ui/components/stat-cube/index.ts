@@ -27,9 +27,15 @@ export class StatCubeElement extends HTMLElement {
     this.input.value = String(this.value);
     label.textContent = this._label;
 
-    this.addEventListener('click', () => {
+    this.addEventListener('click', (e) => {
+      // Clicks on the stepper buttons adjust the value; anywhere else on the
+      // cube focuses the input for direct typing.
+      if ((e.target as HTMLElement).closest('.stat-step')) return;
       this.input.focus();
     });
+
+    this.bindStepper('.stat-dec', -1);
+    this.bindStepper('.stat-inc', 1);
 
     this.input.addEventListener('focus', () => {
       this.originalValue = this.input.value;
@@ -62,6 +68,47 @@ export class StatCubeElement extends HTMLElement {
       this.input.value = String(this.value);
 
       this.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+
+  private step(delta: number) {
+    this.value = Math.max(0, Math.min(99, this.value + delta));
+    this.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  // Tap steps once; press-and-hold repeats. The repeat suppresses the click
+  // that fires on release so a hold doesn't add an extra step.
+  private bindStepper(selector: string, delta: number) {
+    const button = this.querySelector(selector) as HTMLButtonElement;
+    let holdTimer: ReturnType<typeof setTimeout> | undefined;
+    let repeatTimer: ReturnType<typeof setInterval> | undefined;
+    let repeated = false;
+
+    const stopRepeat = () => {
+      clearTimeout(holdTimer);
+      clearInterval(repeatTimer);
+      holdTimer = undefined;
+      repeatTimer = undefined;
+    };
+
+    button.addEventListener('pointerdown', () => {
+      repeated = false;
+      holdTimer = setTimeout(() => {
+        repeated = true;
+        this.step(delta);
+        repeatTimer = setInterval(() => this.step(delta), 80);
+      }, 400);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((event) => {
+      button.addEventListener(event, stopRepeat);
+    });
+
+    button.addEventListener('click', () => {
+      if (repeated) {
+        repeated = false;
+        return;
+      }
+      this.step(delta);
     });
   }
 

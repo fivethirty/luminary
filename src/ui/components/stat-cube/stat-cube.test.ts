@@ -109,6 +109,45 @@ describe('StatCubeElement', () => {
     expect(numberPrevented).toBe(false);
   });
 
+  test('steppers increment and decrement with clamping', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+
+    const inc = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    const dec = cube.querySelector('.stat-dec') as HTMLButtonElement;
+    let changes = 0;
+    cube.addEventListener('change', () => changes++);
+
+    inc.click();
+    inc.click();
+    expect(cube.value).toBe(2);
+
+    dec.click();
+    dec.click();
+    dec.click();
+    expect(cube.value).toBe(0);
+
+    expect(changes).toBe(5);
+
+    cube.value = 99;
+    inc.click();
+    expect(cube.value).toBe(99);
+  });
+
+  test('stepper clicks do not focus the input', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    let focusCalled = false;
+    input.focus = () => {
+      focusCalled = true;
+    };
+
+    (cube.querySelector('.stat-inc') as HTMLButtonElement).click();
+    expect(focusCalled).toBe(false);
+  });
+
   test('dispatches change event', () => {
     const cube = document.createElement('calc-stat-cube') as StatCubeElement;
     document.body.appendChild(cube);

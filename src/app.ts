@@ -14,13 +14,23 @@ import {
   setSimulationResults,
 } from '@ui/state';
 import type { PlannerType } from '@ui/state';
-import { encodeBattleQuery, parseBattleQuery } from '@ui/share';
+import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
+import {
+  loadRecentBattles,
+  loadSetup,
+  recordRecentBattle,
+  saveSetup,
+} from '@ui/storage';
 import { DamageType } from 'src/constants';
 
 const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
   dps: DamageType.DPS,
   optimal: DamageType.OPTIMAL,
 };
+
+// Results recompute automatically shortly after the last edit; the pause keeps
+// hold-to-repeat steppers from re-solving on every tick.
+const AUTO_SIMULATE_DELAY_MS = 200;
 
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
@@ -82,28 +92,48 @@ function syncBattleUrl() {
 }
 
 // Loads a shared battle from the query string. Returns true if one was loaded.
+// Rendering the answer is left to the auto-simulate pass the load triggers.
 function loadSharedBattle(): boolean {
   const fleets = parseBattleQuery(window.location.search);
   if (!fleets) return false;
 
   replaceFleets(fleets);
   renderFleets();
-
-  // The link was cut from a simulated battle, so show the recipient the
-  // answer, not a filled-in form. Empty fleets can't battle; leave those for
-  // the user to finish.
-  if (state.fleets.every((fleet) => fleet.shipTypes.length > 0)) {
-    simulate();
-  }
   return true;
 }
 
-function simulate() {
-  const activeElement = document.activeElement as HTMLElement;
-  if (activeElement && activeElement.blur) {
-    activeElement.blur();
-  }
+// Restores the last in-progress setup from local storage (table play: reopen
+// the phone, tweak the previous fight). Returns true if one was restored.
+function restoreSavedSetup(): boolean {
+  const fleets = loadSetup();
+  if (!fleets) return false;
 
+  replaceFleets(fleets);
+  renderFleets();
+  return true;
+}
+
+let autoSimulateTimer: ReturnType<typeof setTimeout> | undefined;
+
+// There is no Simulate button: every fleet change re-solves the battle after a
+// short pause. Battles with an empty fleet clear the results instead, so stale
+// odds never linger next to a half-edited setup.
+function scheduleAutoSimulate() {
+  clearTimeout(autoSimulateTimer);
+  autoSimulateTimer = setTimeout(() => {
+    const ready =
+      state.fleets.length >= 2 &&
+      state.fleets.every((fleet) => fleet.shipTypes.length > 0);
+    if (ready) {
+      simulate();
+    } else {
+      setSimulationResults(null);
+      renderResults();
+    }
+  }, AUTO_SIMULATE_DELAY_MS);
+}
+
+function simulate() {
   const engineFleets = state.fleets.map((fleet) => {
     const ships: Ship[] = [];
 
@@ -147,7 +177,7 @@ function simulate() {
         timeTaken: exact.timeTaken,
         method: 'exact',
       });
-      renderResults();
+      afterSimulate();
       return;
     }
   }
@@ -169,6 +199,12 @@ function simulate() {
     iterations: MC_ITERATIONS,
   });
 
+  afterSimulate();
+}
+
+function afterSimulate() {
+  recordRecentBattle(state.fleets);
+  refreshRecentsPicker();
   renderResults();
 }
 
@@ -181,6 +217,91 @@ function renderResults() {
     const resultsElement = document.createElement('calc-results');
     resultsContainer.appendChild(resultsElement);
   }
+
+  renderLiveBar();
+}
+
+// The sticky mobile bar: leading outcome plus a mini odds strip, always in
+// thumb reach while editing. Hidden (via CSS) on wide screens and (via the
+// hidden attribute) when there are no results.
+function renderLiveBar() {
+  const bar = document.getElementById('live-bar');
+  if (!bar) return;
+
+  const results = state.simulationResults;
+  if (!results) {
+    bar.hidden = true;
+    return;
+  }
+
+  const outcomes = state.fleets.map((fleet, index) => ({
+    label: fleet.name,
+    probability: results.victoryProbability[fleet.name] ?? 0,
+    className:
+      index === 0
+        ? 'defender-result'
+        : `attacker-result${index > 1 ? ` attacker-result-${Math.min(index, 4)}` : ''}`,
+  }));
+  if (results.drawProbability > 0) {
+    outcomes.push({
+      label: 'Draw',
+      probability: results.drawProbability,
+      className: 'draw-result',
+    });
+  }
+
+  const leader = outcomes.reduce((best, outcome) =>
+    outcome.probability > best.probability ? outcome : best
+  );
+  const verdict = bar.querySelector('.live-verdict')!;
+  verdict.textContent = `${leader.label} ${(leader.probability * 100).toFixed(1)}%`;
+  verdict.className = `live-verdict ${leader.className}`;
+
+  const odds = bar.querySelector('.live-odds')!;
+  odds.innerHTML = '';
+  outcomes
+    .filter((outcome) => outcome.probability > 0)
+    .forEach((outcome) => {
+      const segment = document.createElement('i');
+      segment.className = outcome.className;
+      segment.style.width = `${outcome.probability * 100}%`;
+      odds.appendChild(segment);
+    });
+
+  bar.hidden = false;
+}
+
+// The recent-battles dropdown: settled battles from this session, most recent
+// first. Hidden until there is something to pick.
+function refreshRecentsPicker() {
+  const select = document.getElementById(
+    'recent-battles'
+  ) as HTMLSelectElement | null;
+  if (!select) return;
+
+  const recents = loadRecentBattles();
+  select.hidden = recents.length === 0;
+  select.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Recent battles…';
+  select.appendChild(placeholder);
+
+  // A width:auto <select> grows to fit its widest option, so multi-fleet
+  // matchups overflow on phones. Abbreviate ship names on narrow screens to
+  // keep the picker compact.
+  const short =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(max-width: 42rem)').matches;
+  recents.forEach((recent) => {
+    const option = document.createElement('option');
+    option.value = recent.query;
+    const fleets = parseBattleQuery(recent.query);
+    option.textContent = fleets ? battleLabel(fleets, short) : recent.label;
+    select.appendChild(option);
+  });
+  select.value = '';
 }
 
 function handleRouteChange() {
@@ -217,10 +338,25 @@ function init() {
   document
     .getElementById('add-fleet-btn')!
     .addEventListener('click', addFleetHandler);
-  document
-    .getElementById('run-simulation-btn')!
-    .addEventListener('click', simulate);
   document.getElementById('clear-all-btn')!.addEventListener('click', clearAll);
+
+  const recentsSelect = document.getElementById(
+    'recent-battles'
+  ) as HTMLSelectElement | null;
+  recentsSelect?.addEventListener('change', () => {
+    const fleets = parseBattleQuery(recentsSelect.value);
+    recentsSelect.value = '';
+    if (!fleets) return;
+    replaceFleets(fleets);
+    renderFleets();
+  });
+
+  // Tapping the live bar jumps to the full report.
+  document.getElementById('live-bar')?.addEventListener('click', () => {
+    document
+      .getElementById('results-container')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   document.addEventListener('fleet-removed', () => {
     renderFleets();
@@ -239,11 +375,16 @@ function init() {
   });
 
   onFleetsChanged(syncBattleUrl);
+  onFleetsChanged(() => saveSetup(state.fleets));
+  onFleetsChanged(scheduleAutoSimulate);
 
-  if (!loadSharedBattle()) {
+  // A battle in the URL wins; otherwise pick up where the last session left
+  // off. Either path triggers an auto-simulate via the change notification.
+  if (!loadSharedBattle() && !restoreSavedSetup()) {
     renderFleets();
   }
 
+  refreshRecentsPicker();
   handleRouteChange();
   window.addEventListener('popstate', handleRouteChange);
 }

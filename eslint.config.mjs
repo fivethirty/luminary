@@ -15,5 +15,18 @@ export default tseslint.config(
       ...prettierConfig.rules,
       'prettier/prettier': 'error',
     },
+  },
+  {
+    // The service worker is plain JS running in a worker scope.
+    files: ['src/sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        Response: 'readonly',
+        URL: 'readonly',
+      },
+    },
   }
 );

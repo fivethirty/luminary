@@ -4,13 +4,62 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  aspect-ratio: 1;
+  min-height: 3.25rem;
   background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 0.375rem 0;
+  padding: 0.375rem 0 0.125rem;
   box-sizing: border-box;
   cursor: pointer;
+}
+
+.stat-cube-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+}
+
+.stat-step {
+  width: 1.25rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stat-step:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.stat-step:active {
+  color: var(--color-text-primary);
+  background: var(--color-border);
+}
+
+/* Table mode: on touch screens the steppers are the primary input, so give
+   them real tap targets. */
+@media (pointer: coarse) {
+  .stat-cube {
+    min-height: 4rem;
+  }
+
+  .stat-step {
+    width: 1.9rem;
+    height: 2.5rem;
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+  }
 }
 
 .stat-cube:hover {

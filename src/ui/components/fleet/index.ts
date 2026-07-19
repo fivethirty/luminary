@@ -8,12 +8,15 @@ import {
   removeFleet,
   addShipType,
   removeShipType,
+  updateShipType,
   toggleAntimatterSplitter,
   setFleetPlannerType,
 } from '@ui/state';
 
 import {
   getDefaultShipConfig,
+  presetKeysForType,
+  SHIP_QUANTITY_LIMITS,
   type ShipDropdownOption,
 } from '@ui/ship-presets';
 
@@ -72,6 +75,8 @@ export class FleetElement extends HTMLElement {
       }
     });
 
+    this.bindPresetChips();
+
     const antimatterCheckbox = this.querySelector(
       '.antimatter-splitter-checkbox'
     ) as HTMLInputElement;
@@ -93,6 +98,38 @@ export class FleetElement extends HTMLElement {
     this.updateShipSelector();
     this.updatePlannerControl();
     this.renderShips();
+  }
+
+  // One-tap NPC opponents for the defender: tap adds the ship, tapping again
+  // adds another (up to the ship's limit). The most common table-mode question
+  // is "can I take this Ancient/Guardian/GCDS hex?", so those live one tap
+  // away instead of inside the dropdown.
+  private bindPresetChips() {
+    const chips = this.querySelector('.preset-chips') as HTMLElement;
+    if (this.getAttribute('is-defender') === 'false') return;
+    chips.hidden = false;
+
+    chips.querySelectorAll('.preset-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const preset = chip.getAttribute('data-preset') as ShipDropdownOption;
+        const variantData = getDefaultShipConfig(preset);
+        const existing = this.fleet.shipTypes.find(
+          (st) => st.type === variantData.type
+        );
+
+        if (!existing) {
+          this.addShip(preset);
+          return;
+        }
+
+        if (existing.quantity < SHIP_QUANTITY_LIMITS[existing.type]) {
+          updateShipType(this.fleet.id, existing.id, {
+            quantity: existing.quantity + 1,
+          });
+          this.renderShips();
+        }
+      });
+    });
   }
 
   private renderShips() {
@@ -130,8 +167,13 @@ export class FleetElement extends HTMLElement {
           variantData.type === ShipType.Starbase ||
           variantData.type === ShipType.Orbital);
       option.hidden = attackerForbidden;
+      // Types with variants (Ancient/Guardian/GCDS) stay selectable while
+      // fielded — picking a variant swaps the ship's stats. Single-variant
+      // types would be duplicates, so those disable.
+      const hasVariants = presetKeysForType(variantData.type).length > 1;
       option.disabled =
-        attackerForbidden || existingTypes.includes(variantData.type);
+        attackerForbidden ||
+        (existingTypes.includes(variantData.type) && !hasVariants);
     });
   }
 
@@ -139,7 +181,19 @@ export class FleetElement extends HTMLElement {
     const variantData = getDefaultShipConfig(dropdownOption);
     const newIsPlayer = isPlayerShipType(variantData.type);
 
-    if (this.fleet.shipTypes.some((st) => st.type === variantData.type)) {
+    // Selecting a variant of an already-fielded type (e.g. Ancient (WA) with
+    // Ancients on the board) swaps that ship's stats to the variant's preset,
+    // keeping the quantity.
+    const existing = this.fleet.shipTypes.find(
+      (st) => st.type === variantData.type
+    );
+    if (existing) {
+      updateShipType(this.fleet.id, existing.id, {
+        config: variantData.config,
+      });
+      this.renderShips();
+      this.updateShipSelector();
+      this.updatePlannerControl();
       return;
     }
 

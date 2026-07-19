@@ -5,6 +5,7 @@ import {
   encodeBattleQuery,
   parseBattleQuery,
   battleUrl,
+  battleLabel,
   formatChatReport,
 } from './share';
 import { exactResults } from './test-helpers';
@@ -211,6 +212,53 @@ describe('parseBattleQuery', () => {
     expect(decoded).toHaveLength(4);
     expect(decoded[3].shipTypes[0].type).toBe(ShipType.Cruiser);
     expect(decoded[1].shipTypes).toHaveLength(0);
+  });
+});
+
+describe('battleLabel', () => {
+  test('uses full ship names by default', () => {
+    expect(battleLabel(battle())).toBe('Guardian vs 2× Cruiser');
+  });
+
+  test('short uses single-letter player hulls and named NPCs', () => {
+    // battle()'s Guardian is a stock preset; its Cruiser has custom stats.
+    expect(battleLabel(battle(), true)).toBe('Guard vs 2× C');
+  });
+
+  test('tags NPC variants by their preset in both forms', () => {
+    const fleets = battle();
+    // A stock Guardian (WA): matches the guardian-wa preset exactly.
+    fleets[0].shipTypes[0].config = {
+      hull: 3,
+      computers: 1,
+      shields: 1,
+      initiative: 2,
+      heal: 0,
+      rift: 0,
+      cannons: { ion: 0, plasma: 2, soliton: 0, antimatter: 0 },
+      missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
+    };
+    expect(battleLabel(fleets)).toBe('Guardian (WA) vs 2× Cruiser');
+    expect(battleLabel(fleets, true)).toBe('Guard (WA) vs 2× C');
+  });
+
+  test('abbreviates every fleet in a multi-fleet matchup', () => {
+    const fleets = battle();
+    fleets.push(
+      fleet({
+        id: 'fleet-2',
+        name: 'Attacker 2',
+        shipTypes: [
+          {
+            id: 'ship-3',
+            type: ShipType.Dreadnought,
+            quantity: 2,
+            config: {},
+          },
+        ],
+      })
+    );
+    expect(battleLabel(fleets, true)).toBe('Guard vs 2× C vs 2× D');
   });
 });
 

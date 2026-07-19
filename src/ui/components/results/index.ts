@@ -10,19 +10,15 @@ export class ResultsElement extends HTMLElement {
     this.render();
   }
 
+  // No scrolling here: results re-render on every auto-simulate, and yanking
+  // the viewport mid-edit would fight the user. The mobile live bar (and the
+  // fact that desktop shows results in place) covers discovery.
   render() {
     const results = state.simulationResults!;
 
     this.renderWinPercentages(results);
     this.renderSurvivorDistribution(results);
     this.renderSurvivors(results);
-
-    setTimeout(() => {
-      this.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 100);
   }
 
   private bindShareActions() {

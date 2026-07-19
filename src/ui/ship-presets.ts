@@ -217,3 +217,42 @@ export const SHIP_QUANTITY_LIMITS: Record<ShipType, number> = {
   [ShipType.Guardian]: 1,
   [ShipType.GCDS]: 1,
 };
+
+// Full ship display names, keyed by preset variant so an NPC's variant shows
+// (e.g. "Guardian (WA)"). Mirrors the "+ Ship Type" dropdown labels.
+export const SHIP_NAMES: Record<ShipDropdownOption, string> = {
+  interceptor: 'Interceptor',
+  cruiser: 'Cruiser',
+  dreadnought: 'Dreadnought',
+  starbase: 'Starbase',
+  orbital: 'Orbital',
+  ancient: 'Ancient',
+  'ancient-adv': 'Ancient (A)',
+  'ancient-wa': 'Ancient (WA)',
+  guardian: 'Guardian',
+  'guardian-adv': 'Guardian (A)',
+  'guardian-wa': 'Guardian (WA)',
+  gcds: 'GCDS',
+  'gcds-adv': 'GCDS (A)',
+  'gcds-wa': 'GCDS (WA)',
+};
+
+// Short ship names for space-constrained UI (e.g. the recent battles picker on
+// mobile). Player hulls get a single letter; NPCs an abbreviated name with the
+// same "(A)"/"(WA)" variant tag as the full names.
+export const SHIP_ABBREVIATIONS: Record<ShipDropdownOption, string> = {
+  interceptor: 'I',
+  cruiser: 'C',
+  dreadnought: 'D',
+  starbase: 'S',
+  orbital: 'O',
+  ancient: 'Anc',
+  'ancient-adv': 'Anc (A)',
+  'ancient-wa': 'Anc (WA)',
+  guardian: 'Guard',
+  'guardian-adv': 'Guard (A)',
+  'guardian-wa': 'Guard (WA)',
+  gcds: 'GCDS',
+  'gcds-adv': 'GCDS (A)',
+  'gcds-wa': 'GCDS (WA)',
+};

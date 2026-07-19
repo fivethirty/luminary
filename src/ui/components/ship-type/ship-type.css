@@ -36,7 +36,7 @@
 
 .stat-group {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(3.25rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(4.75rem, 1fr));
   gap: var(--space-xs);
   padding: var(--space-xs);
   background: color-mix(in srgb, var(--color-bg-primary) 32%, transparent);
@@ -47,6 +47,14 @@
 @media (max-width: 52rem) {
   .ship-type .stats {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Wider stat columns on touch screens so the stepper buttons fit real tap
+   targets. */
+@media (pointer: coarse) {
+  .stat-group {
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
   }
 }
 

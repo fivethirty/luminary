@@ -8,6 +8,8 @@ import {
   getDefaultShipConfig,
   isShipPresetKey,
   presetKeysForType,
+  SHIP_ABBREVIATIONS,
+  SHIP_NAMES,
   SHIP_QUANTITY_LIMITS,
   type ShipDropdownOption,
 } from '@ui/ship-presets';
@@ -149,27 +151,37 @@ function configsEqual(
   return STAT_FIELDS.every((field) => field.get(a) === field.get(b));
 }
 
+// The preset variant a ship's config matches (e.g. a stock Guardian (WA) →
+// `guardian-wa`), falling back to the type's base preset when custom stats
+// match no variant. Shared by the URL encoder and the short battle labels.
+function matchPresetKey(shipType: ShipTypeConfig): ShipDropdownOption {
+  const config = normalizeConfig(shipType.config);
+  const candidates = presetKeysForType(shipType.type);
+  return (
+    candidates.find((candidate) =>
+      configsEqual(
+        config,
+        normalizeConfig(getDefaultShipConfig(candidate).config)
+      )
+    ) ?? candidates[0]
+  );
+}
+
 function encodeShip(
   key: string,
   shipType: ShipTypeConfig,
   params: [string, string][]
 ) {
   const config = normalizeConfig(shipType.config);
-  const candidates = presetKeysForType(shipType.type);
+  const preset = matchPresetKey(shipType);
+  const presetConfig = normalizeConfig(getDefaultShipConfig(preset).config);
+  const exact = configsEqual(config, presetConfig);
 
-  const exact = candidates.find((candidate) =>
-    configsEqual(
-      config,
-      normalizeConfig(getDefaultShipConfig(candidate).config)
-    )
-  );
-  const preset = exact ?? candidates[0];
   params.push([`${key}.${preset}`, String(shipType.quantity)]);
 
   if (!exact) {
-    const base = normalizeConfig(getDefaultShipConfig(preset).config);
     for (const field of STAT_FIELDS) {
-      if (field.get(config) !== field.get(base)) {
+      if (field.get(config) !== field.get(presetConfig)) {
         params.push([
           `${key}.${preset}.${field.key}`,
           String(field.get(config)),
@@ -343,15 +355,22 @@ export function battleUrl(fleets: FleetState[]): string {
   return query ? `${base}?${query}` : base;
 }
 
-function fleetLineup(fleet: FleetState): string {
-  if (fleet.shipTypes.length === 0) return 'Empty fleet';
+function fleetLineup(fleet: FleetState, short = false): string {
+  if (fleet.shipTypes.length === 0) return short ? '—' : 'Empty fleet';
+  const names = short ? SHIP_ABBREVIATIONS : SHIP_NAMES;
   return fleet.shipTypes
-    .map((shipType) =>
-      shipType.quantity > 1
-        ? `${shipType.quantity}× ${shipType.type}`
-        : shipType.type
-    )
+    .map((shipType) => {
+      const name = names[matchPresetKey(shipType)];
+      return shipType.quantity > 1 ? `${shipType.quantity}× ${name}` : name;
+    })
     .join(', ');
+}
+
+// A compact one-line description of the matchup, e.g. "2× Cruiser vs Guardian".
+// NPC variants are tagged in both forms ("Guardian (WA)" / "Guard (WA)");
+// `short` also single-letters player hulls for tight spaces.
+export function battleLabel(fleets: FleetState[], short = false): string {
+  return fleets.map((fleet) => fleetLineup(fleet, short)).join(' vs ');
 }
 
 function formatCount(count: number): string {
@@ -401,7 +420,7 @@ export function formatChatReport(
     lines.push('', `Avg survivors (wins): ${survivorParts.join(' · ')}`);
   }
 
-  const matchup = fleets.map(fleetLineup).join('  vs  ');
+  const matchup = fleets.map((fleet) => fleetLineup(fleet)).join('  vs  ');
   const report = `⚔ ${matchup}\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
   return url ? `${report}\n${url}` : report;
 }
