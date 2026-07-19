@@ -80,6 +80,21 @@ export type OutcomeResult = {
   states: number;
 };
 
+export type TerminalDistributionEntry = {
+  probability: number;
+  outcome: Terminal;
+  hpA: number[];
+  hpB: number[];
+};
+
+export type TerminalDistributionResult = {
+  ok: boolean;
+  reason?: string;
+  entries: TerminalDistributionEntry[];
+  residual: number;
+  states: number;
+};
+
 export type SurvivorComposition = {
   probability: number;
   attackerSurvivors: Partial<Record<string, number>>;
@@ -131,6 +146,7 @@ export class WinProbabilitySolver {
   private initialIndex = -1;
   private solved: SolveResult | null = null;
   private outcome: OutcomeResult | null = null;
+  private terminalDistribution: TerminalDistributionResult | null = null;
   // Absolute time (ms) the solve must finish by; set in solve().
   private deadline = Infinity;
 
@@ -208,6 +224,42 @@ export class WinProbabilitySolver {
     }
     this.outcome = this.propagateForward();
     return this.outcome;
+  }
+
+  solveTerminalDistribution(): TerminalDistributionResult {
+    if (this.terminalDistribution) return this.terminalDistribution;
+    const solved = this.solve();
+    if (!solved.ok) {
+      this.terminalDistribution = {
+        ok: false,
+        reason: solved.reason,
+        entries: [],
+        residual: NaN,
+        states: this.nodes.length,
+      };
+      return this.terminalDistribution;
+    }
+    const { absorbed, residual } = this.propagateTerminalMass();
+    const entries: TerminalDistributionEntry[] = [];
+    for (let i = 0; i < this.nodes.length; i++) {
+      const probability = absorbed[i];
+      if (probability === 0) continue;
+      const terminal = this.nodes[i].terminal;
+      if (!terminal) continue;
+      entries.push({
+        probability,
+        outcome: terminal.outcome,
+        hpA: [...terminal.hpA],
+        hpB: [...terminal.hpB],
+      });
+    }
+    this.terminalDistribution = {
+      ok: true,
+      entries,
+      residual,
+      states: this.nodes.length,
+    };
+    return this.terminalDistribution;
   }
 
   // Raw reach value for a state key (P reach AttackerWins for 'A', P reach
@@ -423,44 +475,8 @@ export class WinProbabilitySolver {
   // into terminals; whatever is still circulating after the step cap becomes
   // `residual` and is credited to the defender (round-cap semantics).
   private propagateForward(): OutcomeResult {
+    const { absorbed, residual } = this.propagateTerminalMass();
     const n = this.nodes.length;
-    let mass = new Float64Array(n);
-    const absorbed = new Float64Array(n);
-    mass[this.initialIndex] = 1;
-    let pending = 1;
-
-    for (
-      let step = 0;
-      step < FORWARD_MAX_STEPS && pending > FORWARD_RESIDUAL;
-      step++
-    ) {
-      const next = new Float64Array(n);
-      pending = 0;
-      for (let i = 0; i < n; i++) {
-        const m = mass[i];
-        if (m === 0) continue;
-        const node = this.nodes[i];
-        if (node.terminal) {
-          absorbed[i] += m;
-          continue;
-        }
-        for (const edge of node.edges) {
-          const targetIdx = node.decisionRole
-            ? this.chooseOption(edge.options, node.decisionRole)
-            : edge.options[0];
-          next[targetIdx] += edge.prob * m;
-        }
-      }
-      for (let i = 0; i < n; i++) {
-        if (next[i] > 0 && !this.nodes[i].terminal) pending += next[i];
-      }
-      // Terminal mass that arrived this step is absorbed on the next pass.
-      mass = next;
-    }
-    // Absorb any terminal mass still sitting in `mass` after the loop.
-    for (let i = 0; i < n; i++) {
-      if (mass[i] > 0 && this.nodes[i].terminal) absorbed[i] += mass[i];
-    }
 
     let pAttacker = 0;
     let pDefenderTerm = 0;
@@ -503,8 +519,6 @@ export class WinProbabilitySolver {
         pDraw += m;
       }
     }
-    const residual = Math.max(0, 1 - pAttacker - pDefenderTerm - pDraw);
-
     // Condition survivor sums on the winning mass (residual carries no
     // survivor information, so it is excluded from the defender average).
     for (const type of Object.keys(attackerSurvivors)) {
@@ -527,6 +541,56 @@ export class WinProbabilitySolver {
       ),
       states: this.nodes.length,
     };
+  }
+
+  private propagateTerminalMass(): {
+    absorbed: Float64Array;
+    residual: number;
+  } {
+    const n = this.nodes.length;
+    let mass = new Float64Array(n);
+    const absorbed = new Float64Array(n);
+    mass[this.initialIndex] = 1;
+    let pending = 1;
+
+    for (
+      let step = 0;
+      step < FORWARD_MAX_STEPS && pending > FORWARD_RESIDUAL;
+      step++
+    ) {
+      const next = new Float64Array(n);
+      pending = 0;
+      for (let i = 0; i < n; i++) {
+        const m = mass[i];
+        if (m === 0) continue;
+        const node = this.nodes[i];
+        if (node.terminal) {
+          absorbed[i] += m;
+          continue;
+        }
+        for (const edge of node.edges) {
+          const targetIdx = node.decisionRole
+            ? this.chooseOption(edge.options, node.decisionRole)
+            : edge.options[0];
+          next[targetIdx] += edge.prob * m;
+        }
+      }
+      for (let i = 0; i < n; i++) {
+        if (next[i] > 0 && !this.nodes[i].terminal) pending += next[i];
+      }
+      // Terminal mass that arrived this step is absorbed on the next pass.
+      mass = next;
+    }
+    // Absorb any terminal mass still sitting in `mass` after the loop.
+    for (let i = 0; i < n; i++) {
+      if (mass[i] > 0 && this.nodes[i].terminal) absorbed[i] += mass[i];
+    }
+
+    let terminalMass = 0;
+    for (let i = 0; i < n; i++) {
+      terminalMass += absorbed[i];
+    }
+    return { absorbed, residual: Math.max(0, 1 - terminalMass) };
   }
 
   private compositionKey(

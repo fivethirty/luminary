@@ -42,8 +42,9 @@ flowchart LR
   propagation. It does not reproduce battle transitions.
 - `optimal-damage-planner.ts`: adapts solved state values to the mutable planner interface and
   owns matchup-level solver caching.
-- `exact-combat.ts`: converts fleets into an exact solve and maps its outcome back to the app's
-  result shape.
+- `exact-combat.ts`: converts one or more fleets into exact solves and maps their outcomes back
+  to the app's result shape. Multi-fleet combat composes adjacent two-fleet exact engagements in
+  the same order as `MultiBattle`, carrying terminal HP into the next engagement.
 
 ## Solver Contract
 
@@ -117,10 +118,11 @@ The unrestricted defaults cap a solve at 500,000 states, 20,000 outcomes per slo
 value-iteration sweeps with convergence at `1e-10`. Unrestricted analysis has no wall-clock
 limit. Interactive exact combat and optimal planning use a 2-second, 250,000-state budget; any
 cap, timeout, or convergence failure falls back to DPS or Monte Carlo at the caller boundary.
-The app also preflights two-fleet optimal battles by fleet variety: when both sides have three
-or more ship types, it skips minimax and solves exact combat with DPS-policy assignments instead
-of spending the timeout budget first. If one fleet has only one ship type, the opposing fleet
-uses DPS-policy assignments and the ship-type cutoff is skipped for the remaining decision roles.
+The app preflights each optimal two-fleet engagement by fleet variety: when both engaged sides
+have three or more ship types, it skips minimax and solves that engagement with DPS-policy
+assignments instead of spending the timeout budget first. If one engaged fleet has only one ship
+type, the opposing fleet uses DPS-policy assignments and the ship-type cutoff is skipped for the
+remaining decision roles.
 
 ## Intentional Model Differences
 

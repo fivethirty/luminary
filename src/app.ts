@@ -1,5 +1,9 @@
 import { CombatSimulator } from '@calc/combat-simulator';
-import { computeExactBattle, EXACT_INTERACTIVE_CAPS } from '@calc/exact-combat';
+import {
+  computeExactCombat,
+  exactDpsPlannerOverrides,
+  EXACT_INTERACTIVE_CAPS,
+} from '@calc/exact-combat';
 import { Fleet } from '@calc/fleet';
 import { Ship } from '@calc/ship';
 import '@ui/components/fleet';
@@ -31,8 +35,6 @@ const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
 // Results recompute automatically shortly after the last edit; the pause keeps
 // hold-to-repeat steppers from re-solving on every tick.
 const AUTO_SIMULATE_DELAY_MS = 200;
-
-const OPTIMAL_EXACT_SHIP_TYPE_CUTOFF = 3;
 
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
@@ -138,38 +140,27 @@ function scheduleAutoSimulate() {
 function simulate() {
   const engineFleets = buildEngineFleets();
 
-  // Two-fleet battles are solved exactly: every dice outcome's probability is
-  // propagated through the state graph instead of sampled, so the numbers are
-  // noise-free and identical on every run. Battles outside exact combat's
-  // interactive budget, plus battles with 3+ fleets, fall back to Monte Carlo.
-  if (engineFleets.length === 2) {
-    const plannerOverrides = exactDpsPlannerOverrides(engineFleets);
-    const exactFleets = plannerOverrides.some(Boolean)
-      ? buildEngineFleets(plannerOverrides)
-      : engineFleets;
-    const exact = computeExactBattle(
-      exactFleets[0],
-      exactFleets[1],
-      EXACT_INTERACTIVE_CAPS
-    );
-    if (exact.ok) {
-      setSimulationResults({
-        victoryProbability: exact.lastFleetStanding,
-        drawProbability: exact.drawPercentage,
-        expectedSurvivors: exact.expectedSurvivors as Record<
-          string,
-          Record<string, number>
-        >,
-        survivorDistribution: exact.survivorDistribution as {
-          probability: number;
-          survivors: Record<string, Record<string, number>>;
-        }[],
-        timeTaken: exact.timeTaken,
-        method: 'exact',
-      });
-      afterSimulate();
-      return;
-    }
+  // Exact combat propagates every dice outcome through the same adjacent-fleet
+  // battle order as MultiBattle. Battles outside the interactive budget fall
+  // back to Monte Carlo.
+  const exact = computeExactCombat(engineFleets, EXACT_INTERACTIVE_CAPS);
+  if (exact.ok) {
+    setSimulationResults({
+      victoryProbability: exact.lastFleetStanding,
+      drawProbability: exact.drawPercentage,
+      expectedSurvivors: exact.expectedSurvivors as Record<
+        string,
+        Record<string, number>
+      >,
+      survivorDistribution: exact.survivorDistribution as {
+        probability: number;
+        survivors: Record<string, Record<string, number>>;
+      }[],
+      timeTaken: exact.timeTaken,
+      method: 'exact',
+    });
+    afterSimulate();
+    return;
   }
 
   const MC_ITERATIONS = 5000;
@@ -212,44 +203,6 @@ function buildEngineFleets(
       plannerOverrides[index] ?? PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
     );
   });
-}
-
-function exactDpsPlannerOverrides(fleets: Fleet[]): (DamageType | undefined)[] {
-  const overrides = fleets.map(() => undefined as DamageType | undefined);
-
-  if (fleets.length !== 2) return overrides;
-
-  if (hasSingleShipType(fleets[0]) && isOptimalFleet(fleets[1])) {
-    overrides[1] = DamageType.DPS;
-  }
-  if (hasSingleShipType(fleets[1]) && isOptimalFleet(fleets[0])) {
-    overrides[0] = DamageType.DPS;
-  }
-  if (overrides.some(Boolean)) return overrides;
-
-  if (!fleets.every(hasManyShipTypes)) {
-    return overrides;
-  }
-
-  return fleets.map((fleet) =>
-    isOptimalFleet(fleet) ? DamageType.DPS : undefined
-  );
-}
-
-function hasSingleShipType(fleet: Fleet): boolean {
-  return shipTypeCount(fleet) <= 1;
-}
-
-function hasManyShipTypes(fleet: Fleet): boolean {
-  return shipTypeCount(fleet) >= OPTIMAL_EXACT_SHIP_TYPE_CUTOFF;
-}
-
-function shipTypeCount(fleet: Fleet): number {
-  return new Set(fleet.getRoster().map((ship) => ship.type)).size;
-}
-
-function isOptimalFleet(fleet: Fleet): boolean {
-  return fleet.getDamageType() === DamageType.OPTIMAL;
 }
 
 function afterSimulate() {

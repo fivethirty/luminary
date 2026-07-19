@@ -102,6 +102,31 @@ describe('App', () => {
     expect(liveBar.querySelector('.live-verdict')!.textContent).not.toBe('');
   });
 
+  test('auto-simulates three fleets with exact combat', async () => {
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+    addBtn.click();
+
+    for (const fleet of state.fleets) {
+      addShipType(fleet.id, ShipType.Interceptor, { cannons: { ion: 1 } });
+    }
+    await settle();
+
+    expect(state.simulationResults).not.toBeNull();
+    expect(state.simulationResults!.method).toBe('exact');
+    expect(state.simulationResults!.victoryProbability['Defender']).toBeCloseTo(
+      66 / 121,
+      9
+    );
+    expect(
+      state.simulationResults!.victoryProbability['Attacker 1']
+    ).toBeCloseTo(30 / 121, 9);
+    expect(
+      state.simulationResults!.victoryProbability['Attacker 2']
+    ).toBeCloseTo(25 / 121, 9);
+  });
+
   test('uses DPS exact fallback when both fleets have 3+ ship types', () => {
     const defender = new Fleet(
       'Defender',
