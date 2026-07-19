@@ -112,7 +112,7 @@
   padding: var(--space-xs) var(--space-md);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-full);
-  background: var(--color-bg-tertiary);
+  background-color: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   font-family: inherit;
   font-size: var(--font-size-sm);
@@ -121,12 +121,18 @@
 }
 
 .preset-picker {
+  appearance: none;
+  -webkit-appearance: none;
   min-width: 7rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 0.75rem;
   text-align: center;
 }
 
 .preset-chip:hover {
-  background: var(--color-border);
+  background-color: var(--color-border);
   border-color: var(--fleet-accent, var(--color-border-strong));
 }
 
@@ -154,12 +160,18 @@
 /* On phones the row can't hold both controls plus the planner select, so stack
    them and let the select take the full width. */
 @media (max-width: 42rem) {
+  .preset-chips {
+    justify-content: space-between;
+  }
+
   .preset-chips-label {
-    flex-basis: 100%;
+    flex: 0 0 auto;
+    margin-right: auto;
   }
 
   .preset-picker {
-    flex: 1 1 calc(50% - var(--space-sm));
+    flex: 0 1 calc(50% - var(--space-sm));
+    min-width: 0;
   }
 
   .fleet-tech {
