@@ -28,7 +28,7 @@ describe('Fleet', () => {
         expected: new Set<number>([3, 2]),
       },
     ])('$name', ({ ships, expected }) => {
-      const fleet = new Fleet('my fleet', ships);
+      const fleet = new Fleet('my fleet', [...ships]);
       expect(fleet.getInitiatives()).toEqual(expected);
     });
   });
@@ -252,7 +252,7 @@ describe('Fleet', () => {
         expectedShotCount: 4,
       },
     ])('$name', ({ ships, initiative, expectedShotCount }) => {
-      const fleet = new Fleet('test fleet', ships);
+      const fleet = new Fleet('test fleet', [...ships]);
 
       const shots = fleet.shootRiftCannonsForInitiative(initiative);
       expect(shots.length).toEqual(expectedShotCount);
@@ -315,7 +315,7 @@ describe('Fleet', () => {
         expected: false,
       },
     ])('$name', ({ ships, expected, setupFleet }) => {
-      const fleet = new Fleet('test fleet', ships);
+      const fleet = new Fleet('test fleet', [...ships]);
       if (setupFleet) setupFleet(fleet);
 
       expect(fleet.isAlive()).toEqual(expected);
