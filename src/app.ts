@@ -272,13 +272,13 @@ function renderResults() {
 }
 
 // The sticky bar: leading outcome plus a mini odds strip, always in reach while
-// editing. Hidden when there are no results.
+// editing. Hidden when there are no results or the About page is open.
 function renderLiveBar() {
   const bar = document.getElementById('live-bar');
   if (!bar) return;
 
   const results = state.simulationResults;
-  if (!results) {
+  if (!results || window.location.pathname === '/about') {
     bar.hidden = true;
     return;
   }
@@ -390,6 +390,8 @@ function handleRouteChange() {
   navLinks.forEach((link) => {
     link.classList.toggle('active', link.getAttribute('href') === path);
   });
+
+  renderLiveBar();
 }
 
 function init() {

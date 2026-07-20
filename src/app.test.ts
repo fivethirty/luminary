@@ -182,6 +182,28 @@ describe('App', () => {
     expect(liveBar.querySelector('.live-verdict')!.textContent).not.toBe('');
   });
 
+  test('hides live odds on the about page', async () => {
+    addShipType(state.fleets[0].id, ShipType.Interceptor, {
+      cannons: { ion: 1 },
+    });
+    addShipType(state.fleets[1].id, ShipType.Cruiser, {
+      cannons: { ion: 1 },
+      hull: 1,
+    });
+    await settle();
+
+    const liveBar = document.getElementById('live-bar')!;
+    expect(liveBar.hidden).toBe(false);
+
+    (document.querySelector('a[href="/about"]') as HTMLAnchorElement).click();
+    expect(window.location.pathname).toBe('/about');
+    expect(liveBar.hidden).toBe(true);
+
+    (document.querySelector('a[href="/"]') as HTMLAnchorElement).click();
+    expect(window.location.pathname).toBe('/');
+    expect(liveBar.hidden).toBe(false);
+  });
+
   test('auto-simulates three fleets with exact combat', async () => {
     const addBtn = document.getElementById(
       'add-fleet-btn'
