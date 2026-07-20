@@ -217,7 +217,6 @@
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: nowrap;
-  margin-left: auto;
   padding-left: var(--space-md);
   border-left: 1px solid
     color-mix(in srgb, var(--color-border) 60%, transparent);
