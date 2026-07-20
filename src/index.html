@@ -143,15 +143,33 @@
             >Eclipse: Second Dawn for the Galaxy</a
           >.
         </p>
-        <h3>Targeting</h3>
+        <h3>Battles</h3>
         <p>
-          Luminary assumes that AI follow the targeting rules for AI ships and
-          that damage will be stacked on previously damaged ships.
+          Luminary supports a defender and up to six attacking fleets. In a
+          battle with multiple attackers, combat starts at the bottom of the
+          fleet list. The winner continues upward to face the next fleet,
+          carrying any damage from the previous engagement.
         </p>
         <p>
-          Player ships are assumed to remove as much enemy damage as possible
-          with their shots &lpar;they ignore missile damage after a ship has
-          fired its missiles&rpar;.
+          Whenever possible, Luminary calculates every dice outcome to produce
+          exact, deterministic odds. Battles that are too complex to solve
+          within the interactive limit automatically fall back to a 5,000-run
+          Monte Carlo simulation. The method used is shown with the results.
+        </p>
+        <h3>Damage Planning</h3>
+        <p>
+          <strong>Optimal</strong> targeting evaluates legal damage assignments
+          for both sides and chooses the assignments that give each fleet its
+          best chance of winning. <strong>Max DPS removal</strong> instead
+          prioritizes taking enemy damage output off the board. Ancient,
+          Guardian, and GCDS fleets always use the official NPC targeting rules.
+        </p>
+        <h3>Sharing and Table Play</h3>
+        <p>
+          Every setup is saved in the page URL, so you can copy a link or a
+          chat-ready results summary. Your latest setup and recent battles are
+          also kept in this browser, and the calculator works offline after its
+          first load.
         </p>
         <h3>Bugs</h3>
         <p>
