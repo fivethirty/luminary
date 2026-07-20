@@ -4,6 +4,7 @@ import './stat-cube.css';
 export class StatCubeElement extends HTMLElement {
   private _value: number = 0;
   private _label = '';
+  private _sign = '';
   private _disabled = false;
   private _max = 99;
   private _step = 1;
@@ -21,9 +22,16 @@ export class StatCubeElement extends HTMLElement {
   set value(val: number) {
     this._value = this.normalizeValue(val);
     if (this.input) {
-      this.input.value = String(this.value);
+      this.input.value = this.displayValue();
     }
     this.applyStepperState();
+  }
+
+  // The value as shown in the input, prefixed with the sign glyph when one is
+  // set (e.g. '+3' for computers, '−2' for shields). The input is cleared for
+  // digit-only editing while focused, so the sign only appears at rest.
+  private displayValue(): string {
+    return `${this._sign}${this.value}`;
   }
 
   get max(): number {
@@ -84,7 +92,7 @@ export class StatCubeElement extends HTMLElement {
     this.input = this.querySelector('input') as HTMLInputElement;
     const label = this.querySelector('label') as HTMLElement;
 
-    this.input.value = String(this.value);
+    this.input.value = this.displayValue();
     label.textContent = this._label;
     this.applyInputConstraints();
     this.applyDisabledState();
@@ -128,12 +136,12 @@ export class StatCubeElement extends HTMLElement {
 
     this.input.addEventListener('change', () => {
       if (this.disabled) {
-        this.input.value = String(this.value);
+        this.input.value = this.displayValue();
         return;
       }
       const newValue = parseInt(this.input.value) || 0;
       this.value = newValue;
-      this.input.value = String(this.value);
+      this.input.value = this.displayValue();
 
       this.dispatchEvent(new Event('change', { bubbles: true }));
     });
@@ -159,7 +167,7 @@ export class StatCubeElement extends HTMLElement {
   private normalizeCurrentValue() {
     this._value = this.normalizeValue(this.value);
     if (this.input) {
-      this.input.value = String(this.value);
+      this.input.value = this.displayValue();
     }
     this.applyStepperState();
   }
@@ -234,6 +242,22 @@ export class StatCubeElement extends HTMLElement {
     const labelEl = this.querySelector('label');
     if (labelEl) {
       labelEl.textContent = val;
+    }
+  }
+
+  // A sign glyph shown just before the value (e.g. '+' for computers, '−' for
+  // shields) to hint how the stat shifts a to-hit roll. Purely cosmetic — the
+  // stored value stays a plain unsigned number and the field is edited as
+  // digits only.
+  get sign(): string {
+    return this._sign;
+  }
+
+  set sign(val: string) {
+    this._sign = val;
+    // Don't clobber an in-progress edit; the sign reappears on the next render.
+    if (this.input && document.activeElement !== this.input) {
+      this.input.value = this.displayValue();
     }
   }
 }

@@ -25,6 +25,9 @@ export interface FleetState {
   shipTypes: ShipTypeConfig[];
   factionId?: FactionId;
   colorId?: FleetColorId;
+  // Automatic colors follow battle position; explicitly selected colors stay
+  // with the fleet when it is reordered.
+  colorIsManual?: boolean;
   antimatterSplitter: boolean;
   // How this (player) fleet plans damage assignment:
   //  - 'dps': remove the most enemy firepower per assignment
@@ -84,6 +87,7 @@ const DEFAULT_FLEETS: FleetState[] = [
     shipTypes: [],
     factionId: '',
     colorId: 'neutral',
+    colorIsManual: false,
     antimatterSplitter: false,
     plannerType: 'optimal',
   },
@@ -93,6 +97,7 @@ const DEFAULT_FLEETS: FleetState[] = [
     shipTypes: [],
     factionId: '',
     colorId: 'blue',
+    colorIsManual: false,
     antimatterSplitter: false,
     plannerType: 'optimal',
   },
@@ -128,12 +133,14 @@ export function addFleet(): FleetState {
     shipTypes: [],
     factionId: '',
     colorId: defaultFleetColorId(fleetIndex),
+    colorIsManual: false,
     antimatterSplitter: false,
     plannerType: 'optimal',
   };
   nextFleetId++;
 
   state.fleets.push(newFleet);
+  enforceAutomaticFleetColors();
   notifyFleetsChanged();
   return newFleet;
 }
@@ -144,6 +151,7 @@ export function removeFleet(fleetId: string) {
     state.fleets.splice(index, 1);
     delete state.cachedShipTypes[fleetId];
     delete lastPlayerColorByFleetId[fleetId];
+    enforceAutomaticFleetColors();
     notifyFleetsChanged();
   }
 }
@@ -232,9 +240,7 @@ function cloneShipConfig(config: Partial<ShipConfig>): Partial<ShipConfig> {
 export function resetFleets() {
   state.fleets = DEFAULT_FLEETS.map((f) => ({ ...f, shipTypes: [] }));
   state.cachedShipTypes = {};
-  for (const fleetId of Object.keys(lastPlayerColorByFleetId)) {
-    delete lastPlayerColorByFleetId[fleetId];
-  }
+  clearRememberedFleetColors();
   nextFleetId = 2;
   notifyFleetsChanged();
 }
@@ -243,6 +249,12 @@ export function resetFleets() {
 // Incoming fleets are expected to use sequential `fleet-<n>` ids from 0.
 export function replaceFleets(fleets: FleetState[]) {
   state.fleets = normalizeFleetMetadata(fleets.slice(0, MAX_FLEETS));
+  clearRememberedFleetColors();
+  state.fleets.forEach((fleet) => {
+    if (fleet.colorIsManual && fleet.colorId && fleet.colorId !== 'neutral') {
+      lastPlayerColorByFleetId[fleet.id] = fleet.colorId;
+    }
+  });
   enforceAutomaticFleetColors();
   state.cachedShipTypes = {};
   nextFleetId = state.fleets.length;
@@ -274,19 +286,29 @@ export function setFleetFaction(fleetId: string, factionId: FactionId) {
 export function setFleetColor(fleetId: string, colorId: FleetColorId) {
   const fleet = getFleetById(fleetId);
   if (colorId === 'neutral') return;
+  const previousColor = fleet.colorId;
+  fleet.colorIsManual = true;
   lastPlayerColorByFleetId[fleetId] = colorId;
 
   const otherFleet = state.fleets.find(
     (other) => other.id !== fleetId && other.colorId === colorId
   );
-  if (otherFleet) {
+  if (otherFleet?.colorIsManual) {
     otherFleet.colorId =
-      fleet.colorId && fleet.colorId !== 'neutral'
-        ? fleet.colorId
+      previousColor && previousColor !== 'neutral'
+        ? previousColor
         : firstOpenPlayerColor();
     lastPlayerColorByFleetId[otherFleet.id] = otherFleet.colorId;
   }
   fleet.colorId = colorId;
+  enforceAutomaticFleetColors();
+  notifyFleetsChanged();
+}
+
+export function unsetFleetColor(fleetId: string) {
+  const fleet = getFleetById(fleetId);
+  fleet.colorIsManual = false;
+  delete lastPlayerColorByFleetId[fleetId];
   enforceAutomaticFleetColors();
   notifyFleetsChanged();
 }
@@ -325,35 +347,62 @@ export function enforceFleetRoleRestrictions(fleets: FleetState[]) {
 }
 
 function normalizeFleetMetadata(fleets: FleetState[]): FleetState[] {
-  return fleets.map((fleet, index) => ({
-    ...fleet,
-    factionId: fleet.factionId ?? '',
-    colorId: fleet.colorId ?? defaultFleetColorId(index),
-  }));
+  return fleets.map((fleet, index) => {
+    const colorId = fleet.colorId ?? defaultFleetColorId(index);
+    return {
+      ...fleet,
+      factionId: fleet.factionId ?? '',
+      colorId,
+      colorIsManual:
+        fleet.colorIsManual ?? colorId !== defaultFleetColorId(index),
+    };
+  });
 }
 
 function enforceAutomaticFleetColors() {
   const defender = state.fleets[0];
   if (!defender) return;
 
-  state.fleets.slice(1).forEach((fleet) => {
-    if (fleet.colorId === 'neutral') {
-      fleet.colorId = availableRememberedPlayerColor(fleet.id) ?? firstOpenPlayerColor();
-    }
-  });
-
   if (isNpcFleet(defender)) {
-    if (defender.colorId && defender.colorId !== 'neutral') {
+    if (
+      defender.colorIsManual &&
+      defender.colorId &&
+      defender.colorId !== 'neutral'
+    ) {
       lastPlayerColorByFleetId[defender.id] = defender.colorId;
     }
     defender.colorId = 'neutral';
-    return;
   }
 
-  const rememberedDefenderColor = availableRememberedPlayerColor(defender.id);
-  if (defender.colorId === 'neutral' && rememberedDefenderColor) {
-    defender.colorId = rememberedDefenderColor;
-  }
+  const used = new Set<FleetColorId>();
+
+  // Reserve explicit colors first. A manually colored defender may be
+  // temporarily neutral while it contains NPCs; its player color is restored
+  // once the fleet can use it again.
+  state.fleets.forEach((fleet, index) => {
+    if (!fleet.colorIsManual || (index === 0 && isNpcFleet(fleet))) return;
+
+    if (!fleet.colorId || fleet.colorId === 'neutral') {
+      const remembered = availableRememberedPlayerColor(fleet.id);
+      fleet.colorId = remembered ?? firstOpenPlayerColor(used);
+    }
+    used.add(fleet.colorId);
+  });
+
+  // Untouched colors belong to positions, not fleet identities. Recompute
+  // them after every relevant change so reordering an uncustomized battle
+  // still reads as neutral defender, blue attacker, green attacker 2, etc.
+  state.fleets.forEach((fleet, index) => {
+    if (fleet.colorIsManual) return;
+
+    const preferred = defaultFleetColorId(index);
+    if (preferred === 'neutral' || !used.has(preferred)) {
+      fleet.colorId = preferred;
+    } else {
+      fleet.colorId = firstOpenPlayerColor(used);
+    }
+    used.add(fleet.colorId);
+  });
 }
 
 export function isNpcFleet(fleet: FleetState): boolean {
@@ -363,8 +412,9 @@ export function isNpcFleet(fleet: FleetState): boolean {
   );
 }
 
-function firstOpenPlayerColor(): FleetColorId {
-  const used = new Set(state.fleets.map((fleet) => fleet.colorId));
+function firstOpenPlayerColor(
+  used = new Set(state.fleets.map((fleet) => fleet.colorId))
+): FleetColorId {
   return (
     PLAYER_FLEET_COLORS.find((color) => !used.has(color.id))?.id ??
     PLAYER_FLEET_COLORS[0].id
@@ -378,7 +428,16 @@ function availableRememberedPlayerColor(
   if (!remembered || remembered === 'neutral') return undefined;
 
   const alreadyUsed = state.fleets.some(
-    (fleet) => fleet.id !== fleetId && fleet.colorId === remembered
+    (fleet) =>
+      fleet.id !== fleetId &&
+      fleet.colorIsManual &&
+      fleet.colorId === remembered
   );
   return alreadyUsed ? undefined : remembered;
+}
+
+function clearRememberedFleetColors() {
+  for (const fleetId of Object.keys(lastPlayerColorByFleetId)) {
+    delete lastPlayerColorByFleetId[fleetId];
+  }
 }

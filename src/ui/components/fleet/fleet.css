@@ -19,6 +19,7 @@
 
 .fleet-defender {
   --fleet-accent: var(--color-defender);
+  --fleet-accent-soft: var(--color-defender-soft);
 }
 
 .fleet-attacker {
@@ -41,24 +42,48 @@
   --fleet-accent-soft: var(--color-attacker-4-soft);
 }
 
-.fleet-defender .fleet-header {
-  background: linear-gradient(90deg, var(--color-defender-soft), var(--color-bg-secondary) 45%);
+.fleet-defender.fleet-neutral .fleet-header {
+  background: linear-gradient(
+    90deg,
+    var(--color-defender-soft),
+    var(--color-bg-secondary) 45%
+  );
 }
 
+.fleet-defender:not(.fleet-neutral) .fleet-header,
 .fleet-attacker .fleet-header {
-  background: linear-gradient(90deg, var(--fleet-accent-soft), var(--color-bg-secondary) 45%);
+  background: linear-gradient(
+    90deg,
+    var(--fleet-accent-soft),
+    var(--color-bg-secondary) 45%
+  );
 }
 
 .fleet-title-row {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .fleet-name {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.fleet-settings-btn {
+  flex: 0 0 auto;
+  padding: 0 var(--space-xs);
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.fleet-settings-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .fleet-settings-dialog {
@@ -117,6 +142,13 @@
   gap: var(--space-sm);
 }
 
+.color-unset-btn {
+  width: 100%;
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 .color-option {
   aspect-ratio: 1;
   min-width: 0;
@@ -148,8 +180,6 @@
 }
 
 .ship-selector {
-  margin-left: auto;
-  margin-right: var(--space-sm);
   width: auto;
   font-family: inherit;
   font-size: inherit;
@@ -167,6 +197,16 @@
   appearance: none;
 }
 
+.fleet-add-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-sm);
+}
+
+.fleet-add-row .ship-selector {
+  min-width: 10.5rem;
+}
+
 .ship-selector:hover {
   background: var(--color-border);
 }
@@ -182,7 +222,8 @@
   gap: var(--space-sm);
   flex-wrap: wrap;
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 /* `display: flex` above would otherwise override the UA's [hidden] rule and
@@ -309,28 +350,22 @@
   }
 
   .fleet-header {
-    align-items: stretch;
-    flex-wrap: wrap;
-  }
-
-  .fleet-name {
-    flex: 1 1 auto;
+    align-items: center;
+    flex-wrap: nowrap;
   }
 
   .fleet-title-row {
-    flex: 1 0 100%;
+    flex: 1 1 auto;
     flex-wrap: nowrap;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
   }
 
   .role-controls {
     margin-left: 0;
   }
 
-  .ship-selector {
-    flex: 1 1 0;
-    margin-left: 0;
-    margin-right: 0;
+  .fleet-add-row .ship-selector {
+    width: 100%;
     min-width: 0;
   }
 

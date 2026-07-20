@@ -199,7 +199,11 @@ export function encodeBattleQuery(fleets: FleetState[]): string {
     if (fleet.factionId) {
       params.push([`${key}.faction`, fleet.factionId]);
     }
-    if (fleet.colorId && fleet.colorId !== defaultFleetColorId(index)) {
+    const colorIsManual =
+      fleet.colorIsManual ??
+      (fleet.colorId !== undefined &&
+        fleet.colorId !== defaultFleetColorId(index));
+    if (fleet.colorId && colorIsManual) {
       params.push([`${key}.color`, fleet.colorId]);
     }
   });
@@ -216,6 +220,7 @@ interface FleetDraft {
   ships: Map<ShipDropdownOption, ShipTypeConfig>;
   factionId: FactionId;
   colorId?: FleetColorId;
+  colorIsManual: boolean;
   antimatterSplitter: boolean;
   plannerType: PlannerType;
 }
@@ -281,6 +286,7 @@ export function parseBattleQuery(search: string): FleetState[] | null {
         ships: new Map(),
         factionId: '',
         colorId: undefined,
+        colorIsManual: false,
         antimatterSplitter: false,
         plannerType: 'optimal',
       };
@@ -318,6 +324,7 @@ export function parseBattleQuery(search: string): FleetState[] | null {
     if (parts.length === 2 && parts[1] === 'color') {
       if (isFleetColorId(value)) {
         getDraft(fleetIndex).colorId = value;
+        getDraft(fleetIndex).colorIsManual = true;
         recognized = true;
       }
       continue;
@@ -360,6 +367,7 @@ export function parseBattleQuery(search: string): FleetState[] | null {
         : [],
       factionId: draft?.factionId ?? '',
       colorId: draft?.colorId ?? defaultFleetColorId(index),
+      colorIsManual: draft?.colorIsManual ?? false,
       antimatterSplitter: draft?.antimatterSplitter ?? false,
       plannerType: draft?.plannerType ?? 'optimal',
     };

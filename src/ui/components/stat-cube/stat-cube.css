@@ -5,7 +5,11 @@
   justify-content: space-between;
   width: 100%;
   min-height: 3.25rem;
-  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+  background: color-mix(
+    in srgb,
+    var(--color-bg-secondary) 86%,
+    var(--color-bg-primary)
+  );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0.375rem 0 0.125rem;
@@ -104,7 +108,11 @@ calc-stat-cube[disabled] .stat-cube {
 
 calc-stat-cube[disabled] .stat-cube:hover {
   border-color: var(--color-border);
-  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+  background: color-mix(
+    in srgb,
+    var(--color-bg-secondary) 86%,
+    var(--color-bg-primary)
+  );
 }
 
 calc-stat-cube[disabled] .stat-step {
@@ -139,6 +147,13 @@ calc-stat-cube[disabled] .stat-step {
   cursor: default;
   -webkit-text-fill-color: var(--color-text-primary);
   opacity: 1;
+}
+
+/* Signed accuracy stats need a touch more separation between the modifier
+   glyph and its value, especially between the two stepper controls. */
+calc-stat-cube[data-stat='computer'] .stat-cube input,
+calc-stat-cube[data-stat='shield'] .stat-cube input {
+  letter-spacing: 0.08em;
 }
 
 .stat-cube input::-webkit-inner-spin-button,

@@ -1,8 +1,8 @@
 import { ShipType, type ShipConfig } from '@calc/ship';
 
-// The ship presets behind the "+ Ship Type" dropdown, shared with the URL
-// codec so battle links can name a preset (e.g. `guardian-wa`) and only carry
-// stats that differ from it.
+// Ship presets shared by the "+ Add ship" dropdown, the defender NPC pills,
+// and the URL codec. Battle links can name a preset (e.g. `guardian-wa`) and
+// only carry stats that differ from it.
 export type ShipDropdownOption =
   | 'interceptor'
   | 'cruiser'

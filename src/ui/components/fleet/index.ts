@@ -12,6 +12,7 @@ import {
   getCachedShipType,
   removeShipType,
   setFleetColor,
+  unsetFleetColor,
   setFleetFaction,
   updateShipType,
   toggleAntimatterSplitter,
@@ -126,16 +127,40 @@ export class FleetElement extends HTMLElement {
     const color = fleetColor(this.fleet.colorId, this.fleetIndex);
     fleetRoot.style.setProperty('--fleet-accent', color.color);
     fleetRoot.style.setProperty('--fleet-accent-soft', color.soft);
+    fleetRoot.classList.toggle(
+      'fleet-neutral',
+      this.fleet.colorId === 'neutral'
+    );
   }
 
   private updateDisplayedName() {
     const nameSpan = this.querySelector('.fleet-name') as HTMLSpanElement;
+    nameSpan.textContent = this.displayName();
+
+    const settingsBtn = this.querySelector(
+      '.fleet-settings-btn'
+    ) as HTMLButtonElement | null;
     const isDefender = this.getAttribute('is-defender') !== 'false';
-    const displayName =
+    settingsBtn?.toggleAttribute(
+      'hidden',
       isDefender && isNpcFleet(this.fleet)
-        ? 'The Ancients'
-        : (factionLabel(this.fleet.factionId) ?? this.fleet.name);
-    nameSpan.textContent = displayName;
+    );
+  }
+
+  private displayName(): string {
+    const isDefender = this.getAttribute('is-defender') !== 'false';
+    if (isDefender && isNpcFleet(this.fleet)) return 'The Ancients';
+
+    return factionLabel(this.fleet.factionId) ?? this.defaultRoleName();
+  }
+
+  private defaultRoleName(): string {
+    if (this.fleetIndex === 0) return 'Defender';
+
+    const fleetCount = Number(this.getAttribute('fleet-count') ?? '2');
+    const attackerCount = fleetCount - 1;
+    if (attackerCount === 1) return 'Attacker';
+    return `Attacker ${this.fleetIndex}`;
   }
 
   private bindSettingsDialog() {
@@ -143,7 +168,7 @@ export class FleetElement extends HTMLElement {
       '.fleet-settings-dialog'
     ) as HTMLDialogElement;
     const title = this.querySelector('.fleet-settings-title') as HTMLElement;
-    title.textContent = this.fleet.name;
+    title.textContent = this.displayName();
 
     const settingsBtn = this.querySelector(
       '.fleet-settings-btn'
@@ -185,23 +210,34 @@ export class FleetElement extends HTMLElement {
       button.addEventListener('click', () => {
         setFleetColor(this.fleet.id, color.id);
         this.applyFleetColor();
+        this.updateColorControls();
         this.dispatchFleetMetadataChanged();
       });
       this.querySelector('.color-options')?.appendChild(button);
+    });
+
+    const unsetColorBtn = this.querySelector(
+      '.color-unset-btn'
+    ) as HTMLButtonElement;
+    unsetColorBtn.addEventListener('click', () => {
+      unsetFleetColor(this.fleet.id);
+      this.applyFleetColor();
+      this.updateColorControls();
+      this.dispatchFleetMetadataChanged();
     });
     this.updateColorControls();
   }
 
   private updateColorControls() {
-    const colorFieldset = this.querySelector(
-      '.color-fieldset'
-    ) as HTMLFieldSetElement | null;
-    colorFieldset?.toggleAttribute('hidden', this.fleet.colorId === 'neutral');
-
     this.querySelectorAll('.color-option').forEach((option) => {
       const button = option as HTMLButtonElement;
       button.classList.toggle('selected', button.value === this.fleet.colorId);
     });
+
+    const unsetColorBtn = this.querySelector(
+      '.color-unset-btn'
+    ) as HTMLButtonElement | null;
+    if (unsetColorBtn) unsetColorBtn.disabled = !this.fleet.colorIsManual;
   }
 
   private bindRoleControls(fleetIndex: number, fleetCount: number) {
@@ -301,8 +337,9 @@ export class FleetElement extends HTMLElement {
       '.ship-selector'
     ) as HTMLSelectElement;
     const existingTypes = this.fleet.shipTypes.map((st) => st.type);
-    // AI ships, starbases, and orbitals may only be fielded by the defender. A
-    // missing attribute defaults to defender (permissive).
+    // Starbases and orbitals may only be fielded by the defender. NPC ships
+    // use the defender-only pill pickers and are intentionally absent here.
+    // A missing attribute defaults to defender (permissive).
     const isAttacker = this.getAttribute('is-defender') === 'false';
 
     const options = shipSelector.querySelectorAll('option');

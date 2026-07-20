@@ -8,6 +8,7 @@ import {
   makeFleetDefender,
   moveFleet,
   setFleetColor,
+  unsetFleetColor,
   setFleetFaction,
   updateShipType,
   removeShipType,
@@ -69,6 +70,15 @@ describe('State', () => {
       const lastFleet = state.fleets[state.fleets.length - 1];
       expect(newFleet).toBe(lastFleet);
     });
+
+    test('chooses an open automatic color when a manual fleet owns the positional default', () => {
+      setFleetColor('fleet-1', 'green');
+
+      const newFleet = addFleet();
+
+      expect(newFleet.colorId).toBe('red');
+      expect(newFleet.colorIsManual).toBe(false);
+    });
   });
 
   describe('removeFleet', () => {
@@ -81,6 +91,16 @@ describe('State', () => {
     test('does nothing if fleet not found', () => {
       removeFleet('non-existent');
       expect(state.fleets).toHaveLength(2);
+    });
+
+    test('reassigns automatic colors for fleets that move into earlier positions', () => {
+      addFleet();
+
+      removeFleet('fleet-1');
+
+      expect(state.fleets[1].id).toBe('fleet-2');
+      expect(state.fleets[1].colorId).toBe('blue');
+      expect(state.fleets[1].colorIsManual).toBe(false);
     });
   });
 
@@ -130,6 +150,46 @@ describe('State', () => {
 
       expect(state.fleets[0].colorId).toBe('blue');
       expect(state.fleets[1].colorId).toBe('green');
+    });
+
+    test('automatic colors follow position when fleets are reordered', () => {
+      moveFleet('fleet-0', 1);
+
+      expect(state.fleets.map((fleet) => fleet.id)).toEqual([
+        'fleet-1',
+        'fleet-0',
+      ]);
+      expect(state.fleets.map((fleet) => fleet.colorId)).toEqual([
+        'neutral',
+        'blue',
+      ]);
+      expect(state.fleets.every((fleet) => !fleet.colorIsManual)).toBe(true);
+    });
+
+    test('a manually selected color stays with its fleet when reordered', () => {
+      setFleetColor('fleet-1', 'green');
+      moveFleet('fleet-1', 0);
+
+      expect(state.fleets.map((fleet) => fleet.id)).toEqual([
+        'fleet-1',
+        'fleet-0',
+      ]);
+      expect(state.fleets.map((fleet) => fleet.colorId)).toEqual([
+        'green',
+        'blue',
+      ]);
+      expect(state.fleets[0].colorIsManual).toBe(true);
+      expect(state.fleets[1].colorIsManual).toBe(false);
+    });
+
+    test('unsetting a manual color restores the positional color', () => {
+      setFleetColor('fleet-1', 'red');
+      expect(state.fleets[1].colorIsManual).toBe(true);
+
+      unsetFleetColor('fleet-1');
+
+      expect(state.fleets[1].colorId).toBe('blue');
+      expect(state.fleets[1].colorIsManual).toBe(false);
     });
 
     test('sets the defender to neutral while it is an NPC fleet', () => {

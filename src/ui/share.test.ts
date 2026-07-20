@@ -136,6 +136,16 @@ describe('encodeBattleQuery', () => {
     expect(query).toContain('a.color=red');
   });
 
+  test('persists a manually selected color even when it matches the positional default', () => {
+    const fleets = battle();
+    fleets[1].colorId = 'blue';
+    fleets[1].colorIsManual = true;
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('a.color=blue');
+    expect(parseBattleQuery(query)?.[1].colorIsManual).toBe(true);
+  });
+
   test('supports six player attackers plus neutrals', () => {
     const fleets = battle();
     for (let index = 2; index < 7; index++) {

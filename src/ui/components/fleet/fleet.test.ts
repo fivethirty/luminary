@@ -29,11 +29,10 @@ describe('Fleet', () => {
     const titleRow = element.querySelector('.fleet-title-row')!;
     expect(
       Array.from(titleRow.children).map((child) => child.className)
-    ).toEqual([
-      'role-controls',
-      'fleet-name text-bold',
-      'fleet-settings-btn btn-icon',
-    ]);
+    ).toEqual(['role-controls', 'fleet-name text-bold', 'fleet-settings-btn']);
+    expect(
+      titleRow.querySelector('.fleet-settings-btn')?.textContent?.trim()
+    ).toBe('Edit');
   });
 
   test('opens metadata editing from the role name and excludes neutral color', () => {
@@ -53,6 +52,7 @@ describe('Fleet', () => {
     expect(dialog.open).toBe(true);
     expect(element.querySelectorAll('.color-option')).toHaveLength(6);
     expect(element.querySelector('.color-option[value="neutral"]')).toBeNull();
+    expect(element.querySelector('.color-unset-btn')).not.toBeNull();
   });
 
   test('metadata dialog updates faction and selected color', () => {
@@ -77,6 +77,50 @@ describe('Fleet', () => {
     expect(state.fleets[0].colorId).toBe('neutral');
   });
 
+  test('can return a manually selected color to its positional default', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[1];
+    element.setAttribute('fleet-index', '1');
+
+    document.body.appendChild(element);
+
+    const unsetButton = element.querySelector(
+      '.color-unset-btn'
+    ) as HTMLButtonElement;
+    expect(unsetButton.disabled).toBe(true);
+
+    (
+      element.querySelector('.color-option[value="red"]') as HTMLButtonElement
+    ).click();
+    expect(state.fleets[1].colorId).toBe('red');
+    expect(state.fleets[1].colorIsManual).toBe(true);
+    expect(unsetButton.disabled).toBe(false);
+
+    unsetButton.click();
+    expect(state.fleets[1].colorId).toBe('blue');
+    expect(state.fleets[1].colorIsManual).toBe(false);
+    expect(unsetButton.disabled).toBe(true);
+  });
+
+  test('uses the neutral defender header treatment only while color is unset', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+
+    document.body.appendChild(element);
+
+    const fleet = element.querySelector('.fleet') as HTMLElement;
+    expect(fleet.classList.contains('fleet-neutral')).toBe(true);
+
+    const redButton = element.querySelector(
+      '.color-option[value="red"]'
+    ) as HTMLButtonElement;
+    redButton.click();
+
+    expect(state.fleets[0].colorId).toBe('red');
+    expect(fleet.classList.contains('fleet-neutral')).toBe(false);
+  });
+
   test('names an NPC defender The Ancients', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
@@ -90,6 +134,9 @@ describe('Fleet', () => {
     expect(element.querySelector('.fleet-name')?.textContent).toBe(
       'The Ancients'
     );
+    expect(
+      (element.querySelector('.fleet-settings-btn') as HTMLButtonElement).hidden
+    ).toBe(true);
     expect(state.fleets[0].colorId).toBe('neutral');
   });
 
@@ -110,6 +157,9 @@ describe('Fleet', () => {
 
     expect(state.fleets[0].name).toBe('Defender');
     expect(element.querySelector('.fleet-name')?.textContent).toBe('Defender');
+    expect(
+      (element.querySelector('.fleet-settings-btn') as HTMLButtonElement).hidden
+    ).toBe(false);
     expect(state.fleets[0].colorId).toBe('neutral');
   });
 
@@ -162,6 +212,20 @@ describe('Fleet', () => {
     const shipElements = element.querySelectorAll('calc-ship-type');
     expect(shipElements.length).toBe(1);
     expect(shipSelector.value).toBe('');
+  });
+
+  test('places the add ship control after the ship list', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+
+    document.body.appendChild(element);
+
+    const ships = element.querySelector('.fleet-ships')!;
+    const addRow = element.querySelector('.fleet-add-row')!;
+    const selector = addRow.querySelector('.ship-selector');
+
+    expect(ships.nextElementSibling).toBe(addRow);
+    expect(selector?.getAttribute('aria-label')).toBe('Add ship type');
   });
 
   test('preset chips add NPCs to the defender, tapping again adds more', async () => {
@@ -366,6 +430,15 @@ describe('Fleet', () => {
   };
 
   const addShip = (element: FleetElement, value: string) => {
+    const npcType = ['ancient', 'guardian', 'gcds'].find(
+      (type) => value === type || value.startsWith(`${type}-`)
+    );
+    if (npcType) {
+      const label = `${npcType[0].toUpperCase()}${npcType.slice(1)}`;
+      choosePreset(presetPicker(element, `Add ${label} layout`), value);
+      return;
+    }
+
     const selector = element.querySelector(
       '.ship-selector'
     ) as HTMLSelectElement;
@@ -441,16 +514,8 @@ describe('Fleet', () => {
     element.setAttribute('is-defender', 'false');
     document.body.appendChild(element);
 
-    // Defender-only options are hidden and disabled.
-    for (const defenderOnly of [
-      'starbase',
-      'orbital',
-      'ancient',
-      'ancient-adv',
-      'guardian',
-      'gcds',
-      'gcds-wa',
-    ]) {
+    // Defender-only player structures are hidden and disabled.
+    for (const defenderOnly of ['starbase', 'orbital']) {
       expect(shipOption(element, defenderOnly)?.hidden).toBe(true);
       expect(shipOption(element, defenderOnly)?.disabled).toBe(true);
     }
@@ -460,20 +525,27 @@ describe('Fleet', () => {
     }
   });
 
-  test('the defender fleet offers AI ships', () => {
+  test('the defender dropdown offers structures but omits pill-based NPCs', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0]; // the defender
     element.setAttribute('is-defender', 'true');
     document.body.appendChild(element);
 
-    for (const defenderOnly of [
-      'starbase',
-      'orbital',
-      'ancient',
-      'guardian',
-      'gcds',
-    ]) {
+    for (const defenderOnly of ['starbase', 'orbital']) {
       expect(shipOption(element, defenderOnly)?.hidden).toBe(false);
+    }
+    for (const npc of [
+      'ancient',
+      'ancient-adv',
+      'ancient-wa',
+      'guardian',
+      'guardian-adv',
+      'guardian-wa',
+      'gcds',
+      'gcds-adv',
+      'gcds-wa',
+    ]) {
+      expect(shipOption(element, npc)).toBeUndefined();
     }
   });
 
@@ -528,16 +600,19 @@ describe('Fleet', () => {
     expect(element.querySelectorAll('calc-ship-type').length).toBe(1);
   });
 
-  test('variants stay selectable while their type is fielded', async () => {
+  test('NPC pill variants stay selectable while their type is fielded', async () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
     document.body.appendChild(element);
 
     addShip(element, 'ancient');
 
-    expect(shipOption(element, 'ancient')?.disabled).toBe(false);
-    expect(shipOption(element, 'ancient-adv')?.disabled).toBe(false);
-    expect(shipOption(element, 'ancient-wa')?.disabled).toBe(false);
+    const picker = presetPicker(element, 'Add Ancient layout');
+    expect(Array.from(picker.options).map((option) => option.value)).toEqual([
+      'ancient',
+      'ancient-adv',
+      'ancient-wa',
+    ]);
   });
 
   test('selecting a variant swaps the fielded ship stats in place', () => {
@@ -561,7 +636,7 @@ describe('Fleet', () => {
     expect(element.querySelectorAll('calc-ship-type').length).toBe(1);
   });
 
-  test('allows selecting a different NPC type when an NPC type is added', () => {
+  test('keeps every NPC pill available when an NPC type is added', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
     element.setAttribute('is-defender', 'true');
@@ -569,9 +644,8 @@ describe('Fleet', () => {
 
     addShip(element, 'ancient');
 
-    expect(shipOption(element, 'guardian')?.disabled).toBe(false);
-    expect(shipOption(element, 'guardian-adv')?.disabled).toBe(false);
-    expect(shipOption(element, 'gcds')?.disabled).toBe(false);
+    expect(presetPicker(element, 'Add Guardian layout')).not.toBeNull();
+    expect(presetPicker(element, 'Add GCDS layout')).not.toBeNull();
     expect(shipOption(element, 'cruiser')?.disabled).toBe(false);
   });
 });

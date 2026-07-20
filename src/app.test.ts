@@ -55,6 +55,14 @@ describe('App', () => {
     expect(fleetElements.length).toBe(3);
   });
 
+  test('places the add fleet action after the fleet list', () => {
+    const fleets = document.getElementById('fleets')!;
+    const addRow = document.querySelector('.add-fleet-row')!;
+
+    expect(fleets.nextElementSibling).toBe(addRow);
+    expect(addRow.querySelector('#add-fleet-btn')).not.toBeNull();
+  });
+
   test('uses selected faction as the fleet name', () => {
     const factionSelect = document.querySelector(
       'calc-fleet .faction-select'
@@ -87,6 +95,24 @@ describe('App', () => {
       'The Ancients'
     );
     expect(state.fleets[0].colorId).toBe('neutral');
+  });
+
+  test('restores defender name after removing the last NPC ship', async () => {
+    const defender = document.querySelector('calc-fleet')!;
+    const ancientPicker = defender.querySelector(
+      '[aria-label="Add Ancient layout"]'
+    ) as HTMLSelectElement;
+
+    ancientPicker.value = 'ancient';
+    ancientPicker.dispatchEvent(new Event('change'));
+    await settle();
+
+    const removeButton = defender.querySelector(
+      'calc-ship-type .remove-btn'
+    ) as HTMLButtonElement;
+    removeButton.click();
+
+    expect(defender.querySelector('.fleet-name')?.textContent).toBe('Defender');
   });
 
   test('add fleet button stops at six players plus neutrals', () => {
@@ -410,14 +436,14 @@ describe('App shared battle links', () => {
       'Interceptor'
     );
     expect(statValue(ships[0], 'hull')).toBe('1');
-    expect(statValue(ships[0], 'computer')).toBe('1');
+    expect(statValue(ships[0], 'computer')).toBe('+1');
     expect(statValue(ships[0], 'ion-cannon')).toBe('1');
 
     expect(ships[1].querySelector('.ship-type-name')?.textContent).toBe(
       'Cruiser'
     );
     expect(statValue(ships[1], 'hull')).toBe('2');
-    expect(statValue(ships[1], 'computer')).toBe('1');
+    expect(statValue(ships[1], 'computer')).toBe('+1');
     expect(statValue(ships[1], 'plasma-cannon')).toBe('1');
     expect(statValue(ships[1], 'plasma-missile')).toBe('2');
   });

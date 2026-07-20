@@ -2,17 +2,37 @@
   <div class="fleet-header card-header flex-center gap-sm">
     <div class="fleet-title-row">
       <div class="role-controls" aria-label="Battle position controls">
-        <button class="move-up-btn btn-icon" type="button" aria-label="Move up">↑</button>
-        <button class="move-down-btn btn-icon" type="button" aria-label="Move down">↓</button>
+        <button class="move-up-btn btn-icon" type="button" aria-label="Move up">
+          ↑
+        </button>
+        <button
+          class="move-down-btn btn-icon"
+          type="button"
+          aria-label="Move down"
+        >
+          ↓
+        </button>
       </div>
       <span class="fleet-name text-bold"></span>
-      <button class="fleet-settings-btn btn-icon" type="button" aria-label="Edit fleet faction and color">✎</button>
+      <button
+        class="fleet-settings-btn"
+        type="button"
+        aria-label="Edit fleet faction and color"
+      >
+        Edit
+      </button>
     </div>
     <dialog class="fleet-settings-dialog">
       <form method="dialog" class="fleet-settings-form">
         <div class="fleet-settings-header">
           <strong class="fleet-settings-title"></strong>
-          <button class="fleet-settings-close btn-icon" value="cancel" aria-label="Close">×</button>
+          <button
+            class="fleet-settings-close btn-icon"
+            value="cancel"
+            aria-label="Close"
+          >
+            ×
+          </button>
         </div>
         <label class="fleet-settings-field">
           <span>Faction</span>
@@ -21,27 +41,15 @@
         <fieldset class="fleet-settings-field color-fieldset">
           <legend>Color</legend>
           <div class="color-options"></div>
+          <button class="color-unset-btn" type="button">
+            Use automatic color
+          </button>
         </fieldset>
       </form>
     </dialog>
-    <select class="ship-selector">
-      <option value="">+ Ship Type</option>
-      <option value="interceptor">Interceptor</option>
-      <option value="cruiser">Cruiser</option>
-      <option value="dreadnought">Dreadnought</option>
-      <option value="starbase">Starbase</option>
-      <option value="orbital">Orbital</option>
-      <option value="ancient">Ancient</option>
-      <option value="ancient-adv">Ancient (A)</option>
-      <option value="ancient-wa">Ancient (WA)</option>
-      <option value="guardian">Guardian</option>
-      <option value="guardian-adv">Guardian (A)</option>
-      <option value="guardian-wa">Guardian (WA)</option>
-      <option value="gcds">GCDS</option>
-      <option value="gcds-adv">GCDS (A)</option>
-      <option value="gcds-wa">GCDS (WA)</option>
-    </select>
-    <button class="remove-btn btn-icon">×</button>
+    <button class="remove-btn btn-icon" type="button" aria-label="Remove fleet">
+      ×
+    </button>
   </div>
   <div class="preset-chips" hidden>
     <span class="preset-chips-label">NPC</span>
@@ -70,11 +78,20 @@
       </select>
     </label>
   </div>
-  <div class="fleet-ships">
+  <div class="fleet-ships"></div>
+  <div class="fleet-add-row">
+    <select class="ship-selector" aria-label="Add ship type">
+      <option value="">+ Add ship</option>
+      <option value="interceptor">Interceptor</option>
+      <option value="cruiser">Cruiser</option>
+      <option value="dreadnought">Dreadnought</option>
+      <option value="starbase">Starbase</option>
+      <option value="orbital">Orbital</option>
+    </select>
   </div>
   <div class="fleet-tech">
     <label class="tech-option">
-      <input type="checkbox" class="antimatter-splitter-checkbox">
+      <input type="checkbox" class="antimatter-splitter-checkbox" />
       <span>Antimatter Splitter</span>
     </label>
     <label class="tech-option damage-planner-option">

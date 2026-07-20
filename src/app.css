@@ -24,7 +24,7 @@
   --color-defender-soft: #462c1e;
   --color-draw: #98a6bd;
   --color-draw-soft: #293040;
-  
+
   --color-stat-ion: #facc15;
   --color-stat-plasma: #fb923c;
   --color-stat-soliton: #60a5fa;
@@ -58,7 +58,7 @@
   --transition-base: 300ms ease;
   --transition-slow: 500ms ease;
 
-  --max-width: 56.25rem;
+  --max-width: 80rem;
 }
 
 body {
@@ -111,7 +111,6 @@ body {
   color: var(--color-text-primary);
 }
 
-
 h1 {
   font-size: var(--font-size-2xl);
   margin-bottom: var(--space-lg);
@@ -163,6 +162,16 @@ h4 {
   padding: var(--space-xs) var(--space-md);
 }
 
+.add-fleet-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 42rem) {
+  #add-fleet-btn {
+    width: 100%;
+  }
+}
 
 input,
 select,
@@ -496,4 +505,3 @@ a:hover,
 a:visited:hover {
   text-decoration: underline;
 }
-

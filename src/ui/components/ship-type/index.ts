@@ -50,6 +50,7 @@ export class ShipTypeElement extends HTMLElement {
     const statConfigs: Array<{
       stat: string;
       label: string;
+      sign?: string;
       getValue: () => number;
       setValue: (value: number) => void;
     }> = [
@@ -72,6 +73,7 @@ export class ShipTypeElement extends HTMLElement {
       {
         stat: 'computer',
         label: 'Comp',
+        sign: '+',
         getValue: () => this.shipType.config.computers || 0,
         setValue: (value) => {
           this.shipType.config.computers = value;
@@ -80,6 +82,7 @@ export class ShipTypeElement extends HTMLElement {
       {
         stat: 'shield',
         label: 'Shield',
+        sign: '−',
         getValue: () => this.shipType.config.shields || 0,
         setValue: (value) => {
           this.shipType.config.shields = value;
@@ -157,12 +160,13 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     // Bind all stat cubes
-    statConfigs.forEach(({ stat, label, getValue, setValue }) => {
+    statConfigs.forEach(({ stat, label, sign, getValue, setValue }) => {
       const cube = this.querySelector(
         `[data-stat="${stat}"]`
       ) as StatCubeElement;
       if (cube) {
         cube.label = label;
+        if (sign) cube.sign = sign;
         if (stat === 'plasma-missile') cube.step = 2;
         if (stat === 'soliton-missile' || stat === 'antimatter-missile') {
           cube.max = 1;
