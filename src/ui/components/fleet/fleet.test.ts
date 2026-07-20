@@ -214,7 +214,7 @@ describe('Fleet', () => {
     expect(shipSelector.value).toBe('');
   });
 
-  test('places the add ship control after the ship list', () => {
+  test('places the ship and NPC add controls together after the ship list', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
 
@@ -223,9 +223,14 @@ describe('Fleet', () => {
     const ships = element.querySelector('.fleet-ships')!;
     const addRow = element.querySelector('.fleet-add-row')!;
     const selector = addRow.querySelector('.ship-selector');
+    const presets = addRow.querySelector('.preset-chips');
 
     expect(ships.nextElementSibling).toBe(addRow);
     expect(selector?.getAttribute('aria-label')).toBe('Add ship type');
+    expect(selector?.nextElementSibling).toBe(presets);
+    expect(presets?.querySelector('.preset-chips-label')?.textContent).toBe(
+      'NPC'
+    );
   });
 
   test('preset chips add NPCs to the defender, tapping again adds more', async () => {
