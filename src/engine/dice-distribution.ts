@@ -255,11 +255,13 @@ export function enumerateSlotOutcomes(
   enemyShields: number[],
   antimatterSplitter: boolean,
   maxOutcomes: number,
-  shouldAbort?: () => boolean
+  shouldAbort?: () => boolean,
+  ordinaryDamageCeiling: number = Infinity
 ): SlotOutcome[] | null {
   const abortCheck = makeAbortCheck(shouldAbort);
   if (abortCheck(true)) return null;
   const shieldSet = Array.from(new Set(enemyShields)).sort((a, b) => a - b);
+  const effectiveDamageCeiling = Math.max(1, ordinaryDamageCeiling);
 
   // Merge identical dice across ships into groups keyed by their behaviour.
   const groupCounts = new Map<string, DieGroup>();
@@ -282,21 +284,25 @@ export function enumerateSlotOutcomes(
     if (missilePhase) {
       for (const wt of WEAPON_TYPES) {
         const count = ship.missiles[wt];
-        addDice(`m|${ship.computers}|${wt}`, count, () =>
-          weaponDieClasses(ship.computers, WeaponDamage[wt], false, shieldSet)
+        const damage = Math.min(WeaponDamage[wt], effectiveDamageCeiling);
+        addDice(`m|${ship.computers}|d${damage}`, count, () =>
+          weaponDieClasses(ship.computers, damage, false, shieldSet)
         );
       }
     } else {
       for (const wt of WEAPON_TYPES) {
         const count = ship.cannons[wt];
         const splitter = wt === 'antimatter' && antimatterSplitter;
-        addDice(`c|${ship.computers}|${wt}|${splitter}`, count, () =>
-          weaponDieClasses(
-            ship.computers,
-            WeaponDamage[wt],
-            splitter,
-            shieldSet
-          )
+        // Split antimatter remains one correlated die yielding four separate
+        // 1-damage shots. Every other ordinary die can be capped at the most
+        // damage any current target can retain; equal effective dice then
+        // share one multinomial group.
+        const damage = splitter
+          ? WeaponDamage[wt]
+          : Math.min(WeaponDamage[wt], effectiveDamageCeiling);
+        const behavior = splitter ? `split${damage}` : `d${damage}`;
+        addDice(`c|${ship.computers}|${behavior}`, count, () =>
+          weaponDieClasses(ship.computers, damage, splitter, shieldSet)
         );
       }
       addDice('rift', ship.rift, riftDieClasses);

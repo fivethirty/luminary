@@ -91,6 +91,22 @@ const largeMixedGroups: ShipGroup[] = [
   },
 ];
 
+const saturatedWeaponFleetSpecs: FleetSpec[] = [
+  { ion: 1 },
+  { plasma: 1 },
+  { soliton: 1 },
+  { antimatter: 1 },
+].map((cannons, index) => ({
+  id: `weapon-${index + 1}`,
+  groups: [
+    {
+      type: ShipType.Interceptor,
+      count: 1,
+      config: { initiative: 3, cannons },
+    },
+  ],
+}));
+
 const scenarios: Scenario[] = [
   mirrorScenario(
     'interceptor + cruiser exact-optimal mirror',
@@ -215,6 +231,65 @@ const scenarios: Scenario[] = [
     })),
   },
   mirrorScenario(
+    'mixed ordinary damage dice against 1 HP targets',
+    [
+      {
+        type: ShipType.Interceptor,
+        count: 1,
+        config: {
+          initiative: 3,
+          cannons: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+        },
+      },
+    ],
+    true
+  ),
+  {
+    name: '4 fragile fleets with saturated weapon damage',
+    fleets: saturatedWeaponFleetSpecs,
+  },
+  {
+    name: '4 DPS fleets retain nominal weapon behavior',
+    fleets: saturatedWeaponFleetSpecs.map((fleet) => ({
+      ...fleet,
+      id: `dps-${fleet.id}`,
+      damageType: DamageType.DPS,
+    })),
+  },
+  {
+    name: 'role-reversed asymmetric engagement reuse opportunity',
+    fleets: [
+      {
+        id: 'fast-1',
+        groups: [interceptor(3)],
+      },
+      {
+        id: 'slow-1',
+        groups: [
+          {
+            type: ShipType.Cruiser,
+            count: 1,
+            config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
+          },
+        ],
+      },
+      {
+        id: 'fast-2',
+        groups: [interceptor(3)],
+      },
+      {
+        id: 'slow-2',
+        groups: [
+          {
+            type: ShipType.Cruiser,
+            count: 1,
+            config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
+          },
+        ],
+      },
+    ],
+  },
+  mirrorScenario(
     '8 interceptors + 4 cruisers optimal mirror',
     mediumMixedGroups
   ),
@@ -308,6 +383,10 @@ for (const scenario of scenarios) {
       deadlineExceededRuns: results.filter(
         ({ diagnostics }) => diagnostics.deadlineExceeded
       ).length,
+      terminalCompositions: summarize(
+        results.map(({ survivorDistribution }) => survivorDistribution.length),
+        0
+      ),
       attempts: aggregateAttempts(results),
     })
   );
@@ -479,6 +558,17 @@ function summarizeExactEngagements(
     cacheHits: summarize(
       diagnostics.map(({ engagementCacheHits }) => engagementCacheHits),
       0
+    ),
+    avoidedSolves: summarize(
+      diagnostics.map(
+        ({ engagementRequests, engagementSolves }) =>
+          engagementRequests - engagementSolves
+      ),
+      0
+    ),
+    countsConsistent: diagnostics.every(
+      ({ engagementRequests, engagementSolves, engagementCacheHits }) =>
+        engagementRequests === engagementSolves + engagementCacheHits
     ),
   };
 }

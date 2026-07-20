@@ -131,4 +131,35 @@ describe('WinProbabilitySolver (minimax assignments)', () => {
     expect(solver.getGraphStats().attackerDecisionStates).toBe(0);
     expect(solver.getGraphStats().defenderDecisionStates).toBe(0);
   });
+
+  test('damage saturation preserves value and reduces optimal chance outcomes', () => {
+    const ships = () => [
+      new Ship(ShipType.Interceptor, {
+        initiative: 3,
+        cannons: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+      }),
+    ];
+    const model = new BattleModel(ships(), ships(), false, false);
+    const policy = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    });
+    const oneSidedOptimal = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+      decisionRoles: ['A'],
+    });
+    const fullyOptimal = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+    });
+
+    expect(fullyOptimal.solve().winProbability).toBeCloseTo(
+      policy.solve().winProbability,
+      12
+    );
+    expect(fullyOptimal.getGraphStats().chanceOutcomes).toBe(10);
+    expect(policy.getGraphStats().chanceOutcomes).toBe(32);
+    expect(oneSidedOptimal.getGraphStats().chanceOutcomes).toBe(32);
+  });
 });

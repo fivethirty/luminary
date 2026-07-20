@@ -430,6 +430,133 @@ describe('computeExactCombat', () => {
     });
   });
 
+  test('reuses optimal engagements when ordinary damage saturates target HP', () => {
+    const cannonVariants = [
+      { ion: 1 },
+      { plasma: 1 },
+      { soliton: 1 },
+      { antimatter: 1 },
+    ];
+    const fleets = (
+      variants: Array<
+        Partial<Record<'ion' | 'plasma' | 'soliton' | 'antimatter', number>>
+      >
+    ) =>
+      variants.map(
+        (cannons, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Interceptor, {
+                initiative: 3,
+                cannons,
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      );
+    const result = computeExactCombat(fleets(cannonVariants), undefined, {
+      plannerPreflight: false,
+    });
+    const reference = computeExactCombat(
+      fleets(cannonVariants.map(() => ({ ion: 1 }))),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.lastFleetStanding).toEqual(reference.lastFleetStanding);
+    expect(result.drawPercentage).toBe(reference.drawPercentage);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('does not saturate ordinary damage below reachable target HP', () => {
+    const result = computeExactCombat(
+      [{ ion: 1 }, { plasma: 1 }, { ion: 1 }, { plasma: 1 }].map(
+        (cannons, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Cruiser, {
+                initiative: 3,
+                hull: 1,
+                cannons,
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics!.engagementSolves).toBeGreaterThan(1);
+  });
+
+  test('saturates ordinary missile damage against current 1 HP targets', () => {
+    const result = computeExactCombat(
+      [{ ion: 1 }, { plasma: 1 }, { soliton: 1 }, { antimatter: 1 }].map(
+        (missiles, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Interceptor, {
+                initiative: 3,
+                missiles,
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('retains nominal weapon loadouts for DPS-policy engagement keys', () => {
+    const cannonVariants = [
+      { ion: 1 },
+      { plasma: 1 },
+      { soliton: 1 },
+      { antimatter: 1 },
+    ];
+    const result = computeExactCombat(
+      cannonVariants.map(
+        (cannons, index) =>
+          new Fleet(`Fleet ${index + 1}`, [
+            new Ship(ShipType.Interceptor, {
+              initiative: 3,
+              cannons,
+            }),
+          ])
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 6,
+      engagementCacheHits: 0,
+    });
+  });
+
   test('reuses engagements with the same resolved initiative-slot order', () => {
     const combat = (initiatives: number[]) =>
       computeExactCombat(

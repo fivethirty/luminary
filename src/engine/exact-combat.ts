@@ -1,6 +1,6 @@
 import { DamageType } from 'src/constants';
 import { Fleet } from './fleet';
-import { Ship, ShipType } from './ship';
+import { Ship, ShipType, WeaponDamage, WeaponType } from './ship';
 import type {
   CombatOutcomeSummary,
   DestroyedShipsCreditedToFleet,
@@ -42,6 +42,7 @@ export type ExactBattleResult = CombatOutcomeSummary & {
 export type ExactCombatDiagnostics = {
   engagementRequests: number;
   engagementSolves: number;
+  // Every successful cache hit avoids one otherwise identical engagement solve.
   engagementCacheHits: number;
 };
 
@@ -77,6 +78,20 @@ type OutcomeVariant = {
   destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
   retreatedSurvivors: Record<string, ShipCountByType>;
 };
+
+type EngagementPolicies = {
+  defender: DamageType;
+  attacker: DamageType;
+};
+
+type TargetingPolicy = 'optimal' | 'dps' | 'npc';
+
+const WEAPON_TYPES: WeaponType[] = [
+  WeaponType.Ion,
+  WeaponType.Plasma,
+  WeaponType.Soliton,
+  WeaponType.Antimatter,
+];
 
 /**
  * Computes a two-fleet battle's outcome distribution exactly: instead of
@@ -412,15 +427,10 @@ function solveEngagement(
   defenderState: FleetState,
   attackerState: FleetState,
   caps: SolverCaps,
-  plannerPreflight: boolean
+  policies: EngagementPolicies
 ) {
-  const defender = fleetFromState(defenderState);
-  const attacker = fleetFromState(attackerState);
-  const overrides = plannerPreflight
-    ? exactDpsPlannerOverrides([defender, attacker])
-    : [undefined, undefined];
-  const exactDefender = fleetFromState(defenderState, overrides[0]);
-  const exactAttacker = fleetFromState(attackerState, overrides[1]);
+  const exactDefender = fleetFromState(defenderState, policies.defender);
+  const exactAttacker = fleetFromState(attackerState, policies.attacker);
   const attackerType = exactAttacker.getDamageType();
   const defenderType = exactDefender.getDamageType();
 
@@ -460,10 +470,16 @@ function solveEngagementCached(
   diagnostics: ExactCombatDiagnostics
 ): TerminalDistributionResult {
   diagnostics.engagementRequests++;
-  const key = engagementCacheKey(
+  const policies = effectiveEngagementPolicies(
     defenderState,
     attackerState,
     plannerPreflight
+  );
+  const key = engagementCacheKey(
+    defenderState,
+    attackerState,
+    plannerPreflight,
+    policies
   );
   const cached = cache.get(key);
   if (cached) {
@@ -472,12 +488,7 @@ function solveEngagementCached(
   }
 
   diagnostics.engagementSolves++;
-  const solved = solveEngagement(
-    defenderState,
-    attackerState,
-    caps,
-    plannerPreflight
-  );
+  const solved = solveEngagement(defenderState, attackerState, caps, policies);
   if (solved.ok) cache.set(key, solved);
   return solved;
 }
@@ -485,10 +496,27 @@ function solveEngagementCached(
 function engagementCacheKey(
   defenderState: FleetState,
   attackerState: FleetState,
-  plannerPreflight: boolean
+  plannerPreflight: boolean,
+  policies: EngagementPolicies
 ): string {
   const initiativeSlots = resolvedInitiativeSlots(defenderState, attackerState);
-  const fleetKey = (fleet: FleetState, role: Role): string => {
+  const defenderPolicy = targetingPolicy(defenderState, policies.defender);
+  const attackerPolicy = targetingPolicy(attackerState, policies.attacker);
+  const defenderDamageCeiling =
+    defenderPolicy === 'optimal' && attackerPolicy === 'optimal'
+      ? maxReachableHp(attackerState)
+      : null;
+  const attackerDamageCeiling =
+    attackerPolicy === 'optimal' && defenderPolicy === 'optimal'
+      ? maxReachableHp(defenderState)
+      : null;
+  const fleetKey = (
+    fleet: FleetState,
+    role: Role,
+    policy: DamageType,
+    damageCeiling: number | null
+  ): string => {
+    const configPartition = configurationPartition(fleet.ships);
     const ships = fleet.ships
       .map((ship) => {
         const initiativeKey = `${role}:${ship.initiative}`;
@@ -497,16 +525,81 @@ function engagementCacheKey(
           initiativeSlots.cannon.get(initiativeKey)!,
           ship.hasMissiles()
             ? initiativeSlots.missile.get(initiativeKey)!
-            : null
+            : null,
+          fleet.antimatterSplitter,
+          damageCeiling
         )}@${ship.remainingHP()}`;
       })
       .join(',');
-    return `${fleet.damageType}:${fleet.antimatterSplitter}:${ships}`;
+    return `${policy}:${fleet.antimatterSplitter}:partition:${configPartition}:${ships}`;
   };
-  return `preflight:${plannerPreflight}|D:${fleetKey(
+  return `engagement-v2|preflight:${plannerPreflight}|D:${fleetKey(
     defenderState,
-    'D'
-  )}|A:${fleetKey(attackerState, 'A')}`;
+    'D',
+    policies.defender,
+    defenderDamageCeiling
+  )}|A:${fleetKey(
+    attackerState,
+    'A',
+    policies.attacker,
+    attackerDamageCeiling
+  )}`;
+}
+
+function effectiveEngagementPolicies(
+  defenderState: FleetState,
+  attackerState: FleetState,
+  plannerPreflight: boolean
+): EngagementPolicies {
+  if (!plannerPreflight) {
+    return {
+      defender: defenderState.damageType,
+      attacker: attackerState.damageType,
+    };
+  }
+  const overrides = exactDpsPlannerOverrides([
+    fleetFromState(defenderState),
+    fleetFromState(attackerState),
+  ]);
+  return {
+    defender: overrides[0] ?? defenderState.damageType,
+    attacker: overrides[1] ?? attackerState.damageType,
+  };
+}
+
+function targetingPolicy(
+  fleet: FleetState,
+  damageType: DamageType
+): TargetingPolicy {
+  if (!fleet.ships.some((ship) => ship.isPlayerShip())) return 'npc';
+  return damageType === DamageType.OPTIMAL ? 'optimal' : 'dps';
+}
+
+function maxReachableHp(fleet: FleetState): number {
+  let maximum = 0;
+  for (const ship of fleet.ships) {
+    if (!ship.isAlive()) continue;
+    maximum = Math.max(
+      maximum,
+      ship.heal > 0 ? ship.maxHP() : ship.remainingHP()
+    );
+  }
+  return maximum;
+}
+
+function configurationPartition(ships: Ship[]): string {
+  const groupByConfig = new Map<string, number>();
+  return ships
+    .map((ship) => {
+      const config = ship.configKey();
+      let group = groupByConfig.get(config);
+      if (group === undefined) {
+        group = groupByConfig.size;
+        groupByConfig.set(config, group);
+      }
+      return group;
+    })
+    .join('.');
 }
 
 function resolvedInitiativeSlots(
@@ -543,7 +636,9 @@ function resolvedInitiativeSlots(
 function shipBehaviorKey(
   ship: Ship,
   cannonInitiativeSlot: number,
-  missileInitiativeSlot: number | null
+  missileInitiativeSlot: number | null,
+  antimatterSplitter: boolean,
+  damageCeiling: number | null
 ): string {
   return [
     ship.type,
@@ -552,17 +647,38 @@ function shipBehaviorKey(
     ship.shields,
     `c${cannonInitiativeSlot}`,
     `m${missileInitiativeSlot ?? '-'}`,
-    ship.cannons.ion,
-    ship.cannons.plasma,
-    ship.cannons.soliton,
-    ship.cannons.antimatter,
-    ship.missiles.ion,
-    ship.missiles.plasma,
-    ship.missiles.soliton,
-    ship.missiles.antimatter,
+    weaponBehaviorKey(ship.cannons, damageCeiling, antimatterSplitter),
+    weaponBehaviorKey(ship.missiles, damageCeiling, false),
     ship.rift,
     ship.heal,
   ].join('|');
+}
+
+function weaponBehaviorKey(
+  weapons: Record<WeaponType, number>,
+  damageCeiling: number | null,
+  splitAntimatter: boolean
+): string {
+  if (damageCeiling === null) {
+    return WEAPON_TYPES.map((type) => weapons[type]).join('.');
+  }
+
+  const counts = new Map<string, number>();
+  for (const type of WEAPON_TYPES) {
+    const count = weapons[type];
+    if (count <= 0) continue;
+    const behavior =
+      type === WeaponType.Antimatter && splitAntimatter
+        ? `split${WeaponDamage[type]}`
+        : `d${Math.min(WeaponDamage[type], damageCeiling)}`;
+    counts.set(behavior, (counts.get(behavior) ?? 0) + count);
+  }
+  return (
+    Array.from(counts.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([behavior, count]) => `${behavior}:${count}`)
+      .join('.') || '-'
+  );
 }
 
 function fleetStateFromFleet(fleet: Fleet): FleetState {

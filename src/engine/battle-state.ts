@@ -3,7 +3,7 @@
  * successor construction; WinProbabilitySolver owns graph values and policy.
  */
 import { DamageType } from 'src/constants';
-import { Ship, Shot } from './ship';
+import { Ship, Shot, WeaponDamage } from './ship';
 import { Fleet } from './fleet';
 import { Phase } from './battle';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
@@ -344,6 +344,18 @@ export class BattleModel {
     }
     const shooterShips = livingShooterIdx.map((i) => shooterTemplates[i]);
 
+    const ordinaryDamageCeiling =
+      !shooterIsNpc &&
+      ctx.decisionRoles.length === 2 &&
+      ctx.decisionRoles.includes(slot.role)
+        ? this.usefulOrdinaryDamageCeiling(
+            shooterShips,
+            slot.missile,
+            shooterSplitter,
+            targetHp
+          )
+        : Infinity;
+
     const enemyShields = Array.from(
       new Set(
         targetHp
@@ -364,7 +376,8 @@ export class BattleModel {
             diceDeadlineExceeded = ctx.deadlineExceeded!();
             return diceDeadlineExceeded;
           }
-        : undefined
+        : undefined,
+      ordinaryDamageCeiling
     );
     if (diceDeadlineExceeded || ctx.deadlineExceeded?.()) {
       return { kind: 'fail', reason: 'time budget exceeded' };
@@ -414,6 +427,42 @@ export class BattleModel {
       return { kind: 'fail', reason: 'time budget exceeded' };
     }
     return { kind: 'move', decisionRole, edges };
+  }
+
+  // Return a finite ceiling only when it actually changes at least one
+  // ordinary unsplit die. The fast Infinity path avoids scanning target HP in
+  // the common ion-only case.
+  private usefulOrdinaryDamageCeiling(
+    shooters: Ship[],
+    missilePhase: boolean,
+    splitter: boolean,
+    targetHp: number[]
+  ): number {
+    let maximumUnsplitDamage = 1;
+    for (const ship of shooters) {
+      const weapons = missilePhase ? ship.missiles : ship.cannons;
+      if (weapons.plasma > 0) {
+        maximumUnsplitDamage = Math.max(
+          maximumUnsplitDamage,
+          WeaponDamage.plasma
+        );
+      }
+      if (weapons.soliton > 0) {
+        maximumUnsplitDamage = Math.max(
+          maximumUnsplitDamage,
+          WeaponDamage.soliton
+        );
+      }
+      if (weapons.antimatter > 0 && (missilePhase || !splitter)) {
+        maximumUnsplitDamage = WeaponDamage.antimatter;
+        break;
+      }
+    }
+    if (maximumUnsplitDamage === 1) return Infinity;
+
+    let maximumTargetHp = 0;
+    for (const hp of targetHp) maximumTargetHp = Math.max(maximumTargetHp, hp);
+    return maximumTargetHp < maximumUnsplitDamage ? maximumTargetHp : Infinity;
   }
 
   // Applies rift self-damage and target assignment for one dice outcome, then

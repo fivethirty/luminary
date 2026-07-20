@@ -204,8 +204,11 @@ is used as an exact reduction of that otherwise redundant minimax decision node.
 
 `dice-distribution.ts` groups ordinary die rolls by the set of living shield values they hit.
 Identical dice are exchangeable, so it enumerates multinomial multisets rather than roll
-sequences, then combines unlike groups by cartesian product. Rift dice use their five fixed
-self/target-damage classes. Antimatter splitting applies to landed cannon shots, not missiles.
+sequences, then combines unlike groups by cartesian product. In fully optimal engagements,
+ordinary unsplit damage is capped at the greatest current target HP before grouping because any
+larger value has the same successor state. DPS/NPC and one-sided-optimal solves retain nominal shot
+damage. Rift dice use their five fixed self/target-damage classes. Antimatter splitting applies to
+landed cannon shots, not missiles, and is never flattened into one saturated shot.
 
 The unrestricted defaults cap a solve at 500,000 states, 20,000 outcomes per slot, and 10,000
 value-iteration sweeps with convergence at `1e-10`. Unrestricted analysis has no wall-clock

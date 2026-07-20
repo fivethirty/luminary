@@ -81,6 +81,32 @@ describe('enumerateSlotOutcomes', () => {
     expect(twoHits).toBeCloseTo((1 / 6) * (1 / 6), 12);
   });
 
+  test('groups ordinary weapon dice by saturated damage behavior', () => {
+    const ship = new Ship(ShipType.Interceptor, {
+      cannons: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+    });
+
+    const nominal = enumerateSlotOutcomes([ship], false, [0], false, CAP)!;
+    const saturated = enumerateSlotOutcomes(
+      [ship],
+      false,
+      [0],
+      false,
+      CAP,
+      undefined,
+      1
+    )!;
+
+    expect(nominal).toHaveLength(16);
+    expect(saturated).toHaveLength(5);
+    expect(probSum(saturated)).toBeCloseTo(1, 12);
+    expect(
+      saturated.every((outcome) =>
+        outcome.shots.every((shot) => shot.damage === 1)
+      )
+    ).toBe(true);
+  });
+
   test('rift die: five fixed classes', () => {
     const ship = new Ship(ShipType.Cruiser, { rift: 1 });
     const outcomes = enumerateSlotOutcomes([ship], false, [0], false, CAP)!;
@@ -118,6 +144,25 @@ describe('enumerateSlotOutcomes', () => {
     expect(landed.shots).toHaveLength(4);
     expect(landed.shots.every((s) => s.damage === 1)).toBe(true);
     expect(landed.prob).toBeCloseTo(1 / 6, 12);
+  });
+
+  test('does not flatten a split antimatter die into one saturated shot', () => {
+    const ship = new Ship(ShipType.Interceptor, {
+      cannons: { antimatter: 1 },
+    });
+    const outcomes = enumerateSlotOutcomes(
+      [ship],
+      false,
+      [0],
+      true,
+      CAP,
+      undefined,
+      1
+    )!;
+
+    const landed = outcomes.find((outcome) => outcome.shots.length > 0)!;
+    expect(landed.shots).toHaveLength(4);
+    expect(landed.shots.every((shot) => shot.damage === 1)).toBe(true);
   });
 
   test('combines groups from multiple ships and respects the cap', () => {

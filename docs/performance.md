@@ -51,7 +51,18 @@ Exact multi-fleet combat memoizes successful engagements for one request. Fleet 
 reputation payload do not enter the engagement key; attacker/defender role, planner policy,
 splitter state, current HP, configuration, and resolved missile/cannon initiative-slot order do.
 Equivalent raw initiative values therefore share a solve when they produce the same phase order.
-Diagnostics report engagement requests, solves, and cache hits on each exact attempt.
+When both resolved policies are optimal, unsplit ordinary weapons are also keyed by damage capped
+to the opposing fleet's reachable HP: current HP for non-healers and configured maximum HP for
+healers. DPS/NPC keys retain nominal loadouts; split antimatter and rifts remain distinct. Cached
+terminal HP is applied to the caller's original ships, so their raw loadouts still govern later
+engagements. Diagnostics report engagement requests, solves, and cache hits on each exact attempt;
+each hit is one avoided solve, and the benchmark runner reports both forms plus a consistency check.
+
+Neutral transition-graph reuse across reversed attacker/defender mappings remains deferred. The
+benchmark corpus includes an asymmetric role-reversal control so the missed opportunity remains
+visible, but a graph cache would retain substantially more memory and require role-specific minimax
+reevaluation. Revisit it only when representative expensive multi-fleet cases show repeated
+role-reversed solves that the cheaper result cache cannot serve.
 
 ## What to Measure
 
@@ -85,10 +96,10 @@ Permanent repository assets are warranted when they make algorithmic regressions
 Shared scenarios in `scripts/matchups.ts` are correctness fixtures. The opt-in permanent harness is
 `scripts/benchmark-combat.ts`; run it with `bun run benchmark:combat -- [runs]` (three runs by
 default). It covers small and large mirrors, homogeneous and late-homogeneous minimax states,
-repeated multi-fleet engagements, positive and negative initiative-order reuse, missiles, and
-healing. Neither file is a timing baseline. A scenario may be shared with the benchmark runner, but
-a slow exploratory case should be promoted only when it represents a lasting correctness or
-complexity boundary.
+repeated multi-fleet engagements, positive and negative initiative-order reuse, saturated ordinary
+damage with a DPS safeguard, asymmetric role reversal, missiles, and healing. Neither file is a
+timing baseline. A scenario may be shared with the benchmark runner, but a slow exploratory case
+should be promoted only when it represents a lasting correctness or complexity boundary.
 
 Keep these artifacts temporary and out of version control:
 
