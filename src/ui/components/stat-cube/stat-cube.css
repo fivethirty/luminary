@@ -96,12 +96,6 @@
   }
 }
 
-@media (min-width: 74rem) {
-  .stat-cube input {
-    padding: 0;
-  }
-}
-
 .stat-cube:hover {
   border-color: var(--color-border-strong);
   background: var(--color-bg-tertiary);
@@ -135,6 +129,8 @@ calc-stat-cube[disabled] .stat-step {
 .stat-cube input {
   width: 2rem;
   height: 1.5rem;
+  /* Dense parent layouts can tune spacing without selecting this input. */
+  padding: var(--stat-cube-input-padding, var(--space-xs) var(--space-sm));
   text-align: center;
   font-size: 1rem;
   font-weight: 600;
@@ -143,6 +139,12 @@ calc-stat-cube[disabled] .stat-step {
   color: var(--color-text-primary);
   outline: none;
   margin: auto 0;
+}
+
+@media (min-width: 74rem) {
+  .stat-cube input {
+    padding: 0;
+  }
 }
 
 .stat-cube input:focus {
