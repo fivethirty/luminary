@@ -5,10 +5,12 @@ import '../stat-cube';
 import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
+import type { FactionId } from '@ui/fleet-metadata';
 import { removeShipType, updateShipType } from '@ui/state';
 import { isPlayerShipType, type ShipConfig, type WeaponType } from '@calc/ship';
 import { cloneShipConfig } from '@ui/ship-config';
 import {
+  getStartingShipConfig,
   matchShipPreset,
   SHIP_NAMES,
   SHIP_QUANTITY_LIMITS,
@@ -17,6 +19,7 @@ import {
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
   fleetId!: string;
+  factionId?: FactionId;
 
   connectedCallback() {
     this.innerHTML = html;
@@ -39,6 +42,10 @@ export class ShipTypeElement extends HTMLElement {
 
   private bindSelectors(shipName: string) {
     const statsEditable = isPlayerShipType(this.shipType.type);
+    const defaultConfig = getStartingShipConfig(
+      matchShipPreset(this.shipType.type, this.shipType.config),
+      this.factionId
+    ).config;
     const qtyInput = this.querySelector('calc-selector') as SelectorElement;
     if (qtyInput) {
       qtyInput.label = `${shipName} quantity`;
@@ -57,14 +64,14 @@ export class ShipTypeElement extends HTMLElement {
       label: string;
       accessibleLabel?: string;
       sign?: string;
-      getValue: () => number;
+      getValue: (config: Partial<ShipConfig>) => number;
       setValue: (config: Partial<ShipConfig>, value: number) => void;
     }> = [
       {
         stat: 'initiative',
         label: 'Init',
         accessibleLabel: 'initiative',
-        getValue: () => this.shipType.config.initiative || 0,
+        getValue: (config) => config.initiative || 0,
         setValue: (config, value) => {
           config.initiative = value;
         },
@@ -72,7 +79,7 @@ export class ShipTypeElement extends HTMLElement {
       {
         stat: 'hull',
         label: 'Hull',
-        getValue: () => this.shipType.config.hull || 0,
+        getValue: (config) => config.hull || 0,
         setValue: (config, value) => {
           config.hull = value;
         },
@@ -82,7 +89,7 @@ export class ShipTypeElement extends HTMLElement {
         label: 'Comp',
         accessibleLabel: 'computer',
         sign: '+',
-        getValue: () => this.shipType.config.computers || 0,
+        getValue: (config) => config.computers || 0,
         setValue: (config, value) => {
           config.computers = value;
         },
@@ -91,7 +98,7 @@ export class ShipTypeElement extends HTMLElement {
         stat: 'shield',
         label: 'Shield',
         sign: '−',
-        getValue: () => this.shipType.config.shields || 0,
+        getValue: (config) => config.shields || 0,
         setValue: (config, value) => {
           config.shields = value;
         },
@@ -99,7 +106,7 @@ export class ShipTypeElement extends HTMLElement {
       {
         stat: 'heal',
         label: 'Heal',
-        getValue: () => this.shipType.config.heal || 0,
+        getValue: (config) => config.heal || 0,
         setValue: (config, value) => {
           config.heal = value;
         },
@@ -108,7 +115,7 @@ export class ShipTypeElement extends HTMLElement {
         stat: 'rift-cannon',
         label: 'Rift',
         accessibleLabel: 'rift cannon',
-        getValue: () => this.shipType.config.rift || 0,
+        getValue: (config) => config.rift || 0,
         setValue: (config, value) => {
           config.rift = value;
         },
@@ -134,7 +141,7 @@ export class ShipTypeElement extends HTMLElement {
         stat: `${type}-cannon`,
         label: label,
         accessibleLabel: `${type} cannon`,
-        getValue: () => this.shipType.config.cannons?.[type] || 0,
+        getValue: (config) => config.cannons?.[type] || 0,
         setValue: (config, value) => {
           const cannons = (config.cannons ??= {
             ion: 0,
@@ -153,7 +160,7 @@ export class ShipTypeElement extends HTMLElement {
         stat: `${type}-missile`,
         label: label,
         accessibleLabel: `${type === 'ion' ? 'flux' : type} missile`,
-        getValue: () => this.shipType.config.missiles?.[type] || 0,
+        getValue: (config) => config.missiles?.[type] || 0,
         setValue: (config, value) => {
           const missiles = (config.missiles ??= {
             ion: 0,
@@ -180,7 +187,8 @@ export class ShipTypeElement extends HTMLElement {
           if (stat === 'soliton-missile' || stat === 'antimatter-missile') {
             cube.max = 1;
           }
-          const initialValue = getValue();
+          cube.defaultValue = getValue(defaultConfig);
+          const initialValue = getValue(this.shipType.config);
           cube.value = initialValue;
           if (cube.value !== initialValue) {
             const config = cloneShipConfig(this.shipType.config);

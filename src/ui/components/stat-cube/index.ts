@@ -3,6 +3,7 @@ import './stat-cube.css';
 
 export class StatCubeElement extends HTMLElement {
   private _value: number = 0;
+  private _defaultValue: number = 0;
   private _label = '';
   private _accessibleLabel = '';
   private _sign = '';
@@ -26,13 +27,23 @@ export class StatCubeElement extends HTMLElement {
       this.input.value = this.displayValue();
     }
     this.applyStepperState();
+    this.applyModifiedState();
+  }
+
+  get defaultValue(): number {
+    return this._defaultValue;
+  }
+
+  set defaultValue(val: number) {
+    this._defaultValue = this.normalizeValue(val);
+    this.applyModifiedState();
   }
 
   // The value as shown in the input, prefixed with the sign glyph when one is
   // set (e.g. '+3' for computers, '−2' for shields). The input is cleared for
   // digit-only editing while focused, so the sign only appears at rest.
-  private displayValue(): string {
-    return `${this._sign}${this.value}`;
+  private displayValue(value = this.value): string {
+    return `${this._sign}${value}`;
   }
 
   get max(): number {
@@ -99,6 +110,7 @@ export class StatCubeElement extends HTMLElement {
     this.applyDisabledState();
     this.applyStepperState();
     this.applyAccessibleLabels();
+    this.applyModifiedState();
 
     this.addEventListener('click', (e) => {
       if (this.disabled) return;
@@ -174,10 +186,12 @@ export class StatCubeElement extends HTMLElement {
 
   private normalizeCurrentValue() {
     this._value = this.normalizeValue(this.value);
+    this._defaultValue = this.normalizeValue(this.defaultValue);
     if (this.input) {
       this.input.value = this.displayValue();
     }
     this.applyStepperState();
+    this.applyModifiedState();
   }
 
   private effectiveMax(): number {
@@ -225,6 +239,21 @@ export class StatCubeElement extends HTMLElement {
     );
   }
 
+  private applyModifiedState() {
+    const modified = this.value !== this.defaultValue;
+    this.toggleAttribute('modified', modified);
+    if (!this.input) return;
+
+    if (modified) {
+      this.input.setAttribute(
+        'aria-description',
+        `Modified from default ${this.displayValue(this.defaultValue)}`
+      );
+    } else {
+      this.input.removeAttribute('aria-description');
+    }
+  }
+
   // Tap steps once; press-and-hold repeats. The repeat suppresses the click
   // that fires on release so a hold doesn't add an extra step.
   private bindStepper(selector: string, delta: number) {
@@ -232,6 +261,7 @@ export class StatCubeElement extends HTMLElement {
     let holdTimer: ReturnType<typeof setTimeout> | undefined;
     let repeatTimer: ReturnType<typeof setInterval> | undefined;
     let repeated = false;
+    let pointerType = '';
 
     const stopRepeat = () => {
       clearTimeout(holdTimer);
@@ -240,7 +270,8 @@ export class StatCubeElement extends HTMLElement {
       repeatTimer = undefined;
     };
 
-    button.addEventListener('pointerdown', () => {
+    button.addEventListener('pointerdown', (event) => {
+      pointerType = event.pointerType;
       repeated = false;
       holdTimer = setTimeout(() => {
         repeated = true;
@@ -255,9 +286,13 @@ export class StatCubeElement extends HTMLElement {
     button.addEventListener('click', () => {
       if (repeated) {
         repeated = false;
+        if (pointerType && pointerType !== 'mouse') button.blur();
+        pointerType = '';
         return;
       }
       this.adjustValue(delta);
+      if (pointerType && pointerType !== 'mouse') button.blur();
+      pointerType = '';
     });
   }
 
@@ -297,6 +332,7 @@ export class StatCubeElement extends HTMLElement {
     if (this.input && document.activeElement !== this.input) {
       this.input.value = this.displayValue();
     }
+    this.applyModifiedState();
   }
 }
 

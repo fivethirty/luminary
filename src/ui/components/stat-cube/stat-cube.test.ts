@@ -58,6 +58,30 @@ describe('StatCubeElement', () => {
     expect(cube.value).toBe(5);
   });
 
+  test('marks values that differ from their default until restored', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.defaultValue = 2;
+    cube.value = 2;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    const decrement = cube.querySelector('.stat-dec') as HTMLButtonElement;
+
+    expect(cube.hasAttribute('modified')).toBe(false);
+    expect(input.hasAttribute('aria-description')).toBe(false);
+
+    increment.click();
+    expect(cube.hasAttribute('modified')).toBe(true);
+    expect(input.getAttribute('aria-description')).toBe(
+      'Modified from default 2'
+    );
+
+    decrement.click();
+    expect(cube.hasAttribute('modified')).toBe(false);
+    expect(input.hasAttribute('aria-description')).toBe(false);
+  });
+
   test('updates value through input', () => {
     const cube = document.createElement('calc-stat-cube') as StatCubeElement;
     document.body.appendChild(cube);
@@ -212,6 +236,36 @@ describe('StatCubeElement', () => {
 
     (cube.querySelector('.stat-inc') as HTMLButtonElement).click();
     expect(focusCalled).toBe(false);
+  });
+
+  test('touch stepper activation releases button focus', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+
+    increment.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerType: 'touch' })
+    );
+    increment.focus();
+    increment.click();
+
+    expect(cube.value).toBe(1);
+    expect(document.activeElement).not.toBe(increment);
+  });
+
+  test('mouse stepper activation does not force focus away', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+
+    increment.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerType: 'mouse' })
+    );
+    increment.focus();
+    increment.click();
+
+    expect(cube.value).toBe(1);
+    expect(document.activeElement).toBe(increment);
   });
 
   test('dispatches change event', () => {

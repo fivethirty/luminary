@@ -326,6 +326,7 @@ export class FleetElement extends HTMLElement {
       ) as ShipTypeElement;
       shipElement.shipType = shipType;
       shipElement.fleetId = this.fleet.id;
+      shipElement.factionId = this.fleet.factionId;
       shipsContainer.appendChild(shipElement);
     });
   }

@@ -27,7 +27,9 @@ export function loadThemePreference(): ThemePreference {
     .split('; ')
     .find((cookie) => cookie.startsWith(`${THEME_COOKIE}=`))
     ?.split('=')[1];
-  return value === 'light' || value === 'dark' ? value : 'system';
+  return value === 'system' || value === 'light' || value === 'dark'
+    ? value
+    : 'dark';
 }
 
 export function saveThemePreference(theme: ThemePreference) {

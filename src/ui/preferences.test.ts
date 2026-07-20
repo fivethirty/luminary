@@ -43,8 +43,11 @@ describe('theme preference', () => {
     delete document.documentElement.dataset.theme;
   });
 
-  test('defaults to the system theme without a cookie', () => {
-    expect(loadThemePreference()).toBe('system');
+  test('defaults to the dark theme without a valid cookie', () => {
+    expect(loadThemePreference()).toBe('dark');
+
+    document.cookie = 'luminary:theme=unknown; Path=/';
+    expect(loadThemePreference()).toBe('dark');
   });
 
   test('round-trips light, dark, and system preferences', () => {

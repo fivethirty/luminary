@@ -2,8 +2,10 @@ import { test, expect, beforeEach, describe } from 'bun:test';
 import './index';
 import type { ShipTypeElement } from './index';
 import type { SelectorElement } from '../selector';
+import type { StatCubeElement } from '../stat-cube';
 import { state, resetFleets } from '@ui/state';
 import { ShipType } from '@calc/ship';
+import { getStartingShipConfig } from '@ui/ship-presets';
 
 describe('ShipType', () => {
   beforeEach(() => {
@@ -93,6 +95,36 @@ describe('ShipType', () => {
     ).toBe('Remove Interceptor');
   });
 
+  test('marks stats changed from faction-aware defaults but not quantity', () => {
+    const shipTypeConfig = {
+      id: 'test-modified-cruiser',
+      type: ShipType.Cruiser,
+      quantity: 1,
+      config: getStartingShipConfig('cruiser', 'orion').config,
+    };
+    state.fleets[0].factionId = 'orion';
+    state.fleets[0].shipTypes.push(shipTypeConfig);
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+    element.factionId = 'orion';
+    document.body.appendChild(element);
+
+    const quantity = element.querySelector('calc-selector') as SelectorElement;
+    const hull = element.querySelector('[data-stat="hull"]') as StatCubeElement;
+
+    expect(element.querySelector('[modified]')).toBeNull();
+
+    (hull.querySelector('.stat-inc') as HTMLButtonElement).click();
+    expect(hull.hasAttribute('modified')).toBe(true);
+    (hull.querySelector('.stat-dec') as HTMLButtonElement).click();
+    expect(hull.hasAttribute('modified')).toBe(false);
+
+    (quantity.querySelector('.selector-inc') as HTMLButtonElement).click();
+    expect(quantity.hasAttribute('modified')).toBe(false);
+  });
+
   test('displays NPC variant names', () => {
     const shipTypeConfig = {
       id: 'test-ancient-wa-name',
@@ -115,6 +147,7 @@ describe('ShipType', () => {
     expect(element.querySelector('.ship-type-name')?.textContent).toBe(
       'Ancient (WA)'
     );
+    expect(element.querySelector('[data-stat][modified]')).toBeNull();
   });
 
   test('updates state on change', async () => {

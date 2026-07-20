@@ -84,7 +84,6 @@ calc-ship-type {
   }
 
   .stat-group-missiles {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
     --stat-cube-input-padding: var(--space-xs) 0;
   }
 
@@ -108,16 +107,16 @@ calc-ship-type {
   }
 }
 
-/* Five cubes fit at 360px, but stepped inputs become cramped and a four-column
-   row leaves the fifth Systems/Cannons cube stranded. Use balanced 3 + 2 rows
-   for those editable groups; Missiles already fits its four cubes exactly.
-   Read-only NPC rows and Compact mode keep the denser 5-5-4 layout. */
+/* Five cubes fit at 360px, but the Stepper layout uses wider controls. Use
+   balanced 3 + 2 rows for Systems/Cannons and four columns for Missiles on
+   narrow phones. Read-only NPC layouts still match the selected view. */
 @media (max-width: 27rem) {
-  body:not(.no-steppers)
-    :is(.stat-group-core, .stat-group-weapons):has(
-      calc-stat-cube:not([disabled])
-    ) {
+  body:not(.no-steppers) :is(.stat-group-core, .stat-group-weapons) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body:not(.no-steppers) .stat-group-missiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

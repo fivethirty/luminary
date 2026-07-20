@@ -747,12 +747,12 @@ describe('App theme preference', () => {
     delete document.documentElement.dataset.theme;
   });
 
-  test('follows the system by default and saves an explicit theme', () => {
+  test('defaults to dark and saves an explicit theme', () => {
     init();
 
     const select = document.getElementById('theme-select') as HTMLSelectElement;
-    expect(select.value).toBe('system');
-    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(select.value).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
 
     select.value = 'light';
     select.dispatchEvent(new Event('change'));
