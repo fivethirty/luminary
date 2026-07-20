@@ -21,6 +21,7 @@ import {
 import {
   FACTIONS,
   factionLabel,
+  factionShortLabel,
   fleetColor,
   type FactionId,
   PLAYER_FLEET_COLORS,
@@ -135,7 +136,19 @@ export class FleetElement extends HTMLElement {
 
   private updateDisplayedName() {
     const nameSpan = this.querySelector('.fleet-name') as HTMLSpanElement;
-    nameSpan.textContent = this.displayName();
+    const displayName = this.displayName();
+    nameSpan.textContent = displayName;
+
+    const fullFactionName = factionLabel(this.fleet.factionId);
+    const shortFactionName =
+      displayName === fullFactionName
+        ? factionShortLabel(this.fleet.factionId)
+        : null;
+    if (shortFactionName) {
+      nameSpan.dataset.shortLabel = shortFactionName;
+    } else {
+      delete nameSpan.dataset.shortLabel;
+    }
 
     const settingsBtn = this.querySelector(
       '.fleet-settings-btn'
@@ -206,7 +219,6 @@ export class FleetElement extends HTMLElement {
       button.title = color.label;
       button.setAttribute('aria-label', color.label);
       button.style.setProperty('--option-color', color.color);
-      button.classList.toggle('selected', color.id === this.fleet.colorId);
       button.addEventListener('click', () => {
         setFleetColor(this.fleet.id, color.id);
         this.applyFleetColor();
@@ -231,13 +243,22 @@ export class FleetElement extends HTMLElement {
   private updateColorControls() {
     this.querySelectorAll('.color-option').forEach((option) => {
       const button = option as HTMLButtonElement;
-      button.classList.toggle('selected', button.value === this.fleet.colorId);
+      const isSelected =
+        this.fleet.colorIsManual === true &&
+        button.value === this.fleet.colorId;
+      button.classList.toggle('selected', isSelected);
+      button.setAttribute('aria-pressed', isSelected.toString());
     });
 
     const unsetColorBtn = this.querySelector(
       '.color-unset-btn'
     ) as HTMLButtonElement | null;
-    if (unsetColorBtn) unsetColorBtn.disabled = !this.fleet.colorIsManual;
+    if (unsetColorBtn) {
+      const isSelected = this.fleet.colorIsManual !== true;
+      unsetColorBtn.classList.toggle('selected', isSelected);
+      unsetColorBtn.setAttribute('aria-pressed', isSelected.toString());
+      unsetColorBtn.disabled = isSelected;
+    }
   }
 
   private bindRoleControls(fleetIndex: number, fleetCount: number) {

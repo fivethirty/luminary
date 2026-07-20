@@ -55,12 +55,13 @@ describe('App', () => {
     expect(fleetElements.length).toBe(3);
   });
 
-  test('places the add fleet action after the fleet list', () => {
+  test('places the fleet actions together after the fleet list', () => {
     const fleets = document.getElementById('fleets')!;
     const addRow = document.querySelector('.add-fleet-row')!;
 
     expect(fleets.nextElementSibling).toBe(addRow);
     expect(addRow.querySelector('#add-fleet-btn')).not.toBeNull();
+    expect(addRow.querySelector('#clear-all-btn')).not.toBeNull();
   });
 
   test('uses selected faction as the fleet name', () => {

@@ -55,7 +55,7 @@
 .fleet-title-row {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -142,6 +142,13 @@
   font-size: var(--font-size-sm);
 }
 
+.color-unset-btn.selected {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+  color: var(--color-text-primary);
+  cursor: default;
+}
+
 .color-option {
   aspect-ratio: 1;
   min-width: 0;
@@ -158,7 +165,7 @@
 .role-controls {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   flex: 0 0 auto;
 }
 
@@ -349,7 +356,16 @@
   .fleet-title-row {
     flex: 1 1 auto;
     flex-wrap: nowrap;
-    gap: var(--space-xs);
+    gap: var(--space-sm);
+  }
+
+  .fleet-name[data-short-label] {
+    font-size: 0;
+  }
+
+  .fleet-name[data-short-label]::after {
+    content: attr(data-short-label);
+    font-size: var(--font-size-base);
   }
 
   .role-controls {

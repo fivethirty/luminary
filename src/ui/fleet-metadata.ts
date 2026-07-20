@@ -28,18 +28,17 @@ const DEFAULT_FLEET_COLOR_IDS: FleetColorId[] = [
 
 export const FACTIONS = [
   { id: '', label: 'No faction' },
-  { id: 'terran', label: 'Terran Directorate' },
-  { id: 'eridani', label: 'Eridani Empire' },
-  { id: 'planta', label: 'Planta' },
-  { id: 'mechanema', label: 'Mechanema' },
-  { id: 'hydran', label: 'Hydran Progress' },
-  { id: 'draco', label: 'Descendants of Draco' },
-  { id: 'orion', label: 'Orion Hegemony' },
-  { id: 'rho-indi', label: 'Rho Indi Syndicate' },
-  { id: 'lyra', label: 'Enlightened of Lyra' },
-  { id: 'exiles', label: 'Exiles' },
-  { id: 'magellan', label: 'Wardens of Magellan' },
-  { id: 'octantis', label: 'Octantis Autonomy' },
+  { id: 'terran', label: 'Terran Directorate', shortLabel: 'Terran' },
+  { id: 'eridani', label: 'Eridani Empire', shortLabel: 'Eridani' },
+  { id: 'planta', label: 'Planta', shortLabel: 'Planta' },
+  { id: 'mechanema', label: 'Mechanema', shortLabel: 'Mechanema' },
+  { id: 'hydran', label: 'Hydran Progress', shortLabel: 'Hydran' },
+  { id: 'draco', label: 'Descendants of Draco', shortLabel: 'Draco' },
+  { id: 'orion', label: 'Orion Hegemony', shortLabel: 'Orion' },
+  { id: 'rho-indi', label: 'Rho Indi Syndicate', shortLabel: 'Rho Indi' },
+  { id: 'lyra', label: 'Enlightened of Lyra', shortLabel: 'Lyra' },
+  { id: 'exiles', label: 'Exiles', shortLabel: 'Exiles' },
+  { id: 'magellan', label: 'Wardens of Magellan', shortLabel: 'Magellan' },
 ] as const;
 
 export type FactionId = (typeof FACTIONS)[number]['id'];
@@ -66,4 +65,12 @@ export function isFactionId(value: string): value is FactionId {
 export function factionLabel(factionId: FactionId | undefined): string | null {
   if (!factionId) return null;
   return FACTIONS.find((faction) => faction.id === factionId)?.label ?? null;
+}
+
+export function factionShortLabel(
+  factionId: FactionId | undefined
+): string | null {
+  if (!factionId) return null;
+  const faction = FACTIONS.find((candidate) => candidate.id === factionId);
+  return faction && 'shortLabel' in faction ? faction.shortLabel : null;
 }

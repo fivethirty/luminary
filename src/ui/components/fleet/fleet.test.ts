@@ -20,6 +20,18 @@ describe('Fleet', () => {
     expect(nameSpan.textContent).toBe('Defender');
   });
 
+  test('provides an abbreviated faction name for the mobile layout', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    state.fleets[1].factionId = 'rho-indi';
+    element.fleet = state.fleets[1];
+
+    document.body.appendChild(element);
+
+    const nameSpan = element.querySelector('.fleet-name') as HTMLSpanElement;
+    expect(nameSpan.textContent).toBe('Rho Indi Syndicate');
+    expect(nameSpan.dataset.shortLabel).toBe('Rho Indi');
+  });
+
   test('keeps reorder buttons, name, and edit button in one title row', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
@@ -87,19 +99,28 @@ describe('Fleet', () => {
     const unsetButton = element.querySelector(
       '.color-unset-btn'
     ) as HTMLButtonElement;
+    const redButton = element.querySelector(
+      '.color-option[value="red"]'
+    ) as HTMLButtonElement;
     expect(unsetButton.disabled).toBe(true);
+    expect(unsetButton.classList.contains('selected')).toBe(true);
+    expect(unsetButton.getAttribute('aria-pressed')).toBe('true');
+    expect(element.querySelector('.color-option.selected')).toBeNull();
 
-    (
-      element.querySelector('.color-option[value="red"]') as HTMLButtonElement
-    ).click();
+    redButton.click();
     expect(state.fleets[1].colorId).toBe('red');
     expect(state.fleets[1].colorIsManual).toBe(true);
     expect(unsetButton.disabled).toBe(false);
+    expect(unsetButton.classList.contains('selected')).toBe(false);
+    expect(redButton.classList.contains('selected')).toBe(true);
 
     unsetButton.click();
     expect(state.fleets[1].colorId).toBe('blue');
     expect(state.fleets[1].colorIsManual).toBe(false);
     expect(unsetButton.disabled).toBe(true);
+    expect(unsetButton.classList.contains('selected')).toBe(true);
+    expect(redButton.classList.contains('selected')).toBe(false);
+    expect(element.querySelector('.color-option.selected')).toBeNull();
   });
 
   test('uses the neutral defender header treatment only while color is unset', () => {

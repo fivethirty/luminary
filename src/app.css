@@ -157,20 +157,16 @@ h4 {
   margin: 0;
 }
 
-#add-fleet-btn {
+.add-fleet-row button {
   width: auto;
   padding: var(--space-xs) var(--space-md);
 }
 
 .add-fleet-row {
   display: flex;
-  justify-content: flex-end;
-}
-
-@media (max-width: 42rem) {
-  #add-fleet-btn {
-    width: 100%;
-  }
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
 }
 
 input,
@@ -278,8 +274,8 @@ select {
   align-items: center;
 }
 
-.controls button {
-  padding: var(--space-sm) var(--space-md);
+.controls:has(> #recent-battles[hidden]) {
+  display: none;
 }
 
 #recent-battles {
@@ -339,6 +335,14 @@ select {
 .steppers-toggle button.active {
   background: var(--color-info);
   color: var(--color-text-primary);
+}
+
+@media (max-width: 42rem) {
+  .steppers-control {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
 }
 
 /* Sticky verdict bar: always available while results exist. */
