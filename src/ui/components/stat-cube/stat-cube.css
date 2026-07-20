@@ -101,6 +101,11 @@
   background: var(--color-bg-tertiary);
 }
 
+.stat-cube:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 calc-stat-cube[disabled] .stat-cube {
   cursor: default;
   opacity: 0.72;

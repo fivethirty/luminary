@@ -1,4 +1,5 @@
-import { isPlayerShipType, ShipType, ShipConfig } from '@calc/ship';
+import { ShipType, type ShipConfig } from '@calc/ship';
+import type { CombatRunDiagnostics, CombatTier } from '@calc/combat-runner';
 import {
   defaultFleetColorId,
   type FactionId,
@@ -6,6 +7,19 @@ import {
   MAX_FLEETS,
   PLAYER_FLEET_COLORS,
 } from '@ui/fleet-metadata';
+import {
+  incompatibleShipsForType,
+  isNpcComposition,
+  isShipTypeAllowedForRole,
+  sanitizeFleetComposition,
+} from '@ui/fleet-rules';
+import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
+import {
+  getDefaultShipConfig,
+  presetKeysForType,
+  SHIP_QUANTITY_LIMITS,
+  type ShipDropdownOption,
+} from '@ui/ship-presets';
 
 let nextFleetId = 2;
 const lastPlayerColorByFleetId: Record<string, FleetColorId> = {};
@@ -48,11 +62,17 @@ export interface SurvivorDistributionEntry {
 export type SimulationMethod = 'exact' | 'monte-carlo';
 
 interface BaseSimulationResults {
+  // All fleet-keyed result maps use FleetState.id. Names are presentation and
+  // may change or collide; views resolve IDs to current display labels.
   victoryProbability: Record<string, number>;
   drawProbability: number;
   expectedSurvivors: Record<string, Record<string, number>>;
   survivorDistribution: SurvivorDistributionEntry[];
   timeTaken: number;
+  targeting: 'optimal' | 'dps-policy';
+  tier: CombatTier;
+  methodLabel: string;
+  diagnostics: CombatRunDiagnostics;
 }
 
 export interface ExactSimulationResults extends BaseSimulationResults {
@@ -111,14 +131,15 @@ export const state: State = {
 
 // Fleet-change subscribers (e.g. the URL sync in app.ts). Every mutation of
 // fleet composition or settings notifies; simulation results do not.
-const fleetChangeListeners: Array<() => void> = [];
+const fleetChangeListeners = new Set<() => void>();
 
-export function onFleetsChanged(listener: () => void) {
-  fleetChangeListeners.push(listener);
+export function onFleetsChanged(listener: () => void): () => void {
+  fleetChangeListeners.add(listener);
+  return () => fleetChangeListeners.delete(listener);
 }
 
 function notifyFleetsChanged() {
-  fleetChangeListeners.forEach((listener) => listener());
+  [...fleetChangeListeners].forEach((listener) => listener());
 }
 
 export function addFleet(): FleetState {
@@ -164,6 +185,19 @@ function getFleetById(fleetId: string): FleetState {
   return fleet;
 }
 
+function createShipTypeConfig(
+  type: ShipType,
+  config: Partial<ShipConfig>,
+  quantity: number
+): ShipTypeConfig {
+  return {
+    id: `ship-${Date.now()}-${Math.random()}`,
+    type,
+    quantity,
+    config: cloneShipConfig(config),
+  };
+}
+
 export function addShipType(
   fleetId: string,
   shipType: ShipType,
@@ -171,13 +205,23 @@ export function addShipType(
   quantity = 1
 ): ShipTypeConfig {
   const fleet = getFleetById(fleetId);
+  const isDefender = state.fleets.indexOf(fleet) === 0;
+  if (!isShipTypeAllowedForRole(shipType, isDefender)) {
+    throw new Error(`${shipType} cannot be fielded by an attacker fleet`);
+  }
 
-  const newShip: ShipTypeConfig = {
-    id: `ship-${Date.now()}-${Math.random()}`,
-    type: shipType,
-    quantity,
-    config: cloneShipConfig(config),
-  };
+  const quantityWithinLimit = clampShipQuantity(shipType, quantity);
+  const existing = fleet.shipTypes.find((ship) => ship.type === shipType);
+  if (existing) {
+    existing.quantity = quantityWithinLimit;
+    existing.config = cloneShipConfig(config);
+    notifyFleetsChanged();
+    return existing;
+  }
+
+  removeIncompatibleShipTypes(fleet, shipType);
+
+  const newShip = createShipTypeConfig(shipType, config, quantityWithinLimit);
 
   fleet.shipTypes.push(newShip);
   enforceAutomaticFleetColors();
@@ -185,18 +229,90 @@ export function addShipType(
   return newShip;
 }
 
+export interface AddOrSwapShipPresetOptions {
+  // NPC pill pickers increment a matching layout; ordinary selectors only add
+  // or replace a layout.
+  incrementMatching?: boolean;
+}
+
+/**
+ * Applies a UI ship preset as one state transaction. Existing variants swap
+ * config in place, incompatible ships are cached before replacement, and a
+ * matching NPC pill selection may increment quantity up to its component cap.
+ */
+export function addOrSwapShipPreset(
+  fleetId: string,
+  preset: ShipDropdownOption,
+  options: AddOrSwapShipPresetOptions = {}
+): ShipTypeConfig | null {
+  const fleet = getFleetById(fleetId);
+  const fleetIndex = state.fleets.indexOf(fleet);
+  const variant = getDefaultShipConfig(preset);
+  if (!isShipTypeAllowedForRole(variant.type, fleetIndex === 0)) return null;
+
+  const existing = fleet.shipTypes.find((ship) => ship.type === variant.type);
+  if (existing) {
+    if (
+      options.incrementMatching &&
+      shipConfigsEqual(existing.config, variant.config)
+    ) {
+      const limit = SHIP_QUANTITY_LIMITS[existing.type];
+      if (existing.quantity >= limit) return existing;
+      existing.quantity += 1;
+    } else {
+      existing.config = cloneShipConfig(variant.config);
+    }
+
+    enforceAutomaticFleetColors();
+    notifyFleetsChanged();
+    return existing;
+  }
+
+  removeIncompatibleShipTypes(fleet, variant.type);
+
+  const hasVariants = presetKeysForType(variant.type).length > 1;
+  const cached = hasVariants
+    ? undefined
+    : getCachedShipType(fleet.id, variant.type);
+  const newShip = createShipTypeConfig(
+    variant.type,
+    cached?.config ?? variant.config,
+    Math.min(cached?.quantity ?? 1, SHIP_QUANTITY_LIMITS[variant.type])
+  );
+  fleet.shipTypes.push(newShip);
+
+  enforceAutomaticFleetColors();
+  notifyFleetsChanged();
+  return newShip;
+}
+
+export interface ShipTypeUpdates {
+  quantity?: number;
+  config?: Partial<ShipConfig>;
+}
+
 export function updateShipType(
   fleetId: string,
   shipId: string,
-  updates: Partial<ShipTypeConfig>
+  updates: ShipTypeUpdates
 ) {
   const fleet = getFleetById(fleetId);
   const ship = fleet.shipTypes.find((s) => s.id === shipId);
   if (ship) {
-    Object.assign(ship, updates);
+    if (updates.quantity !== undefined) {
+      ship.quantity = clampShipQuantity(ship.type, updates.quantity);
+    }
+    if (updates.config !== undefined) {
+      ship.config = cloneShipConfig(updates.config);
+    }
     enforceAutomaticFleetColors();
     notifyFleetsChanged();
   }
+}
+
+function clampShipQuantity(type: ShipType, quantity: number): number {
+  const integer = Number.isFinite(quantity) ? Math.trunc(quantity) : 1;
+  return Math.max(1, Math.min(integer, SHIP_QUANTITY_LIMITS[type]));
 }
 
 export function removeShipType(fleetId: string, shipId: string) {
@@ -218,6 +334,15 @@ function cacheShipType(fleetId: string, ship: ShipTypeConfig) {
   };
 }
 
+function removeIncompatibleShipTypes(fleet: FleetState, addedType: ShipType) {
+  const incompatible = incompatibleShipsForType(fleet.shipTypes, addedType);
+  if (incompatible.length === 0) return;
+
+  const removedIds = new Set(incompatible.map((ship) => ship.id));
+  incompatible.forEach((ship) => cacheShipType(fleet.id, ship));
+  fleet.shipTypes = fleet.shipTypes.filter((ship) => !removedIds.has(ship.id));
+}
+
 export function getCachedShipType(
   fleetId: string,
   shipType: ShipType
@@ -228,13 +353,6 @@ export function getCachedShipType(
     quantity: cached.quantity,
     config: cloneShipConfig(cached.config),
   };
-}
-
-function cloneShipConfig(config: Partial<ShipConfig>): Partial<ShipConfig> {
-  const clone = { ...config };
-  if (config.cannons) clone.cannons = { ...config.cannons };
-  if (config.missiles) clone.missiles = { ...config.missiles };
-  return clone;
 }
 
 export function resetFleets() {
@@ -249,6 +367,7 @@ export function resetFleets() {
 // Incoming fleets are expected to use sequential `fleet-<n>` ids from 0.
 export function replaceFleets(fleets: FleetState[]) {
   state.fleets = normalizeFleetMetadata(fleets.slice(0, MAX_FLEETS));
+  enforceFleetRoleRestrictions(state.fleets);
   clearRememberedFleetColors();
   state.fleets.forEach((fleet) => {
     if (fleet.colorIsManual && fleet.colorId && fleet.colorId !== 'neutral') {
@@ -336,13 +455,7 @@ export function makeFleetDefender(fleetId: string) {
 
 export function enforceFleetRoleRestrictions(fleets: FleetState[]) {
   fleets.forEach((fleet, index) => {
-    if (index === 0) return;
-    fleet.shipTypes = fleet.shipTypes.filter(
-      (ship) =>
-        isPlayerShipType(ship.type) &&
-        ship.type !== ShipType.Starbase &&
-        ship.type !== ShipType.Orbital
-    );
+    fleet.shipTypes = sanitizeFleetComposition(fleet.shipTypes, index === 0);
   });
 }
 
@@ -351,6 +464,11 @@ function normalizeFleetMetadata(fleets: FleetState[]): FleetState[] {
     const colorId = fleet.colorId ?? defaultFleetColorId(index);
     return {
       ...fleet,
+      shipTypes: fleet.shipTypes.map((ship) => ({
+        ...ship,
+        quantity: clampShipQuantity(ship.type, ship.quantity),
+        config: cloneShipConfig(ship.config),
+      })),
       factionId: fleet.factionId ?? '',
       colorId,
       colorIsManual:
@@ -406,10 +524,7 @@ function enforceAutomaticFleetColors() {
 }
 
 export function isNpcFleet(fleet: FleetState): boolean {
-  return (
-    fleet.shipTypes.length > 0 &&
-    fleet.shipTypes.every((ship) => !isPlayerShipType(ship.type))
-  );
+  return isNpcComposition(fleet.shipTypes);
 }
 
 function firstOpenPlayerColor(

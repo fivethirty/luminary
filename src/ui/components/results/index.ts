@@ -3,6 +3,7 @@ import './results.css';
 import { state, type SimulationResults } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
 import { fleetColor } from '@ui/fleet-metadata';
+import { resultClassesForFleet } from '@ui/result-presentation';
 import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
 
 const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
@@ -74,19 +75,19 @@ export class ResultsElement extends HTMLElement {
     const resultsTime = this.querySelector('.results-time')!;
     resultsTime.textContent =
       results.method === 'exact'
-        ? `Exact (deterministic) · ${results.timeTaken} ms`
-        : `Monte Carlo · ${results.iterations.toLocaleString()} iterations · ${results.timeTaken} ms`;
+        ? `${results.methodLabel} · deterministic · ${results.timeTaken} ms`
+        : `${results.methodLabel} · ${results.iterations.toLocaleString()} iterations · ${results.timeTaken} ms`;
     const oddsStrip = this.querySelector('#odds-strip')!;
     const resultsBars = this.querySelector('#results-bars')!;
     oddsStrip.innerHTML = '';
     resultsBars.innerHTML = '';
 
-    for (const [fleetName, percentage] of this.orderedByFleet(
+    for (const [fleetKey, percentage] of this.orderedByFleet(
       results.victoryProbability
     )) {
       if (percentage <= 0) continue;
-      oddsStrip.appendChild(this.createOddsSegment(fleetName, percentage));
-      resultsBars.appendChild(this.createResultBar(fleetName, percentage));
+      oddsStrip.appendChild(this.createOddsSegment(fleetKey, percentage));
+      resultsBars.appendChild(this.createResultBar(fleetKey, percentage));
     }
 
     if (results.drawProbability > 0) {
@@ -140,7 +141,7 @@ export class ResultsElement extends HTMLElement {
 
     let hasSurvivors = false;
 
-    for (const [fleetName, survivors] of Object.entries(
+    for (const [fleetKey, survivors] of this.orderedByFleet(
       results.expectedSurvivors
     )) {
       const survivorEntries = Object.entries(
@@ -149,7 +150,7 @@ export class ResultsElement extends HTMLElement {
 
       if (survivorEntries.length > 0) {
         hasSurvivors = true;
-        grid.appendChild(this.createSurvivorCard(fleetName, survivorEntries));
+        grid.appendChild(this.createSurvivorCard(fleetKey, survivorEntries));
       }
     }
 
@@ -158,37 +159,33 @@ export class ResultsElement extends HTMLElement {
 
   // Orders entries by the fleets' on-screen order (defender is fleet 0, so it
   // always lists first), regardless of the order the result producer used.
-  // Names not found in the fleet list keep their insertion order at the end.
-  private orderedByFleet(byName: Record<string, number>): [string, number][] {
-    const fleetOrder = state.fleets.map((fleet) => fleet.name);
-    const position = (name: string): number => {
-      const idx = fleetOrder.indexOf(name);
-      return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
-    };
-    return Object.entries(byName)
+  // Keys not found in the fleet list keep their insertion order at the end.
+  private orderedByFleet<T>(byFleet: Record<string, T>): [string, T][] {
+    return Object.entries(byFleet)
       .map((entry, index) => ({ entry, index }))
       .sort((a, b) => {
-        const positionDelta = position(a.entry[0]) - position(b.entry[0]);
+        const positionDelta =
+          this.fleetIndex(a.entry[0]) - this.fleetIndex(b.entry[0]);
         return positionDelta || a.index - b.index;
       })
       .map(({ entry }) => entry);
   }
 
   private createResultBar(
-    fleetName: string,
+    fleetKey: string,
     percentage: number,
     isDraw = false
   ): HTMLElement {
     const row = document.createElement('div');
     row.className = isDraw ? 'result-bar-row draw' : 'result-bar-row';
-    row.classList.add(...this.sideClasses(fleetName, isDraw));
-    this.applyFleetResultColor(row, fleetName, isDraw);
+    row.classList.add(...this.sideClasses(fleetKey, isDraw));
+    this.applyFleetResultColor(row, fleetKey, isDraw);
 
     const label = document.createElement('div');
     label.className = 'result-bar-label';
 
     const name = document.createElement('span');
-    name.textContent = fleetName;
+    name.textContent = this.fleetLabel(fleetKey, isDraw);
 
     const value = document.createElement('strong');
     value.textContent = `${(percentage * 100).toFixed(1)}%`;
@@ -211,13 +208,13 @@ export class ResultsElement extends HTMLElement {
   }
 
   private createOddsSegment(
-    fleetName: string,
+    fleetKey: string,
     percentage: number,
     isDraw = false
   ): HTMLElement {
     const segment = document.createElement('div');
-    segment.className = `odds-segment ${this.sideClass(fleetName, isDraw)}`;
-    this.applyFleetResultColor(segment, fleetName, isDraw);
+    segment.className = `odds-segment ${this.sideClass(fleetKey, isDraw)}`;
+    this.applyFleetResultColor(segment, fleetKey, isDraw);
     if (percentage < ODDS_SLIVER_THRESHOLD) {
       segment.classList.add('odds-segment--sliver');
     } else if (percentage < ODDS_PERCENT_ONLY_THRESHOLD) {
@@ -228,8 +225,9 @@ export class ResultsElement extends HTMLElement {
       ODDS_MINIMUM_BASIS_PERCENT
     )}%`;
 
+    const fleetLabel = this.fleetLabel(fleetKey, isDraw);
     const percentText = `${Math.round(percentage * 100)}%`;
-    const fullLabel = `${fleetName}: ${(percentage * 100).toFixed(1)}%`;
+    const fullLabel = `${fleetLabel}: ${(percentage * 100).toFixed(1)}%`;
     segment.setAttribute('aria-label', fullLabel);
     segment.title = fullLabel;
 
@@ -238,7 +236,7 @@ export class ResultsElement extends HTMLElement {
     value.hidden = percentage < ODDS_SLIVER_THRESHOLD;
 
     const label = document.createElement('span');
-    label.textContent = fleetName;
+    label.textContent = fleetLabel;
     label.hidden = percentage < ODDS_PERCENT_ONLY_THRESHOLD;
 
     segment.appendChild(value);
@@ -251,21 +249,26 @@ export class ResultsElement extends HTMLElement {
     survivors: Record<string, Record<string, number>>
   ): HTMLElement {
     const row = document.createElement('tr');
-    const defenderName = state.fleets[0]?.name ?? 'Defender';
-    const attackerNames = state.fleets.slice(1).map((fleet) => fleet.name);
-    const defenderText = this.formatFleetComposition(survivors[defenderName]);
-    const attackerCompositions = attackerNames
-      .map((name) => ({
-        name,
-        text: this.formatFleetComposition(survivors[name]),
+    const defender = state.fleets[0];
+    const defenderKey = defender?.id ?? 'Defender';
+    const defenderText = this.formatFleetComposition(
+      defender ? this.resultForFleet(survivors, defender) : undefined
+    );
+    const attackerCompositions = state.fleets
+      .slice(1)
+      .map((fleet) => ({
+        key: fleet.id,
+        text: this.formatFleetComposition(
+          this.resultForFleet(survivors, fleet)
+        ),
       }))
       .filter((entry) => entry.text !== '—');
 
     if (defenderText !== '—') row.classList.add('defender-result');
-    if (defenderText !== '—') this.applyFleetResultColor(row, defenderName);
+    if (defenderText !== '—') this.applyFleetResultColor(row, defenderKey);
     if (attackerCompositions.length === 1) {
-      row.classList.add(...this.sideClasses(attackerCompositions[0].name));
-      this.applyFleetResultColor(row, attackerCompositions[0].name);
+      row.classList.add(...this.sideClasses(attackerCompositions[0].key));
+      this.applyFleetResultColor(row, attackerCompositions[0].key);
     } else if (attackerCompositions.length > 1) {
       row.classList.add('attacker-result');
     }
@@ -286,8 +289,8 @@ export class ResultsElement extends HTMLElement {
           attackerCell.appendChild(document.createTextNode(' / '));
         }
         const label = document.createElement('span');
-        label.classList.add(...this.sideClasses(entry.name));
-        this.applyFleetResultColor(label, entry.name);
+        label.classList.add(...this.sideClasses(entry.key));
+        this.applyFleetResultColor(label, entry.key);
         label.textContent = entry.text;
         attackerCell.appendChild(label);
       });
@@ -320,17 +323,17 @@ export class ResultsElement extends HTMLElement {
   }
 
   private createSurvivorCard(
-    fleetName: string,
+    fleetKey: string,
     survivors: [string, number][]
   ): HTMLElement {
     const card = document.createElement('div');
     card.className = 'survivor-fleet-card';
-    card.classList.add(...this.sideClasses(fleetName));
-    this.applyFleetResultColor(card, fleetName);
+    card.classList.add(...this.sideClasses(fleetKey));
+    this.applyFleetResultColor(card, fleetKey);
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'survivor-fleet-name';
-    nameDiv.textContent = fleetName;
+    nameDiv.textContent = this.fleetLabel(fleetKey);
 
     const table = document.createElement('table');
     table.className = 'survivor-ships-table';
@@ -388,40 +391,61 @@ export class ResultsElement extends HTMLElement {
     return `${(value * 100).toFixed(value >= 0.1 ? 1 : 2)}%`;
   }
 
-  private sideClass(fleetName: string, isDraw = false): string {
-    return this.sideClasses(fleetName, isDraw).join(' ');
+  private sideClass(fleetKey: string, isDraw = false): string {
+    return this.sideClasses(fleetKey, isDraw).join(' ');
   }
 
-  private sideClasses(fleetName: string, isDraw = false): string[] {
-    if (isDraw || fleetName === 'Draw') return ['draw-result'];
-    const fleetIndex = state.fleets.findIndex(
-      (fleet) => fleet.name === fleetName
+  private sideClasses(fleetKey: string, isDraw = false): string[] {
+    const fleetIndex = this.fleetIndex(fleetKey);
+    return resultClassesForFleet(
+      fleetIndex === Number.MAX_SAFE_INTEGER ? null : fleetIndex,
+      isDraw || fleetKey === 'Draw'
     );
-    if (fleetIndex === 0) return ['defender-result'];
-    if (fleetIndex > 1) {
-      return ['attacker-result', `attacker-result-${Math.min(fleetIndex, 4)}`];
-    }
-    return ['attacker-result'];
   }
 
   private applyFleetResultColor(
     element: HTMLElement,
-    fleetName: string,
+    fleetKey: string,
     isDraw = false
   ) {
-    if (isDraw || fleetName === 'Draw') {
+    if (isDraw || fleetKey === 'Draw') {
       element.style.removeProperty('--fleet-result');
       element.style.removeProperty('--fleet-result-soft');
       return;
     }
 
-    const fleetIndex = state.fleets.findIndex(
-      (fleet) => fleet.name === fleetName
-    );
-    if (fleetIndex === -1) return;
+    const fleetIndex = this.fleetIndex(fleetKey);
+    if (fleetIndex === Number.MAX_SAFE_INTEGER) return;
     const color = fleetColor(state.fleets[fleetIndex].colorId, fleetIndex);
     element.style.setProperty('--fleet-result', color.color);
     element.style.setProperty('--fleet-result-soft', color.soft);
+  }
+
+  private fleetIndex(fleetKey: string): number {
+    const byId = state.fleets.findIndex((fleet) => fleet.id === fleetKey);
+    if (byId !== -1) return byId;
+
+    // Accept legacy/name-keyed fixtures at the presentation boundary. New
+    // application results always use IDs, so duplicate labels remain safe.
+    const byLegacyName = state.fleets.findIndex(
+      (fleet) => fleet.name === fleetKey
+    );
+    return byLegacyName === -1 ? Number.MAX_SAFE_INTEGER : byLegacyName;
+  }
+
+  private fleetLabel(fleetKey: string, isDraw = false): string {
+    if (isDraw || fleetKey === 'Draw') return 'Draw';
+    const index = this.fleetIndex(fleetKey);
+    return index === Number.MAX_SAFE_INTEGER
+      ? fleetKey
+      : state.fleets[index].name;
+  }
+
+  private resultForFleet<T>(
+    byFleet: Record<string, T>,
+    fleet: (typeof state.fleets)[number]
+  ): T | undefined {
+    return byFleet[fleet.id] ?? byFleet[fleet.name];
   }
 }
 

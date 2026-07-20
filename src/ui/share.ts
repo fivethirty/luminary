@@ -1,9 +1,4 @@
-import {
-  ShipType,
-  isPlayerShipType,
-  type ShipConfig,
-  type WeaponType,
-} from '@calc/ship';
+import { type ShipConfig, type WeaponType } from '@calc/ship';
 import {
   getDefaultShipConfig,
   isShipPresetKey,
@@ -21,6 +16,8 @@ import {
   type FactionId,
   type FleetColorId,
 } from '@ui/fleet-metadata';
+import { sanitizeFleetComposition } from '@ui/fleet-rules';
+import { normalizeShipConfig, shipConfigsEqual } from '@ui/ship-config';
 import type {
   FleetState,
   PlannerType,
@@ -127,47 +124,15 @@ function fleetIndexFromKey(key: string): number | null {
   return index < MAX_FLEETS ? index : null;
 }
 
-function normalizeConfig(config: Partial<ShipConfig>): Required<ShipConfig> {
-  return {
-    hull: config.hull ?? 0,
-    computers: config.computers ?? 0,
-    shields: config.shields ?? 0,
-    initiative: config.initiative ?? 0,
-    heal: config.heal ?? 0,
-    rift: config.rift ?? 0,
-    cannons: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-      ...config.cannons,
-    },
-    missiles: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-      ...config.missiles,
-    },
-  };
-}
-
-function configsEqual(
-  a: Required<ShipConfig>,
-  b: Required<ShipConfig>
-): boolean {
-  return STAT_FIELDS.every((field) => field.get(a) === field.get(b));
-}
-
 function encodeShip(
   key: string,
   shipType: ShipTypeConfig,
   params: [string, string][]
 ) {
-  const config = normalizeConfig(shipType.config);
+  const config = normalizeShipConfig(shipType.config);
   const preset = matchShipPreset(shipType.type, shipType.config);
-  const presetConfig = normalizeConfig(getDefaultShipConfig(preset).config);
-  const exact = configsEqual(config, presetConfig);
+  const presetConfig = normalizeShipConfig(getDefaultShipConfig(preset).config);
+  const exact = shipConfigsEqual(config, presetConfig);
 
   params.push([`${key}.${preset}`, String(shipType.quantity)]);
 
@@ -250,28 +215,6 @@ function draftShip(
   };
   draft.ships.set(preset, ship);
   return ship;
-}
-
-// A fleet can't mix player and NPC ships, or multiple NPC types, and only the
-// defender may field NPCs, starbases, or orbitals. The first valid ship in
-// param order decides the fleet's category, matching the UI's add-ship rules.
-function enforceCompositionRules(
-  ships: ShipTypeConfig[],
-  isDefender: boolean
-): ShipTypeConfig[] {
-  const allowed = ships.filter(
-    (ship) =>
-      isDefender ||
-      (isPlayerShipType(ship.type) &&
-        ship.type !== ShipType.Starbase &&
-        ship.type !== ShipType.Orbital)
-  );
-  if (allowed.length === 0) return [];
-
-  const firstIsPlayer = isPlayerShipType(allowed[0].type);
-  return allowed.filter((ship) =>
-    firstIsPlayer ? isPlayerShipType(ship.type) : ship.type === allowed[0].type
-  );
 }
 
 export function parseBattleQuery(search: string): FleetState[] | null {
@@ -363,7 +306,7 @@ export function parseBattleQuery(search: string): FleetState[] | null {
       id: `fleet-${index}`,
       name: '',
       shipTypes: draft
-        ? enforceCompositionRules([...draft.ships.values()], index === 0)
+        ? sanitizeFleetComposition([...draft.ships.values()], index === 0)
         : [],
       factionId: draft?.factionId ?? '',
       colorId: draft?.colorId ?? defaultFleetColorId(index),
@@ -410,6 +353,15 @@ function oddsBar(probability: number): string {
   return '█'.repeat(filled) + '░'.repeat(BAR_WIDTH - filled);
 }
 
+function resultForFleet<T>(
+  byFleet: Record<string, T>,
+  fleet: FleetState
+): T | undefined {
+  // Results are ID-keyed. The name fallback keeps the formatter tolerant of
+  // older callers and hand-built test/report data at this presentation edge.
+  return byFleet[fleet.id] ?? byFleet[fleet.name];
+}
+
 // A plain-text battle report sized for chat: a one-line matchup, a fenced
 // monospace block with the odds bars, and the share URL left bare so chat
 // clients unfurl it.
@@ -420,7 +372,7 @@ export function formatChatReport(
 ): string {
   const rows: [string, number][] = fleets.map((fleet) => [
     fleet.name,
-    results.victoryProbability[fleet.name] ?? 0,
+    resultForFleet(results.victoryProbability, fleet) ?? 0,
   ]);
   if (results.drawProbability > 0) {
     rows.push(['Draw', results.drawProbability]);
@@ -434,7 +386,7 @@ export function formatChatReport(
 
   const survivorParts = fleets.flatMap((fleet) => {
     const survivors = Object.entries(
-      results.expectedSurvivors[fleet.name] ?? {}
+      resultForFleet(results.expectedSurvivors, fleet) ?? {}
     )
       .filter(([, count]) => count > 0)
       .map(([type, count]) => `${formatCount(count)}× ${type}`);

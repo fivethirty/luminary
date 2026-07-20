@@ -1,4 +1,5 @@
 import { ShipType, type ShipConfig } from '@calc/ship';
+import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
 
 // Ship presets shared by the "+ Add ship" dropdown, the defender NPC pills,
 // and the URL codec. Battle links can name a preset (e.g. `guardian-wa`) and
@@ -195,11 +196,7 @@ export function getDefaultShipConfig(
   const preset = SHIP_PRESETS[dropdownValue];
   return {
     type: preset.type,
-    config: {
-      ...preset.config,
-      cannons: { ...preset.config.cannons },
-      missiles: { ...preset.config.missiles },
-    },
+    config: cloneShipConfig(preset.config),
   };
 }
 
@@ -207,65 +204,14 @@ export function presetKeysForType(type: ShipType): ShipDropdownOption[] {
   return SHIP_PRESET_KEYS.filter((key) => SHIP_PRESETS[key].type === type);
 }
 
-function normalizeConfig(config: Partial<ShipConfig>): Required<ShipConfig> {
-  return {
-    hull: config.hull ?? 0,
-    computers: config.computers ?? 0,
-    shields: config.shields ?? 0,
-    initiative: config.initiative ?? 0,
-    heal: config.heal ?? 0,
-    rift: config.rift ?? 0,
-    cannons: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-      ...config.cannons,
-    },
-    missiles: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-      ...config.missiles,
-    },
-  };
-}
-
-function configsEqual(
-  a: Required<ShipConfig>,
-  b: Required<ShipConfig>
-): boolean {
-  return (
-    a.hull === b.hull &&
-    a.computers === b.computers &&
-    a.shields === b.shields &&
-    a.initiative === b.initiative &&
-    a.heal === b.heal &&
-    a.rift === b.rift &&
-    a.cannons.ion === b.cannons.ion &&
-    a.cannons.plasma === b.cannons.plasma &&
-    a.cannons.soliton === b.cannons.soliton &&
-    a.cannons.antimatter === b.cannons.antimatter &&
-    a.missiles.ion === b.missiles.ion &&
-    a.missiles.plasma === b.missiles.plasma &&
-    a.missiles.soliton === b.missiles.soliton &&
-    a.missiles.antimatter === b.missiles.antimatter
-  );
-}
-
 export function matchShipPreset(
   type: ShipType,
   config: Partial<ShipConfig>
 ): ShipDropdownOption {
-  const normalizedConfig = normalizeConfig(config);
   const candidates = presetKeysForType(type);
   return (
     candidates.find((candidate) =>
-      configsEqual(
-        normalizedConfig,
-        normalizeConfig(getDefaultShipConfig(candidate).config)
-      )
+      shipConfigsEqual(config, getDefaultShipConfig(candidate).config)
     ) ?? candidates[0]
   );
 }

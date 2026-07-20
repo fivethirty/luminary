@@ -150,5 +150,25 @@ describe('CombatSimulator', () => {
       expect(aExpected).toBeCloseTo(1.0, 1);
       expect(bExpected).toBeCloseTo(1.0, 1);
     });
+
+    test('returns completed samples when a shared deadline is reached', () => {
+      let clock = 0;
+      const strong = new Fleet('Strong', [
+        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, GUARANTEED_HIT),
+      ]);
+      const weak = new Fleet('Weak', [
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
+      ]);
+
+      const results = new CombatSimulator().simulate([weak, strong], 100, {
+        deadline: 3,
+        deadlineCheckInterval: 1,
+        now: () => clock++,
+      });
+
+      expect(results.iterations).toBe(3);
+      expect(results.lastFleetStanding['Strong']).toBe(1);
+      expect(results.drawPercentage).toBe(0);
+    });
   });
 });

@@ -2,35 +2,32 @@ import html from './fleet.html' with { type: 'text' };
 import './fleet.css';
 import '../ship-type';
 import type { ShipTypeElement } from '../ship-type';
-import { ShipType, isPlayerShipType, type ShipConfig } from '@calc/ship';
+import { isPlayerShipType } from '@calc/ship';
 import type { FleetState } from '@ui/state';
 import {
+  addOrSwapShipPreset,
   isNpcFleet,
   moveFleet,
   removeFleet,
-  addShipType,
-  getCachedShipType,
-  removeShipType,
   setFleetColor,
   unsetFleetColor,
   setFleetFaction,
-  updateShipType,
   toggleAntimatterSplitter,
   setFleetPlannerType,
 } from '@ui/state';
 import {
   FACTIONS,
+  baseFleetName,
   factionLabel,
   factionShortLabel,
   fleetColor,
   type FactionId,
   PLAYER_FLEET_COLORS,
 } from '@ui/fleet-metadata';
-
+import { isShipTypeAllowedForRole } from '@ui/fleet-rules';
 import {
   getDefaultShipConfig,
   presetKeysForType,
-  SHIP_QUANTITY_LIMITS,
   type ShipDropdownOption,
 } from '@ui/ship-presets';
 
@@ -161,19 +158,8 @@ export class FleetElement extends HTMLElement {
   }
 
   private displayName(): string {
-    const isDefender = this.getAttribute('is-defender') !== 'false';
-    if (isDefender && isNpcFleet(this.fleet)) return 'The Ancients';
-
-    return factionLabel(this.fleet.factionId) ?? this.defaultRoleName();
-  }
-
-  private defaultRoleName(): string {
-    if (this.fleetIndex === 0) return 'Defender';
-
     const fleetCount = Number(this.getAttribute('fleet-count') ?? '2');
-    const attackerCount = fleetCount - 1;
-    if (attackerCount === 1) return 'Attacker';
-    return `Attacker ${this.fleetIndex}`;
+    return baseFleetName(this.fleet, this.fleetIndex, fleetCount);
   }
 
   private bindSettingsDialog() {
@@ -311,29 +297,10 @@ export class FleetElement extends HTMLElement {
       picker.addEventListener('change', () => {
         const preset = select.value as ShipDropdownOption;
         if (!preset) return;
-        const variantData = getDefaultShipConfig(preset);
-        const existing = this.fleet.shipTypes.find(
-          (st) => st.type === variantData.type
-        );
-
-        if (!existing) {
-          this.addShip(preset);
-          select.selectedIndex = -1;
-          return;
-        }
-
-        if (!sameShipConfig(existing.config, variantData.config)) {
-          this.addShip(preset);
-          select.selectedIndex = -1;
-          return;
-        }
-
-        if (existing.quantity < SHIP_QUANTITY_LIMITS[existing.type]) {
-          updateShipType(this.fleet.id, existing.id, {
-            quantity: existing.quantity + 1,
-          });
-          this.renderShips();
-        }
+        const ship = addOrSwapShipPreset(this.fleet.id, preset, {
+          incrementMatching: true,
+        });
+        if (ship) this.refreshAfterShipSelection();
         select.selectedIndex = -1;
       });
     });
@@ -369,11 +336,10 @@ export class FleetElement extends HTMLElement {
       const variantData = getDefaultShipConfig(
         option.value as ShipDropdownOption
       );
-      const attackerForbidden =
-        isAttacker &&
-        (!isPlayerShipType(variantData.type) ||
-          variantData.type === ShipType.Starbase ||
-          variantData.type === ShipType.Orbital);
+      const attackerForbidden = !isShipTypeAllowedForRole(
+        variantData.type,
+        !isAttacker
+      );
       option.hidden = attackerForbidden;
       // Types with variants (Ancient/Guardian/GCDS) stay selectable while
       // fielded — picking a variant swaps the ship's stats. Single-variant
@@ -386,65 +352,16 @@ export class FleetElement extends HTMLElement {
   }
 
   private addShip(dropdownOption: ShipDropdownOption) {
-    const variantData = getDefaultShipConfig(dropdownOption);
-    const newIsPlayer = isPlayerShipType(variantData.type);
+    const ship = addOrSwapShipPreset(this.fleet.id, dropdownOption);
+    if (!ship) return;
+    this.refreshAfterShipSelection();
+  }
 
-    // Selecting a variant of an already-fielded type (e.g. Ancient (WA) with
-    // Ancients on the board) swaps that ship's stats to the variant's preset,
-    // keeping the quantity.
-    const existing = this.fleet.shipTypes.find(
-      (st) => st.type === variantData.type
-    );
-    if (existing) {
-      updateShipType(this.fleet.id, existing.id, {
-        config: variantData.config,
-      });
-      this.updateDisplayedName();
-      this.applyFleetColor();
-      this.updateColorControls();
-      this.renderShips();
-      this.updateShipSelector();
-      this.updatePlannerControl();
-      return;
-    }
-
-    // A fleet can't mix player ships with NPC ships, or multiple NPC types.
-    const incompatible = this.fleet.shipTypes.filter(
-      (st) =>
-        isPlayerShipType(st.type) !== newIsPlayer ||
-        (!newIsPlayer && st.type !== variantData.type)
-    );
-    incompatible.forEach((st) => removeShipType(this.fleet.id, st.id));
-
-    const hasVariants = presetKeysForType(variantData.type).length > 1;
-    const cached = hasVariants
-      ? undefined
-      : getCachedShipType(this.fleet.id, variantData.type);
-    const newShip = addShipType(
-      this.fleet.id,
-      variantData.type,
-      cached?.config ?? variantData.config,
-      Math.min(cached?.quantity ?? 1, SHIP_QUANTITY_LIMITS[variantData.type])
-    );
-
-    if (incompatible.length > 0) {
-      // Some ship elements were removed; rebuild the list from state.
-      this.renderShips();
-    } else {
-      const shipsContainer = this.querySelector(
-        '.fleet-ships'
-      ) as HTMLDivElement;
-      const shipElement = document.createElement(
-        'calc-ship-type'
-      ) as ShipTypeElement;
-      shipElement.shipType = newShip;
-      shipElement.fleetId = this.fleet.id;
-      shipsContainer.appendChild(shipElement);
-    }
-
+  private refreshAfterShipSelection() {
     this.updateDisplayedName();
     this.applyFleetColor();
     this.updateColorControls();
+    this.renderShips();
     this.updateShipSelector();
     this.updatePlannerControl();
   }
@@ -487,28 +404,6 @@ export class FleetElement extends HTMLElement {
       select.value = this.fleet.plannerType;
     }
   }
-}
-
-function sameShipConfig(a: ShipConfig, b: ShipConfig): boolean {
-  return (
-    (a.hull ?? 0) === (b.hull ?? 0) &&
-    (a.computers ?? 0) === (b.computers ?? 0) &&
-    (a.shields ?? 0) === (b.shields ?? 0) &&
-    (a.initiative ?? 0) === (b.initiative ?? 0) &&
-    (a.heal ?? 0) === (b.heal ?? 0) &&
-    (a.rift ?? 0) === (b.rift ?? 0) &&
-    sameWeapons(a.cannons, b.cannons) &&
-    sameWeapons(a.missiles, b.missiles)
-  );
-}
-
-function sameWeapons(a: ShipConfig['cannons'], b: ShipConfig['cannons']) {
-  return (
-    (a?.ion ?? 0) === (b?.ion ?? 0) &&
-    (a?.plasma ?? 0) === (b?.plasma ?? 0) &&
-    (a?.soliton ?? 0) === (b?.soliton ?? 0) &&
-    (a?.antimatter ?? 0) === (b?.antimatter ?? 0)
-  );
 }
 
 customElements.define('calc-fleet', FleetElement);

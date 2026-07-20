@@ -2,6 +2,7 @@ import { BattleOutcome } from './battle';
 import { Fleet } from './fleet';
 import { ShipType } from './ship';
 import { MultiBattle } from './multi-battle';
+import { CombatOutcomeSummary } from './combat-result';
 
 export interface SimulationStatistics {
   totalBattles: number;
@@ -10,21 +11,28 @@ export interface SimulationStatistics {
   winRateByFleetName: Record<string, number>;
 }
 
+export type CombatSimulationResult = CombatOutcomeSummary & {
+  iterations: number;
+};
+
+export type CombatSimulationOptions = {
+  // Absolute timestamp in the same clock domain as `now`. The simulator checks
+  // periodically and returns the samples completed so far, allowing an exact
+  // attempt and its Monte Carlo fallback to share one interactive deadline.
+  deadline?: number;
+  now?: () => number;
+  deadlineCheckInterval?: number;
+};
+
 export class CombatSimulator {
   simulate(
     fleets: Fleet[],
-    iterations: number
-  ): {
-    lastFleetStanding: Record<string, number>;
-    drawPercentage: number;
-    expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
-    survivorDistribution: {
-      probability: number;
-      survivors: Record<string, Partial<Record<ShipType, number>>>;
-    }[];
-    timeTaken: number;
-  } {
-    const startTime = Date.now();
+    iterations: number,
+    options: CombatSimulationOptions = {}
+  ): CombatSimulationResult {
+    const now = options.now ?? Date.now;
+    const checkInterval = Math.max(1, options.deadlineCheckInterval ?? 1);
+    const startTime = now();
     const wins: Record<string, number> = {};
     const survivors: Record<string, Partial<Record<ShipType, number>>> = {};
     const compositionCounts = new Map<
@@ -41,7 +49,16 @@ export class CombatSimulator {
       survivors[fleet.name] = {};
     }
 
+    let completedIterations = 0;
     for (let i = 0; i < iterations; i++) {
+      if (
+        i > 0 &&
+        i % checkInterval === 0 &&
+        options.deadline !== undefined &&
+        now() >= options.deadline
+      ) {
+        break;
+      }
       fleets.forEach((fleet) => fleet.reset());
 
       const multiBattle = new MultiBattle(fleets);
@@ -71,34 +88,31 @@ export class CombatSimulator {
           survivors: finalSurvivors,
         });
       }
+      completedIterations++;
     }
 
-    const endTime = Date.now();
+    const endTime = now();
+    // A zero-iteration request is not useful to callers and would make every
+    // percentage NaN. `iterations` is controlled by the runner/UI and is
+    // expected to be positive, but keep the result numerically safe regardless.
+    const denominator = Math.max(1, completedIterations);
 
-    const result: {
-      lastFleetStanding: Record<string, number>;
-      drawPercentage: number;
-      expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
-      survivorDistribution: {
-        probability: number;
-        survivors: Record<string, Partial<Record<ShipType, number>>>;
-      }[];
-      timeTaken: number;
-    } = {
+    const result: CombatSimulationResult = {
       lastFleetStanding: {},
-      drawPercentage: draws / iterations,
+      drawPercentage: draws / denominator,
       expectedSurvivors: {},
       survivorDistribution: Array.from(compositionCounts.values())
         .map((entry) => ({
-          probability: entry.count / iterations,
+          probability: entry.count / denominator,
           survivors: entry.survivors,
         }))
         .sort((a, b) => b.probability - a.probability),
       timeTaken: endTime - startTime,
+      iterations: completedIterations,
     };
 
     for (const fleet of fleets) {
-      result.lastFleetStanding[fleet.name] = wins[fleet.name] / iterations;
+      result.lastFleetStanding[fleet.name] = wins[fleet.name] / denominator;
 
       result.expectedSurvivors[fleet.name] = {};
       if (wins[fleet.name] > 0) {

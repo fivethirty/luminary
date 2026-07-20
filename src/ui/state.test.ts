@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach } from 'bun:test';
 import {
   state,
   addFleet,
+  addOrSwapShipPreset,
   removeFleet,
   addShipType,
   getCachedShipType,
@@ -12,11 +13,13 @@ import {
   setFleetFaction,
   updateShipType,
   removeShipType,
+  replaceFleets,
   resetFleets,
   setSimulationResults,
+  onFleetsChanged,
 } from './state';
 import { monteCarloResults } from './test-helpers';
-import { ShipType } from '@calc/ship';
+import { ShipType, type ShipConfig } from '@calc/ship';
 
 describe('State', () => {
   beforeEach(() => {
@@ -119,6 +122,94 @@ describe('State', () => {
 
       expect(ship1.id).not.toBe(ship2.id);
     });
+
+    test('rejects defender-only ships in an attacker fleet', () => {
+      expect(() => addShipType('fleet-1', ShipType.Ancient)).toThrow(
+        'Ancient cannot be fielded by an attacker fleet'
+      );
+      expect(() => addShipType('fleet-1', ShipType.Starbase)).toThrow(
+        'Starbase cannot be fielded by an attacker fleet'
+      );
+      expect(state.fleets[1].shipTypes).toEqual([]);
+    });
+
+    test('swaps a duplicate type in place and enforces its quantity limit', () => {
+      const first = addShipType(
+        'fleet-0',
+        ShipType.Interceptor,
+        { hull: 1 },
+        2
+      );
+
+      const swapped = addShipType(
+        'fleet-0',
+        ShipType.Interceptor,
+        { hull: 3 },
+        99
+      );
+
+      expect(swapped).toBe(first);
+      expect(state.fleets[0].shipTypes).toHaveLength(1);
+      expect(swapped.quantity).toBe(8);
+      expect(swapped.config).toEqual({ hull: 3 });
+    });
+  });
+
+  describe('addOrSwapShipPreset', () => {
+    test('replaces an incompatible composition with one notification', () => {
+      addOrSwapShipPreset('fleet-0', 'cruiser');
+      addOrSwapShipPreset('fleet-0', 'interceptor');
+      let changes = 0;
+      const unsubscribe = onFleetsChanged(() => changes++);
+
+      addOrSwapShipPreset('fleet-0', 'ancient');
+
+      expect(changes).toBe(1);
+      expect(state.fleets[0].shipTypes.map((ship) => ship.type)).toEqual([
+        ShipType.Ancient,
+      ]);
+      unsubscribe();
+    });
+
+    test('restores a cached single-variant player ship', () => {
+      addShipType(
+        'fleet-0',
+        ShipType.Cruiser,
+        { hull: 3, cannons: { plasma: 1 } },
+        3
+      );
+      addOrSwapShipPreset('fleet-0', 'ancient');
+
+      const restored = addOrSwapShipPreset('fleet-0', 'cruiser')!;
+
+      expect(restored.quantity).toBe(3);
+      expect(restored.config).toEqual({
+        hull: 3,
+        cannons: { plasma: 1 },
+      });
+    });
+
+    test('increments a matching NPC pill and swaps variants in place', () => {
+      const ancient = addOrSwapShipPreset('fleet-0', 'ancient')!;
+      addOrSwapShipPreset('fleet-0', 'ancient', {
+        incrementMatching: true,
+      });
+      addOrSwapShipPreset('fleet-0', 'ancient-wa', {
+        incrementMatching: true,
+      });
+
+      expect(state.fleets[0].shipTypes).toHaveLength(1);
+      expect(state.fleets[0].shipTypes[0]).toBe(ancient);
+      expect(ancient.quantity).toBe(2);
+      expect(ancient.config.computers).toBe(2);
+      expect(ancient.config.initiative).toBe(3);
+      expect(ancient.config.cannons?.ion).toBe(1);
+    });
+
+    test('ignores a defender-only preset selected for an attacker', () => {
+      expect(addOrSwapShipPreset('fleet-1', 'ancient')).toBeNull();
+      expect(state.fleets[1].shipTypes).toEqual([]);
+    });
   });
 
   describe('updateShipType', () => {
@@ -132,6 +223,84 @@ describe('State', () => {
 
       expect(ship.quantity).toBe(5);
       expect(ship.config).toEqual({ hull: 2 });
+    });
+
+    test('preserves identity and type and takes ownership of config updates', () => {
+      const ship = addShipType('fleet-0', ShipType.Interceptor);
+      const config: Partial<ShipConfig> = {
+        hull: 2,
+        cannons: { ion: 1 },
+      };
+      const unsafeUpdates = {
+        id: 'replacement-id',
+        type: ShipType.Ancient,
+        quantity: 3,
+        config,
+      };
+
+      updateShipType('fleet-0', ship.id, unsafeUpdates);
+      config.hull = 9;
+      config.cannons!.ion = 9;
+
+      expect(ship.id).not.toBe('replacement-id');
+      expect(ship.type).toBe(ShipType.Interceptor);
+      expect(ship.quantity).toBe(3);
+      expect(ship.config).toEqual({ hull: 2, cannons: { ion: 1 } });
+    });
+  });
+
+  describe('replaceFleets', () => {
+    test('deduplicates ship types and owns imported objects', () => {
+      const config: Partial<ShipConfig> = {
+        hull: 1,
+        cannons: { ion: 1 },
+      };
+      const first = {
+        id: 'imported-1',
+        type: ShipType.Interceptor,
+        quantity: 99,
+        config,
+      };
+      const duplicate = {
+        id: 'imported-2',
+        type: ShipType.Interceptor,
+        quantity: 1,
+        config: { hull: 3 },
+      };
+      const belowLimit = {
+        id: 'imported-3',
+        type: ShipType.Cruiser,
+        quantity: 0,
+        config: {},
+      };
+      const nonFinite = {
+        id: 'imported-4',
+        type: ShipType.Dreadnought,
+        quantity: Number.NaN,
+        config: {},
+      };
+      const fleets = state.fleets.map((fleet, index) => ({
+        ...fleet,
+        shipTypes: index === 0 ? [first, duplicate, belowLimit, nonFinite] : [],
+      }));
+
+      replaceFleets(fleets);
+      config.hull = 9;
+      config.cannons!.ion = 9;
+      first.quantity = 7;
+      fleets[0].shipTypes.push(duplicate);
+
+      expect(state.fleets[0].shipTypes).toHaveLength(3);
+      expect(state.fleets[0].shipTypes[0]).not.toBe(first);
+      expect(state.fleets[0].shipTypes[0]).toEqual({
+        id: 'imported-1',
+        type: ShipType.Interceptor,
+        quantity: 8,
+        config: { hull: 1, cannons: { ion: 1 } },
+      });
+      expect(state.fleets[0].shipTypes.map((ship) => ship.quantity)).toEqual([
+        8, 1, 1,
+      ]);
     });
   });
 
@@ -313,6 +482,37 @@ describe('State', () => {
       setSimulationResults(null);
 
       expect(state.simulationResults).toBeNull();
+    });
+  });
+
+  describe('fleet subscriptions', () => {
+    test('returns an idempotent disposer', () => {
+      let changes = 0;
+      const unsubscribe = onFleetsChanged(() => changes++);
+
+      addFleet();
+      expect(changes).toBe(1);
+
+      unsubscribe();
+      unsubscribe();
+      addFleet();
+      expect(changes).toBe(1);
+    });
+
+    test('a listener can dispose itself without skipping later listeners', () => {
+      const calls: string[] = [];
+      let unsubscribeFirst = () => {};
+      unsubscribeFirst = onFleetsChanged(() => {
+        calls.push('first');
+        unsubscribeFirst();
+      });
+      const unsubscribeSecond = onFleetsChanged(() => calls.push('second'));
+
+      addFleet();
+      addFleet();
+
+      expect(calls).toEqual(['first', 'second', 'second']);
+      unsubscribeSecond();
     });
   });
 });

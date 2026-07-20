@@ -1,6 +1,7 @@
 import { DamageType } from 'src/constants';
 import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
+import { CombatOutcomeSummary } from './combat-result';
 import { BattleModel, Role } from './battle-state';
 import {
   AssignmentMode,
@@ -9,7 +10,12 @@ import {
   WinProbabilitySolver,
 } from './win-probability-solver';
 
-const OPTIMAL_EXACT_SHIP_TYPE_CUTOFF = 3;
+// A deliberately conservative upper bound for interactive minimax. It counts
+// HP multisets for each interchangeable ship configuration across both fleets,
+// then multiplies by schedule slots. The measured 8-interceptor + 4-cruiser
+// mirror is 72,900 by this estimate and takes seconds in minimax despite its
+// small number of ship types; policy-mode exact resolves it much faster.
+export const OPTIMAL_EXACT_STATE_SPACE_CUTOFF = 50_000;
 const MULTI_EXACT_RESIDUAL_TOLERANCE = 1e-9;
 
 // Interactive budget for the app: bail out (to Monte Carlo) rather than stall
@@ -22,17 +28,27 @@ export const EXACT_INTERACTIVE_CAPS: SolverCaps = {
 
 // Same shape as CombatSimulator.simulate's result, plus ok/reason so callers
 // can fall back to Monte Carlo when the battle is not exactly solvable.
-export type ExactBattleResult = {
+export type ExactBattleResult = CombatOutcomeSummary & {
   ok: boolean;
   reason?: string;
-  lastFleetStanding: Record<string, number>;
-  drawPercentage: number;
-  expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
-  survivorDistribution: {
-    probability: number;
-    survivors: Record<string, Partial<Record<ShipType, number>>>;
-  }[];
-  timeTaken: number;
+};
+
+export type ExactCombatOptions = {
+  // Preserve the historical default for direct callers. Interactive orchestration
+  // disables this and applies the preflight once, where the chosen policy can be
+  // reported to the user and will not be retried at the next fallback tier.
+  plannerPreflight?: boolean;
+};
+
+export type ExactPlannerPreflightReason =
+  | 'trivial-target'
+  | 'complexity'
+  | null;
+
+export type ExactPlannerPreflight = {
+  overrides: (DamageType | undefined)[];
+  reason: ExactPlannerPreflightReason;
+  estimatedStates: number;
 };
 
 type FleetState = {
@@ -135,7 +151,8 @@ export function computeExactBattle(
 
 export function computeExactCombat(
   fleets: Fleet[],
-  caps: SolverCaps = DEFAULT_CAPS
+  caps: SolverCaps = DEFAULT_CAPS,
+  options: ExactCombatOptions = {}
 ): ExactBattleResult {
   const start = Date.now();
   const fail = (reason: string): ExactBattleResult => ({
@@ -184,7 +201,8 @@ export function computeExactCombat(
       const solved = solveEngagement(
         defenderState,
         attackerState,
-        engagementCaps
+        engagementCaps,
+        options.plannerPreflight ?? true
       );
       if (!solved.ok) {
         return fail(solved.reason ?? 'solve failed');
@@ -215,9 +233,18 @@ export function computeExactCombat(
 export function exactDpsPlannerOverrides(
   fleets: readonly Fleet[]
 ): (DamageType | undefined)[] {
-  const overrides = fleets.map(() => undefined as DamageType | undefined);
+  return exactPlannerPreflight(fleets).overrides;
+}
 
-  if (fleets.length !== 2) return overrides;
+export function exactPlannerPreflight(
+  fleets: readonly Fleet[]
+): ExactPlannerPreflight {
+  const overrides = fleets.map(() => undefined as DamageType | undefined);
+  const estimatedStates = estimateExactStateSpace(fleets);
+
+  if (fleets.length !== 2) {
+    return { overrides, reason: null, estimatedStates };
+  }
 
   if (hasSingleShipType(fleets[0]) && isOptimalFleet(fleets[1])) {
     overrides[1] = DamageType.DPS;
@@ -225,25 +252,90 @@ export function exactDpsPlannerOverrides(
   if (hasSingleShipType(fleets[1]) && isOptimalFleet(fleets[0])) {
     overrides[0] = DamageType.DPS;
   }
-  if (overrides.some(Boolean)) return overrides;
-
-  if (!fleets.every(hasManyShipTypes)) {
-    return overrides;
+  if (overrides.some(Boolean)) {
+    return { overrides, reason: 'trivial-target', estimatedStates };
   }
 
-  return fleets.map((fleet) =>
-    isOptimalFleet(fleet) ? DamageType.DPS : undefined
-  );
+  if (!fleets.some(isOptimalFleet)) {
+    return { overrides, reason: null, estimatedStates };
+  }
+
+  if (estimatedStates < OPTIMAL_EXACT_STATE_SPACE_CUTOFF) {
+    return { overrides, reason: null, estimatedStates };
+  }
+
+  return {
+    overrides: fleets.map((fleet) =>
+      isOptimalFleet(fleet) ? DamageType.DPS : undefined
+    ),
+    reason: 'complexity',
+    estimatedStates,
+  };
+}
+
+/**
+ * Deterministic upper bound for the exact HP-state representation. For `n`
+ * interchangeable ships with max HP `h`, C(n+h, h) HP multisets exist (dead is
+ * one of h+1 values). Multiplying those groups and schedule slots intentionally
+ * overestimates reachability, which is appropriate for a cheap preflight.
+ */
+export function estimateExactStateSpace(fleets: readonly Fleet[]): number {
+  if (fleets.length !== 2) return 0;
+  let estimate = 1;
+  let scheduleSlots = 0;
+
+  for (const fleet of fleets) {
+    const roster = fleet.getRoster();
+    const groups = new Map<string, { count: number; maxHp: number }>();
+    const initiatives = new Set<number>();
+    const missileInitiatives = new Set<number>();
+    for (const ship of roster) {
+      const key = ship.configKey();
+      const group = groups.get(key);
+      if (group) group.count++;
+      else groups.set(key, { count: 1, maxHp: ship.maxHP() });
+      initiatives.add(ship.initiative);
+      if (ship.hasMissiles()) missileInitiatives.add(ship.initiative);
+    }
+    scheduleSlots += initiatives.size + missileInitiatives.size;
+    for (const group of groups.values()) {
+      estimate = multiplyCapped(
+        estimate,
+        combinationCapped(group.count + group.maxHp, group.maxHp)
+      );
+    }
+  }
+
+  return multiplyCapped(estimate, Math.max(1, scheduleSlots));
+}
+
+function combinationCapped(n: number, k: number): number {
+  let result = 1;
+  const terms = Math.min(k, n - k);
+  for (let i = 1; i <= terms; i++) {
+    result = (result * (n - terms + i)) / i;
+    if (result >= Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER;
+  }
+  return Math.round(result);
+}
+
+function multiplyCapped(a: number, b: number): number {
+  if (a === 0 || b === 0) return 0;
+  if (a > Number.MAX_SAFE_INTEGER / b) return Number.MAX_SAFE_INTEGER;
+  return a * b;
 }
 
 function solveEngagement(
   defenderState: FleetState,
   attackerState: FleetState,
-  caps: SolverCaps
+  caps: SolverCaps,
+  plannerPreflight: boolean
 ) {
   const defender = fleetFromState(defenderState);
   const attacker = fleetFromState(attackerState);
-  const overrides = exactDpsPlannerOverrides([defender, attacker]);
+  const overrides = plannerPreflight
+    ? exactDpsPlannerOverrides([defender, attacker])
+    : [undefined, undefined];
   const exactDefender = fleetFromState(defenderState, overrides[0]);
   const exactAttacker = fleetFromState(attackerState, overrides[1]);
   const attackerType = exactAttacker.getDamageType();
@@ -458,10 +550,6 @@ function survivorCompositionKey(
 
 function hasSingleShipType(fleet: Fleet): boolean {
   return shipTypeCount(fleet) <= 1;
-}
-
-function hasManyShipTypes(fleet: Fleet): boolean {
-  return shipTypeCount(fleet) >= OPTIMAL_EXACT_SHIP_TYPE_CUTOFF;
 }
 
 function shipTypeCount(fleet: Fleet): number {

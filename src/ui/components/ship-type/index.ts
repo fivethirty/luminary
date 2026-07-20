@@ -6,7 +6,8 @@ import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
 import { removeShipType, updateShipType } from '@ui/state';
-import { isPlayerShipType, type WeaponType } from '@calc/ship';
+import { isPlayerShipType, type ShipConfig, type WeaponType } from '@calc/ship';
+import { cloneShipConfig } from '@ui/ship-config';
 import {
   matchShipPreset,
   SHIP_NAMES,
@@ -42,8 +43,9 @@ export class ShipTypeElement extends HTMLElement {
       qtyInput.max = SHIP_QUANTITY_LIMITS[this.shipType.type];
       qtyInput.value = this.shipType.quantity;
       qtyInput.addEventListener('change', () => {
-        this.shipType.quantity = qtyInput.value;
-        updateShipType(this.fleetId, this.shipType.id, this.shipType);
+        updateShipType(this.fleetId, this.shipType.id, {
+          quantity: qtyInput.value,
+        });
       });
     }
 
@@ -52,22 +54,22 @@ export class ShipTypeElement extends HTMLElement {
       label: string;
       sign?: string;
       getValue: () => number;
-      setValue: (value: number) => void;
+      setValue: (config: Partial<ShipConfig>, value: number) => void;
     }> = [
       {
         stat: 'initiative',
         label: 'Init',
         getValue: () => this.shipType.config.initiative || 0,
-        setValue: (value) => {
-          this.shipType.config.initiative = value;
+        setValue: (config, value) => {
+          config.initiative = value;
         },
       },
       {
         stat: 'hull',
         label: 'Hull',
         getValue: () => this.shipType.config.hull || 0,
-        setValue: (value) => {
-          this.shipType.config.hull = value;
+        setValue: (config, value) => {
+          config.hull = value;
         },
       },
       {
@@ -75,8 +77,8 @@ export class ShipTypeElement extends HTMLElement {
         label: 'Comp',
         sign: '+',
         getValue: () => this.shipType.config.computers || 0,
-        setValue: (value) => {
-          this.shipType.config.computers = value;
+        setValue: (config, value) => {
+          config.computers = value;
         },
       },
       {
@@ -84,24 +86,24 @@ export class ShipTypeElement extends HTMLElement {
         label: 'Shield',
         sign: '−',
         getValue: () => this.shipType.config.shields || 0,
-        setValue: (value) => {
-          this.shipType.config.shields = value;
+        setValue: (config, value) => {
+          config.shields = value;
         },
       },
       {
         stat: 'heal',
         label: 'Heal',
         getValue: () => this.shipType.config.heal || 0,
-        setValue: (value) => {
-          this.shipType.config.heal = value;
+        setValue: (config, value) => {
+          config.heal = value;
         },
       },
       {
         stat: 'rift-cannon',
         label: 'Rift',
         getValue: () => this.shipType.config.rift || 0,
-        setValue: (value) => {
-          this.shipType.config.rift = value;
+        setValue: (config, value) => {
+          config.rift = value;
         },
       },
     ];
@@ -125,16 +127,14 @@ export class ShipTypeElement extends HTMLElement {
         stat: `${type}-cannon`,
         label: label,
         getValue: () => this.shipType.config.cannons?.[type] || 0,
-        setValue: (value) => {
-          if (!this.shipType.config.cannons) {
-            this.shipType.config.cannons = {
-              ion: 0,
-              plasma: 0,
-              soliton: 0,
-              antimatter: 0,
-            };
-          }
-          this.shipType.config.cannons[type] = value;
+        setValue: (config, value) => {
+          const cannons = (config.cannons ??= {
+            ion: 0,
+            plasma: 0,
+            soliton: 0,
+            antimatter: 0,
+          });
+          cannons[type] = value;
         },
       });
     });
@@ -145,16 +145,14 @@ export class ShipTypeElement extends HTMLElement {
         stat: `${type}-missile`,
         label: label,
         getValue: () => this.shipType.config.missiles?.[type] || 0,
-        setValue: (value) => {
-          if (!this.shipType.config.missiles) {
-            this.shipType.config.missiles = {
-              ion: 0,
-              plasma: 0,
-              soliton: 0,
-              antimatter: 0,
-            };
-          }
-          this.shipType.config.missiles[type] = value;
+        setValue: (config, value) => {
+          const missiles = (config.missiles ??= {
+            ion: 0,
+            plasma: 0,
+            soliton: 0,
+            antimatter: 0,
+          });
+          missiles[type] = value;
         },
       });
     });
@@ -174,13 +172,16 @@ export class ShipTypeElement extends HTMLElement {
         const initialValue = getValue();
         cube.value = initialValue;
         if (cube.value !== initialValue) {
-          setValue(cube.value);
+          const config = cloneShipConfig(this.shipType.config);
+          setValue(config, cube.value);
+          updateShipType(this.fleetId, this.shipType.id, { config });
         }
         cube.disabled = !statsEditable;
         cube.addEventListener('change', () => {
           if (cube.disabled) return;
-          setValue(cube.value);
-          updateShipType(this.fleetId, this.shipType.id, this.shipType);
+          const config = cloneShipConfig(this.shipType.config);
+          setValue(config, cube.value);
+          updateShipType(this.fleetId, this.shipType.id, { config });
         });
       }
     });

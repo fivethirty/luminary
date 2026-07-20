@@ -22,7 +22,8 @@ calc-results {
 }
 
 .results-body {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-section-padding-block)
+    var(--results-section-padding-inline);
   display: flex;
   flex-direction: column;
   gap: var(--results-section-gap);
@@ -84,48 +85,32 @@ calc-results {
   text-transform: uppercase;
 }
 
-.defender-result {
-  color: var(--fleet-result, var(--color-defender));
-}
-
-.attacker-result {
-  color: var(--fleet-result, var(--color-attacker));
-  --attacker-result: var(--fleet-result, var(--color-attacker));
-  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-soft));
-}
-
-.attacker-result-2 {
-  color: var(--fleet-result, var(--color-attacker-2));
-  --attacker-result: var(--fleet-result, var(--color-attacker-2));
-  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-2-soft));
-}
-
-.attacker-result-3 {
-  color: var(--fleet-result, var(--color-attacker-3));
-  --attacker-result: var(--fleet-result, var(--color-attacker-3));
-  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-3-soft));
-}
-
-.attacker-result-4 {
-  color: var(--fleet-result, var(--color-attacker-4));
-  --attacker-result: var(--fleet-result, var(--color-attacker-4));
-  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-4-soft));
-}
-
-.draw-result {
-  color: var(--fleet-result, var(--color-draw));
-}
-
 .odds-segment.defender-result {
-  background: linear-gradient(135deg, var(--fleet-result-soft, var(--color-defender-soft)), color-mix(in srgb, var(--fleet-result, var(--color-defender)) 28%, var(--color-bg-secondary)));
+  background: linear-gradient(
+    135deg,
+    var(--fleet-result-soft, var(--color-defender-soft)),
+    color-mix(
+      in srgb,
+      var(--fleet-result, var(--color-defender)) 28%,
+      var(--color-bg-secondary)
+    )
+  );
 }
 
 .odds-segment.attacker-result {
-  background: linear-gradient(135deg, var(--attacker-result-soft), color-mix(in srgb, var(--attacker-result) 28%, var(--color-bg-secondary)));
+  background: linear-gradient(
+    135deg,
+    var(--attacker-result-soft),
+    color-mix(in srgb, var(--attacker-result) 28%, var(--color-bg-secondary))
+  );
 }
 
 .odds-segment.draw-result {
-  background: linear-gradient(135deg, var(--color-draw-soft), color-mix(in srgb, var(--color-draw) 24%, var(--color-bg-secondary)));
+  background: linear-gradient(
+    135deg,
+    var(--color-draw-soft),
+    color-mix(in srgb, var(--color-draw) 24%, var(--color-bg-secondary))
+  );
 }
 
 .results-bars {
@@ -173,7 +158,8 @@ calc-results {
 }
 
 .panel-heading {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-section-padding-block)
+    var(--results-section-padding-inline);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -196,13 +182,15 @@ calc-results {
 
 .composition-table th,
 .composition-table td {
-  padding: var(--results-row-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-row-padding-block)
+    var(--results-section-padding-inline);
   border-top: 1px solid var(--color-border);
 }
 
 .composition-table th {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--label-font-size);
+  letter-spacing: var(--label-letter-spacing);
   text-align: left;
   text-transform: uppercase;
 }
@@ -219,7 +207,11 @@ calc-results {
 }
 
 .composition-table tr.defender-result:not(.attacker-result) {
-  background: color-mix(in srgb, var(--fleet-result, var(--color-defender)) 10%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--fleet-result, var(--color-defender)) 10%,
+    transparent
+  );
 }
 
 .composition-table tr.attacker-result:not(.defender-result) {
@@ -237,7 +229,8 @@ calc-results {
 }
 
 .survivors-grid {
-  padding: 0 var(--results-section-padding-inline) var(--results-section-padding-block);
+  padding: 0 var(--results-section-padding-inline)
+    var(--results-section-padding-block);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: var(--results-section-gap);
@@ -245,7 +238,11 @@ calc-results {
 
 .survivor-fleet-card {
   padding: var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-primary) 42%, var(--color-bg-secondary));
+  background: color-mix(
+    in srgb,
+    var(--color-bg-primary) 42%,
+    var(--color-bg-secondary)
+  );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
@@ -282,7 +279,8 @@ calc-results {
 }
 
 .results-actions {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-section-padding-block)
+    var(--results-section-padding-inline);
   border-top: 1px solid var(--color-border);
   display: flex;
   gap: var(--space-sm);

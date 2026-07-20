@@ -25,7 +25,6 @@ describe('ShipType', () => {
         },
       },
     };
-
     const element = document.createElement('calc-ship-type') as ShipTypeElement;
     element.shipType = shipTypeConfig;
     element.fleetId = 'fleet-0';
@@ -186,6 +185,7 @@ describe('ShipType', () => {
         missiles: { plasma: 1, soliton: 2, antimatter: 3 },
       },
     };
+    state.fleets[0].shipTypes.push(shipTypeConfig);
 
     const element = document.createElement('calc-ship-type') as ShipTypeElement;
     element.shipType = shipTypeConfig;

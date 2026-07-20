@@ -331,9 +331,12 @@ describe('battleUrl', () => {
 
 describe('formatChatReport', () => {
   const results = exactResults({
-    victoryProbability: { Defender: 0.218, Attacker: 0.734 },
+    victoryProbability: { 'fleet-0': 0.218, 'fleet-1': 0.734 },
     drawProbability: 0.048,
-    expectedSurvivors: { Attacker: { Cruiser: 1.4 }, Defender: {} },
+    expectedSurvivors: {
+      'fleet-0': {},
+      'fleet-1': { Cruiser: 1.4 },
+    },
   });
 
   test('includes the matchup, odds rows, and share link', () => {

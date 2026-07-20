@@ -1,3 +1,6 @@
+import type { ShipType } from '@calc/ship';
+import { isNpcComposition } from '@ui/fleet-rules';
+
 export const MAX_FLEETS = 7;
 
 export const FLEET_COLORS = [
@@ -73,4 +76,42 @@ export function factionShortLabel(
   if (!factionId) return null;
   const faction = FACTIONS.find((candidate) => candidate.id === factionId);
   return faction && 'shortLabel' in faction ? faction.shortLabel : null;
+}
+
+export interface FleetNameSource {
+  factionId?: FactionId;
+  shipTypes: readonly { type: ShipType }[];
+}
+
+export function fleetRoleName(index: number, fleetCount: number): string {
+  if (index === 0) return 'Defender';
+  return fleetCount === 2 ? 'Attacker' : `Attacker ${index}`;
+}
+
+/** The unqualified name for one fleet, before duplicate suffixes are added. */
+export function baseFleetName(
+  fleet: FleetNameSource,
+  index: number,
+  fleetCount: number
+): string {
+  if (index === 0 && isNpcComposition(fleet.shipTypes)) {
+    return 'The Ancients';
+  }
+  return factionLabel(fleet.factionId) ?? fleetRoleName(index, fleetCount);
+}
+
+/** Derives stable, unique display names without mutating the fleet snapshot. */
+export function deriveFleetNames(fleets: readonly FleetNameSource[]): string[] {
+  const baseNames = fleets.map((fleet, index) =>
+    baseFleetName(fleet, index, fleets.length)
+  );
+  const counts = new Map<string, number>();
+  baseNames.forEach((name) => counts.set(name, (counts.get(name) ?? 0) + 1));
+  const seen = new Map<string, number>();
+
+  return baseNames.map((name) => {
+    const occurrence = (seen.get(name) ?? 0) + 1;
+    seen.set(name, occurrence);
+    return (counts.get(name) ?? 0) > 1 ? `${name} ${occurrence}` : name;
+  });
 }

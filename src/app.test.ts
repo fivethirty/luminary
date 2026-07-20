@@ -14,7 +14,8 @@ import {
   loadSteppersPreference,
   saveSteppersPreference,
 } from '@ui/preferences';
-import { exactDpsPlannerOverrides, init } from './app';
+import { init } from './app';
+import { exactDpsPlannerOverrides } from '@calc/exact-combat';
 import indexHtml from './index.html' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
 import { Fleet } from '@calc/fleet';
@@ -39,6 +40,31 @@ describe('App', () => {
 
     const fleetElements = document.querySelectorAll('calc-fleet');
     expect(fleetElements.length).toBe(2);
+  });
+
+  test('reinitializing disposes the previous listeners and subscriptions', () => {
+    init();
+
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+    addBtn.click();
+
+    expect(state.fleets).toHaveLength(3);
+  });
+
+  test('a superseded disposer cannot cancel the active simulation timer', async () => {
+    const staleDispose = init();
+    init();
+
+    setSimulationResults(monteCarloResults());
+    addShipType(state.fleets[0].id, ShipType.Interceptor, {
+      cannons: { ion: 1 },
+    });
+    staleDispose();
+
+    await settle();
+    expect(state.simulationResults).toBeNull();
   });
 
   test('add fleet button creates new fleet', () => {
@@ -172,6 +198,9 @@ describe('App', () => {
     expect(state.simulationResults!.victoryProbability).toBeDefined();
     expect(state.simulationResults!.drawProbability).toBeDefined();
     expect(state.simulationResults!.expectedSurvivors).toBeDefined();
+    expect(state.simulationResults!.tier).toBe('exact-dps');
+    expect(state.simulationResults!.methodLabel).toBe('Exact · DPS targeting');
+    expect(state.simulationResults!.diagnostics.attempts).not.toHaveLength(0);
 
     const resultsContainer = document.getElementById('results-container')!;
     const resultsElement = resultsContainer.querySelector('calc-results');
@@ -217,15 +246,14 @@ describe('App', () => {
 
     expect(state.simulationResults).not.toBeNull();
     expect(state.simulationResults!.method).toBe('exact');
-    expect(state.simulationResults!.victoryProbability['Defender']).toBeCloseTo(
-      66 / 121,
-      9
-    );
     expect(
-      state.simulationResults!.victoryProbability['Attacker 1']
+      state.simulationResults!.victoryProbability[state.fleets[0].id]
+    ).toBeCloseTo(66 / 121, 9);
+    expect(
+      state.simulationResults!.victoryProbability[state.fleets[1].id]
     ).toBeCloseTo(30 / 121, 9);
     expect(
-      state.simulationResults!.victoryProbability['Attacker 2']
+      state.simulationResults!.victoryProbability[state.fleets[2].id]
     ).toBeCloseTo(25 / 121, 9);
   });
 
@@ -247,7 +275,7 @@ describe('App', () => {
     expect(state.fleets[2].shipTypes).toHaveLength(0);
     expect(state.simulationResults).not.toBeNull();
     expect(
-      state.simulationResults!.victoryProbability['Attacker 2']
+      state.simulationResults!.victoryProbability[state.fleets[2].id]
     ).toBeUndefined();
     expect(document.querySelector('calc-results')).not.toBeNull();
   });
@@ -277,10 +305,10 @@ describe('App', () => {
     expect(state.fleets[1].name).toBe('Terran Directorate 1');
     expect(state.fleets[2].name).toBe('Terran Directorate 2');
     expect(
-      state.simulationResults!.victoryProbability['Terran Directorate 1']
+      state.simulationResults!.victoryProbability[state.fleets[1].id]
     ).toBe(0);
     expect(
-      state.simulationResults!.victoryProbability['Terran Directorate 2']
+      state.simulationResults!.victoryProbability[state.fleets[2].id]
     ).toBeGreaterThan(0);
   });
 
@@ -332,12 +360,12 @@ describe('App', () => {
     ]);
   });
 
-  test('keeps optimal exact when either fleet has fewer than 3 ship types', () => {
+  test('keeps small two-type battles optimal below the state estimate cutoff', () => {
     const defender = new Fleet(
       'Defender',
       [
-        new Ship(ShipType.Cruiser, { hull: 10 }),
-        new Ship(ShipType.Dreadnought, { hull: 10 }),
+        new Ship(ShipType.Cruiser, { hull: 1 }),
+        new Ship(ShipType.Dreadnought, { hull: 1 }),
       ],
       false,
       DamageType.OPTIMAL
@@ -345,8 +373,8 @@ describe('App', () => {
     const attacker = new Fleet(
       'Attacker',
       [
-        new Ship(ShipType.Interceptor, { hull: 10 }),
-        new Ship(ShipType.Starbase, { hull: 10 }),
+        new Ship(ShipType.Interceptor, { hull: 1 }),
+        new Ship(ShipType.Starbase, { hull: 1 }),
       ],
       false,
       DamageType.OPTIMAL
@@ -575,9 +603,10 @@ describe('App shared battle links', () => {
     });
     expect(window.location.search).toBe('?v=1&a.cruiser=1');
 
-    ship.quantity = 2;
-    ship.config = { initiative: 2, hull: 1 };
-    updateShipType(state.fleets[1].id, ship.id, ship);
+    updateShipType(state.fleets[1].id, ship.id, {
+      quantity: 2,
+      config: { initiative: 2, hull: 1 },
+    });
     expect(window.location.search).toBe('?v=1&a.cruiser=2&a.cruiser.hull=1');
 
     resetFleets();

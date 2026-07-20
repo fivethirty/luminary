@@ -24,6 +24,7 @@
   --color-defender-soft: #462c1e;
   --color-draw: #98a6bd;
   --color-draw-soft: #293040;
+  --color-focus-ring: var(--color-info);
 
   --color-stat-ion: #facc15;
   --color-stat-plasma: #fb923c;
@@ -48,6 +49,11 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+
+  --label-font-size: var(--font-size-sm);
+  --label-letter-spacing: 0.08em;
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
@@ -180,6 +186,11 @@ button {
   color: var(--color-text-primary);
 }
 
+:where(button, input, select):focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 input[type='number'] {
   width: 3.125rem;
   text-align: center;
@@ -223,10 +234,6 @@ input[type='checkbox']:checked::after {
   border: solid var(--color-text-primary);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
-}
-
-input[type='checkbox']:focus {
-  outline: none;
 }
 
 button {
@@ -278,12 +285,10 @@ select {
   display: none;
 }
 
-#recent-battles {
-  width: auto;
-  max-width: 60%;
+.standard-select {
   padding-right: 2.5rem;
   border-radius: var(--radius-sm);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  background-image: var(--select-chevron);
   background-position: right 0.875rem center;
   background-repeat: no-repeat;
   background-size: 0.75rem;
@@ -294,6 +299,11 @@ select {
   appearance: none;
 }
 
+#recent-battles {
+  width: auto;
+  max-width: 60%;
+}
+
 .steppers-control {
   display: inline-flex;
   align-items: center;
@@ -302,9 +312,9 @@ select {
 
 #steppers-toggle-label {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--label-font-size);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--label-letter-spacing);
 }
 
 .steppers-toggle {
@@ -399,9 +409,9 @@ body:has(.live-bar:not([hidden])) {
 
 .live-label {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--label-font-size);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--label-letter-spacing);
 }
 
 .live-verdict {
@@ -419,6 +429,48 @@ body:has(.live-bar:not([hidden])) {
 
 .live-odds i {
   background: currentColor;
+}
+
+/* Shared result semantics are also used by the sticky verdict bar. */
+.defender-result {
+  color: var(--fleet-result, var(--color-defender));
+}
+
+.attacker-result {
+  color: var(--fleet-result, var(--color-attacker));
+  --attacker-result: var(--fleet-result, var(--color-attacker));
+  --attacker-result-soft: var(--fleet-result-soft, var(--color-attacker-soft));
+}
+
+.attacker-result-2 {
+  color: var(--fleet-result, var(--color-attacker-2));
+  --attacker-result: var(--fleet-result, var(--color-attacker-2));
+  --attacker-result-soft: var(
+    --fleet-result-soft,
+    var(--color-attacker-2-soft)
+  );
+}
+
+.attacker-result-3 {
+  color: var(--fleet-result, var(--color-attacker-3));
+  --attacker-result: var(--fleet-result, var(--color-attacker-3));
+  --attacker-result-soft: var(
+    --fleet-result-soft,
+    var(--color-attacker-3-soft)
+  );
+}
+
+.attacker-result-4 {
+  color: var(--fleet-result, var(--color-attacker-4));
+  --attacker-result: var(--fleet-result, var(--color-attacker-4));
+  --attacker-result-soft: var(
+    --fleet-result-soft,
+    var(--color-attacker-4-soft)
+  );
+}
+
+.draw-result {
+  color: var(--fleet-result, var(--color-draw));
 }
 
 #results-container {

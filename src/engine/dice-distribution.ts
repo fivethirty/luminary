@@ -28,6 +28,21 @@ type DieClass = { prob: number; shots: Shot[]; selfDamage: number };
 // A group of identical dice, expanded to its per-die classes.
 type DieGroup = { count: number; classes: DieClass[] };
 
+type AbortCheck = (force?: boolean) => boolean;
+
+const ABORT_CHECK_INTERVAL = 128;
+
+function makeAbortCheck(shouldAbort?: () => boolean): AbortCheck {
+  let workSinceCheck = 0;
+  return (force = false): boolean => {
+    if (!shouldAbort) return false;
+    workSinceCheck++;
+    if (!force && workSinceCheck < ABORT_CHECK_INTERVAL) return false;
+    workSinceCheck = 0;
+    return shouldAbort();
+  };
+}
+
 const WEAPON_TYPES: WeaponType[] = ['ion', 'plasma', 'soliton', 'antimatter'];
 
 // Classes for one ordinary (cannon or missile) die against the distinct living
@@ -99,9 +114,53 @@ function riftDieClasses(): DieClass[] {
 
 // Multiset outcomes of `count` identical dice with the given classes: every
 // composition (n_1..n_k) summing to count, weighted multinomially.
-function expandGroup(group: DieGroup): DieClass[] {
+function multisetOutcomeCount(
+  dieCount: number,
+  classCount: number,
+  limit: number
+): number | null {
+  if (classCount <= 1 || dieCount === 0) return 1;
+
+  // The number of weak compositions of dieCount into classCount buckets is
+  // C(dieCount + classCount - 1, classCount - 1). Die classes are few (at
+  // most the six die faces), so evaluate the small side of the binomial and
+  // stop as soon as the caller's useful range is exceeded.
+  const choose = Math.min(classCount - 1, dieCount);
+  const total = dieCount + classCount - 1;
+  let result = 1;
+  for (let i = 1; i <= choose; i++) {
+    result = (result * (total - choose + i)) / i;
+    if (!Number.isFinite(result) || result > limit) return null;
+  }
+  return result;
+}
+
+function expandGroup(
+  group: DieGroup,
+  maxOutcomes: number,
+  abortCheck: AbortCheck
+): DieClass[] | null {
   const { count, classes } = group;
+  if (multisetOutcomeCount(count, classes.length, maxOutcomes) === null) {
+    return null;
+  }
+  if (classes.length === 0) {
+    return [{ prob: 1, shots: [], selfDamage: 0 }];
+  }
+  if (classes.length === 1) {
+    const cls = classes[0];
+    const shots = repeatShots(cls.shots, count, abortCheck);
+    if (shots === null) return null;
+    return [
+      {
+        prob: Math.pow(cls.prob, count),
+        shots,
+        selfDamage: cls.selfDamage * count,
+      },
+    ];
+  }
   const results: DieClass[] = [];
+  let aborted = false;
 
   const recurse = (
     classIdx: number,
@@ -111,13 +170,27 @@ function expandGroup(group: DieGroup): DieClass[] {
     shots: Shot[],
     self: number
   ) => {
+    if (aborted) return;
+    if (abortCheck()) {
+      aborted = true;
+      return;
+    }
     if (classIdx === classes.length - 1) {
       // Last class takes all remaining dice.
+      if (results.length >= maxOutcomes) {
+        aborted = true;
+        return;
+      }
       const n = remaining;
       const cls = classes[classIdx];
       const p = prob * Math.pow(cls.prob, n);
       const coeff = multinomial / factorial(n);
-      const allShots = shots.concat(repeatShots(cls.shots, n));
+      const repeatedShots = repeatShots(cls.shots, n, abortCheck);
+      if (repeatedShots === null) {
+        aborted = true;
+        return;
+      }
+      const allShots = shots.concat(repeatedShots);
       results.push({
         prob: p * coeff,
         shots: allShots,
@@ -127,28 +200,36 @@ function expandGroup(group: DieGroup): DieClass[] {
     }
     const cls = classes[classIdx];
     for (let n = 0; n <= remaining; n++) {
+      const repeatedShots = repeatShots(cls.shots, n, abortCheck);
+      if (repeatedShots === null) {
+        aborted = true;
+        return;
+      }
       recurse(
         classIdx + 1,
         remaining - n,
         prob * Math.pow(cls.prob, n),
         multinomial / factorial(n),
-        shots.concat(repeatShots(cls.shots, n)),
+        shots.concat(repeatedShots),
         self + cls.selfDamage * n
       );
+      if (aborted) return;
     }
   };
 
-  if (classes.length === 0) {
-    return [{ prob: 1, shots: [], selfDamage: 0 }];
-  }
   recurse(0, count, 1, factorial(count), [], 0);
-  return results;
+  return aborted ? null : results;
 }
 
-function repeatShots(shots: Shot[], n: number): Shot[] {
+function repeatShots(
+  shots: Shot[],
+  n: number,
+  abortCheck: AbortCheck
+): Shot[] | null {
   if (n === 0 || shots.length === 0) return [];
   const out: Shot[] = [];
   for (let i = 0; i < n; i++) {
+    if (abortCheck()) return null;
     for (const shot of shots) out.push({ ...shot });
   }
   return out;
@@ -165,15 +246,19 @@ function factorial(n: number): number {
 /**
  * Enumerates every joint dice outcome for one slot: the ships firing (living
  * ships at the slot's initiative), their weapon/rift dice against the distinct
- * living enemy shields. Returns null if the outcome count exceeds `maxOutcomes`.
+ * living enemy shields. Returns null if the outcome count exceeds `maxOutcomes`
+ * or the optional cooperative cancellation predicate requests an abort.
  */
 export function enumerateSlotOutcomes(
   shooters: Ship[],
   missilePhase: boolean,
   enemyShields: number[],
   antimatterSplitter: boolean,
-  maxOutcomes: number
+  maxOutcomes: number,
+  shouldAbort?: () => boolean
 ): SlotOutcome[] | null {
+  const abortCheck = makeAbortCheck(shouldAbort);
+  if (abortCheck(true)) return null;
   const shieldSet = Array.from(new Set(enemyShields)).sort((a, b) => a - b);
 
   // Merge identical dice across ships into groups keyed by their behaviour.
@@ -193,6 +278,7 @@ export function enumerateSlotOutcomes(
   };
 
   for (const ship of shooters) {
+    if (abortCheck()) return null;
     if (missilePhase) {
       for (const wt of WEAPON_TYPES) {
         const count = ship.missiles[wt];
@@ -225,10 +311,18 @@ export function enumerateSlotOutcomes(
   // Cartesian product of each group's multiset outcomes.
   let outcomes: SlotOutcome[] = [{ prob: 1, shots: [], selfDamage: 0 }];
   for (const group of groups) {
-    const expanded = expandGroup(group);
+    // A group's full multiset does not need to be materialized when its
+    // Cartesian product with the accumulated groups already exceeds the cap.
+    // This is particularly important for a single extreme group (for example,
+    // many rift dice), where the old post-expansion check came too late.
+    const groupLimit = Math.floor(maxOutcomes / outcomes.length);
+    if (groupLimit < 1) return null;
+    const expanded = expandGroup(group, groupLimit, abortCheck);
+    if (expanded === null) return null;
     const next: SlotOutcome[] = [];
     for (const base of outcomes) {
       for (const add of expanded) {
+        if (abortCheck()) return null;
         next.push({
           prob: base.prob * add.prob,
           shots: base.shots.concat(add.shots),

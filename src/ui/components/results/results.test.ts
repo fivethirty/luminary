@@ -148,15 +148,19 @@ describe('Results', () => {
     expect(element.querySelector('.verdict-caption')).toBeNull();
   });
 
-  test('uses distinct color classes for multiple attackers', () => {
+  test('uses stable IDs and distinct colors when display names collide', () => {
     addFleet();
-    state.fleets[2].name = 'Attacker 2';
+    state.fleets[1].name = 'Terran Directorate';
+    state.fleets[2].name = 'Terran Directorate';
+    const [defenderId, firstAttackerId, secondAttackerId] = state.fleets.map(
+      (fleet) => fleet.id
+    );
     setSimulationResults(
       monteCarloResults({
         victoryProbability: {
-          Defender: 0.25,
-          Attacker: 0.35,
-          'Attacker 2': 0.4,
+          [defenderId]: 0.25,
+          [firstAttackerId]: 0.35,
+          [secondAttackerId]: 0.4,
         },
       })
     );
@@ -168,6 +172,12 @@ describe('Results', () => {
     expect(segments[1].classList.contains('attacker-result')).toBe(true);
     expect(segments[1].classList.contains('attacker-result-2')).toBe(false);
     expect(segments[2].classList.contains('attacker-result-2')).toBe(true);
+    expect(segments[1].querySelector('span')?.textContent).toBe(
+      'Terran Directorate'
+    );
+    expect(segments[2].querySelector('span')?.textContent).toBe(
+      'Terran Directorate'
+    );
   });
 
   test('applies selected board colors to result segments', () => {
@@ -175,8 +185,8 @@ describe('Results', () => {
     setSimulationResults(
       monteCarloResults({
         victoryProbability: {
-          Defender: 0.25,
-          Attacker: 0.75,
+          'fleet-0': 0.25,
+          'fleet-1': 0.75,
         },
       })
     );
@@ -400,16 +410,23 @@ describe('Results', () => {
   test('colors survivor composition attackers by fleet', () => {
     addFleet();
     state.fleets[2].name = 'Attacker 2';
+    const [defenderId, firstAttackerId, secondAttackerId] = state.fleets.map(
+      (fleet) => fleet.id
+    );
     setSimulationResults(
       exactResults({
-        victoryProbability: { Defender: 0.2, Attacker: 0.3, 'Attacker 2': 0.5 },
+        victoryProbability: {
+          [defenderId]: 0.2,
+          [firstAttackerId]: 0.3,
+          [secondAttackerId]: 0.5,
+        },
         survivorDistribution: [
           {
             probability: 0.5,
             survivors: {
-              Defender: {},
-              Attacker: {},
-              'Attacker 2': { Cruiser: 1 },
+              [defenderId]: {},
+              [firstAttackerId]: {},
+              [secondAttackerId]: { Cruiser: 1 },
             },
           },
         ],

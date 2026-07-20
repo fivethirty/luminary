@@ -3,7 +3,7 @@ import { Ship, ShipType } from './ship';
 import { Fleet } from './fleet';
 import { CombatSimulator } from './combat-simulator';
 import { BattleModel } from './battle-state';
-import { WinProbabilitySolver } from './win-probability-solver';
+import { DEFAULT_CAPS, WinProbabilitySolver } from './win-probability-solver';
 import { buildShips, MATCHUPS } from '../../scripts/matchups';
 
 describe('WinProbabilitySolver (policy mode)', () => {
@@ -27,6 +27,68 @@ describe('WinProbabilitySolver (policy mode)', () => {
     }).solve();
     expect(defender.ok).toBe(true);
     expect(defender.winProbability).toBeCloseTo(6 / 11, 9);
+  });
+
+  describe('deadline enforcement', () => {
+    const duelModel = () => {
+      const make = () =>
+        new Ship(ShipType.Interceptor, {
+          initiative: 3,
+          cannons: { ion: 1 },
+        });
+      return new BattleModel([make()], [make()], false, false);
+    };
+
+    test('a tiny budget aborts graph construction using the injected clock', () => {
+      let timestamp = 0;
+      const result = new WinProbabilitySolver(duelModel(), {
+        perspective: 'A',
+        assignments: 'policy',
+        caps: { ...DEFAULT_CAPS, maxMillis: 2 },
+        now: () => timestamp++,
+      }).solve();
+
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe('time budget exceeded');
+      expect(result.states).toBe(1);
+      expect(timestamp).toBeLessThan(10);
+    });
+
+    test('terminal propagation observes the original solve deadline', () => {
+      let timestamp = 0;
+      const solver = new WinProbabilitySolver(duelModel(), {
+        perspective: 'A',
+        assignments: 'policy',
+        caps: { ...DEFAULT_CAPS, maxMillis: 1 },
+        now: () => timestamp,
+      });
+
+      expect(solver.solve().ok).toBe(true);
+      timestamp = 1;
+      const distribution = solver.solveTerminalDistribution();
+
+      expect(distribution.ok).toBe(false);
+      expect(distribution.reason).toBe('time budget exceeded');
+      expect(distribution.entries).toEqual([]);
+    });
+
+    test('outcome aggregation reports a propagation timeout', () => {
+      let timestamp = 0;
+      const solver = new WinProbabilitySolver(duelModel(), {
+        perspective: 'A',
+        assignments: 'policy',
+        caps: { ...DEFAULT_CAPS, maxMillis: 1 },
+        now: () => timestamp,
+      });
+
+      expect(solver.solve().ok).toBe(true);
+      timestamp = 1;
+      const outcome = solver.solveOutcome();
+
+      expect(outcome.ok).toBe(false);
+      expect(outcome.reason).toBe('time budget exceeded');
+      expect(outcome.pAttacker).toBeNaN();
+    });
   });
 
   test('solving twice yields identical values (determinism)', () => {

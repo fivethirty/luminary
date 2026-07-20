@@ -130,6 +130,28 @@ describe('BattleModel', () => {
   });
 
   describe('expand', () => {
+    test('checks the shared deadline around expensive dice enumeration', () => {
+      const make = () =>
+        new Ship(ShipType.Interceptor, {
+          initiative: 3,
+          cannons: { ion: 4 },
+        });
+      const model = new BattleModel([make()], [make()], false, false);
+      let deadlineChecks = 0;
+
+      const exp = model.expand(model.initialState(), {
+        decisionRoles: [],
+        maxOutcomes: 100_000,
+        deadlineExceeded: () => ++deadlineChecks >= 2,
+      });
+
+      expect(exp).toEqual({
+        kind: 'fail',
+        reason: 'time budget exceeded',
+      });
+      expect(deadlineChecks).toBe(2);
+    });
+
     test('a fleet with no living shooters advances deterministically', () => {
       // Defender has no cannons; its slot fires nothing.
       const model = new BattleModel(

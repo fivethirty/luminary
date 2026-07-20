@@ -11,6 +11,10 @@ export type Candidate = {
 export type EnumerationLimits = {
   maxCandidates?: number;
   maxNodes?: number;
+  // Exact-combat callers use this to share the solver's wall-clock deadline
+  // with a potentially large assignment search. It is intentionally optional
+  // so live planner calls retain their existing node/candidate caps.
+  shouldAbort?: () => boolean;
 };
 
 const DEFAULT_MAX_CANDIDATES = 200;
@@ -36,7 +40,9 @@ export function enumerateCandidates(
 ): Candidate[] | null {
   const maxCandidates = limits.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
   const maxNodes = limits.maxNodes ?? DEFAULT_MAX_NODES;
+  const shouldAbort = limits.shouldAbort;
 
+  if (shouldAbort?.()) return null;
   if (ships.length === 0 || shots.length === 0) {
     return [];
   }
@@ -86,6 +92,13 @@ export function enumerateCandidates(
   const recurse = (shotIdx: number): void => {
     if (aborted) return;
     if (++nodes > maxNodes) {
+      aborted = true;
+      return;
+    }
+    // Checking the clock on every recursive node is measurable in this hot
+    // path. Sampling it every 64 nodes still bounds the uninterruptible work
+    // while keeping ordinary candidate enumeration cheap.
+    if ((nodes & 0x3f) === 0 && shouldAbort?.()) {
       aborted = true;
       return;
     }
