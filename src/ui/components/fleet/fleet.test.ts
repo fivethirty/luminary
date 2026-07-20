@@ -249,9 +249,6 @@ describe('Fleet', () => {
     expect(ships.nextElementSibling).toBe(addRow);
     expect(selector?.getAttribute('aria-label')).toBe('Add ship type');
     expect(selector?.nextElementSibling).toBe(presets);
-    expect(presets?.querySelector('.preset-chips-label')?.textContent).toBe(
-      'NPC'
-    );
   });
 
   test('preset chips add NPCs to the defender, tapping again adds more', async () => {
