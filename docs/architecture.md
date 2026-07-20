@@ -105,6 +105,22 @@ Engine result maps use `FleetState.id` as identity even though the engine field 
 named `Fleet.name`. Visible faction/role names are derived presentation and must not be used as
 keys; duplicate faction labels remain safe and can change without invalidating a result.
 
+Survivor-distribution entries may also carry engagement-boundary destruction credit for reputation
+draws. Presence of a fleet key means that fleet entered an engagement, including when its credited
+composition is empty; an absent key means it never fought in that terminal outcome. Each participant
+receives the enemy hulls lost during its engagement, and no per-shot history is retained. Sampled
+combat records the before/after living composition around each `Battle`. Exact multi-fleet combat
+carries credit and retreat variants as reporting payload on a merged HP branch, so result detail
+does not become part of the combat-state key or cause an otherwise identical engagement to be
+solved again.
+
+Terminal survivor entries distinguish control from survival. `lastFleetStanding` names the fleet
+that retained the sector (or is `null` for a final draw), while `survivors` contains every living
+hull, including fleets removed from battle by a defender-favored stalemate. Material loss uses all
+survivors; population bombardment uses only the last fleet standing. Exact multi-fleet branches
+archive living removed fleets in the same reporting payload described above, without adding them
+back to later engagements.
+
 ### Control Reuse Boundaries
 
 Reuse presentation and behavior separately. The damage-planner and recent-battles controls are

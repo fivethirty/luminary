@@ -1,13 +1,49 @@
 .fleet-component {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .fleet.card {
-  margin-bottom: var(--space-lg);
+  --fleet-accent: var(--fleet-accent-source, var(--color-border-strong));
+  --fleet-accent-soft: var(
+    --fleet-accent-soft-source,
+    var(--color-bg-secondary)
+  );
+
+  width: 100%;
+  min-width: 0;
+  margin-bottom: var(--space-md);
   padding: 0;
   position: relative;
   overflow: hidden;
   border-left: 0.25rem solid var(--fleet-accent, var(--color-border-strong));
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .fleet.card {
+    --fleet-accent: color-mix(
+      in srgb,
+      var(--fleet-accent-source, var(--color-border-strong)) 72%,
+      var(--color-text-primary)
+    );
+    --fleet-accent-soft: color-mix(
+      in srgb,
+      var(--fleet-accent-source, var(--color-border-strong)) 14%,
+      var(--color-bg-secondary)
+    );
+  }
+}
+
+:root[data-theme='light'] .fleet.card {
+  --fleet-accent: color-mix(
+    in srgb,
+    var(--fleet-accent-source, var(--color-border-strong)) 72%,
+    var(--color-text-primary)
+  );
+  --fleet-accent-soft: color-mix(
+    in srgb,
+    var(--fleet-accent-source, var(--color-border-strong)) 14%,
+    var(--color-bg-secondary)
+  );
 }
 
 .fleet-defender {
@@ -60,15 +96,16 @@
   min-width: 0;
 }
 
+/* Name and metadata action intentionally share the row's center alignment
+   with the square reorder controls. Per-item baseline alignment makes the
+   text pair appear to float above or below those controls. */
 .fleet-name {
   min-width: 0;
   overflow-wrap: anywhere;
-  align-self: baseline;
 }
 
 .fleet-settings-btn {
   flex: 0 0 auto;
-  align-self: baseline;
   padding: 0 var(--space-xs);
   border-color: transparent;
   background: transparent;
@@ -181,22 +218,40 @@
   border-top: none;
 }
 
-.ship-selector {
-  width: auto;
+.ship-selector-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
   font-family: inherit;
   font-size: inherit;
-  padding: var(--space-xs) var(--space-md);
+  padding: calc(var(--space-xs) * 1.5) 1.75rem calc(var(--space-xs) * 1.5)
+    var(--space-sm);
   border: 1px solid var(--color-border-strong);
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-tertiary) var(--select-chevron) right
+    var(--space-sm) center / 0.75rem no-repeat;
   color: var(--color-text-primary);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  min-width: 0;
   text-align: center;
+  font-weight: var(--font-weight-semibold);
+}
 
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+.ship-selector-control > span {
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.ship-selector {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .fleet-add-row {
@@ -206,14 +261,17 @@
   padding: var(--space-sm) var(--space-md);
 }
 
-.fleet-add-row .ship-selector {
+.fleet-add-row .ship-selector-control {
   min-width: 0;
-  padding: calc(var(--space-xs) * 1.5) var(--space-sm);
-  font-weight: var(--font-weight-semibold);
 }
 
-.ship-selector:hover {
-  background: var(--color-border);
+.ship-selector-control:hover {
+  background-color: var(--color-border);
+}
+
+.ship-selector-control:has(.ship-selector:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .preset-chips {
@@ -262,7 +320,11 @@
 }
 
 .preset-picker-wrap span {
+  min-width: 0;
+  overflow: hidden;
   pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preset-picker-wrap::after {
@@ -330,18 +392,33 @@
   margin-left: auto;
 }
 
+/* Ship headers switch to the compact inline inset at tablet width. Keep the
+   containing fleet header on that same column instead of waiting for the
+   narrower phone layout below. */
+@media (max-width: 52rem) {
+  .fleet.card > .fleet-header {
+    padding-inline: var(--space-sm);
+  }
+}
+
 /* On phones the row can't hold both controls plus the planner select, so stack
    them and let the select take the full width. */
 @media (max-width: 42rem) {
+  .fleet.card {
+    margin-bottom: calc(var(--space-sm) * 1.5);
+  }
+
   .fleet-header {
     align-items: center;
     flex-wrap: nowrap;
+    gap: var(--space-xs);
+    padding: var(--space-sm);
   }
 
   .fleet-title-row {
     flex: 1 1 auto;
     flex-wrap: nowrap;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
   }
 
   .fleet-name[data-short-label] {
@@ -355,25 +432,37 @@
 
   .role-controls {
     margin-left: 0;
+    gap: var(--space-xs);
   }
 
-  .fleet-add-row .ship-selector {
+  .fleet-add-row .ship-selector-control {
     width: 100%;
     min-width: 0;
   }
 
   .fleet-add-row {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  /* The final ship editor already supplies its own bottom inset. Avoid
+     stacking a second inset above the add controls, but retain it when an
+     empty fleet begins directly with the add row. */
+  .fleet-ships:has(> calc-ship-type) + .fleet-add-row {
+    padding-top: 0;
   }
 
   .preset-chips {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
     width: 100%;
     margin-left: 0;
-    padding: var(--space-sm) 0 0;
-    border-top: 1px solid
-      color-mix(in srgb, var(--color-border) 60%, transparent);
+    padding: 0;
+    gap: var(--space-xs);
+    border-top: 0;
     border-left: 0;
   }
 
@@ -393,6 +482,7 @@
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-sm);
+    padding: var(--space-sm);
   }
 
   .damage-planner-option {

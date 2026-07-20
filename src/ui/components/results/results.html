@@ -1,38 +1,87 @@
 <div class="results-container">
   <div class="results-card card">
-    <div class="results-body">
+    <div class="results-body" aria-live="polite">
       <div id="odds-strip" class="odds-strip"></div>
       <div id="results-bars" class="results-bars"></div>
       <p class="results-time"></p>
     </div>
 
-    <div id="survivor-distribution-section" class="survivor-distribution-section">
-      <div class="panel-heading">
-        <h3>Surviving Fleet Compositions</h3>
+    <div id="battle-impact-section" class="battle-impact-section">
+      <div class="panel-heading impact-heading">
+        <h3>Battle impact</h3>
+        <span>Expected across all outcomes</span>
       </div>
-      <div class="composition-table-wrap">
-        <table class="composition-table">
-          <thead>
-            <tr>
-              <th>Defender Survivors</th>
-              <th>%</th>
-              <th>Attacker Survivors</th>
-            </tr>
-          </thead>
-          <tbody id="survivor-distribution-tbody">
-          </tbody>
-        </table>
+      <div class="impact-grid">
+        <section id="material-impact" class="impact-card material-impact">
+          <h4>Material</h4>
+          <table
+            class="material-impact-table"
+            aria-label="Fleet material cost and expected resources lost"
+          >
+            <thead>
+              <tr>
+                <th>Fleet</th>
+                <th>Cost</th>
+                <th>Avg. lost</th>
+              </tr>
+            </thead>
+            <tbody id="material-impact-rows"></tbody>
+          </table>
+        </section>
+
+        <section id="population-impact" class="impact-card population-impact">
+          <div class="impact-card-heading">
+            <h4>Population destroyed</h4>
+            <span>Cumulative odds</span>
+          </div>
+          <div id="population-impact-rows"></div>
+          <p id="population-impact-note" class="impact-note"></p>
+        </section>
+
+        <section id="reputation-impact" class="impact-card reputation-impact">
+          <div class="impact-card-heading">
+            <h4>Reputation draws</h4>
+            <span>Expected</span>
+          </div>
+          <div id="reputation-impact-rows"></div>
+        </section>
       </div>
     </div>
 
-    <div id="survivors-section" class="survivors-section">
-      <div class="panel-heading">
-        <h3>Average Survivors</h3>
-        <span>Among wins only</span>
+    <details class="detailed-outcomes">
+      <summary>Detailed outcomes</summary>
+
+      <div
+        id="survivor-distribution-section"
+        class="survivor-distribution-section"
+      >
+        <div class="panel-heading">
+          <h3>Surviving fleet compositions</h3>
+        </div>
+        <div class="composition-table-wrap">
+          <table
+            class="composition-table"
+            aria-label="Surviving fleet composition probabilities"
+          >
+            <thead>
+              <tr>
+                <th>Ships</th>
+                <th>Odds</th>
+              </tr>
+            </thead>
+            <tbody id="survivor-distribution-tbody"></tbody>
+          </table>
+        </div>
       </div>
-      <div id="survivors-grid" class="survivors-grid">
+
+      <div id="survivors-section" class="survivors-section">
+        <div class="panel-heading">
+          <h3>Average survivors</h3>
+          <span>Among wins only</span>
+        </div>
+        <div id="survivors-grid" class="survivors-grid"></div>
       </div>
-    </div>
+    </details>
 
     <div class="results-actions">
       <button class="copy-link-btn">Copy link</button>
@@ -40,4 +89,3 @@
     </div>
   </div>
 </div>
-

@@ -399,5 +399,118 @@ describe('computeExactCombat', () => {
     expect(result.expectedSurvivors['Attacker 2'][ShipType.Interceptor]).toBe(
       1
     );
+
+    // The two defender-win paths have the same final survivor composition,
+    // but different fleets fought (and destroyed ships) in the first battle.
+    // Keep them distinct for reputation attribution without changing the
+    // aggregate defender win probability above.
+    expect(result.survivorDistribution).toHaveLength(4);
+    const defenderWins = result.survivorDistribution.filter(
+      (entry) => entry.survivors['Defender'][ShipType.Interceptor] === 1
+    );
+    expect(defenderWins).toHaveLength(2);
+
+    const attacker1ThenDefender = defenderWins.find(
+      (entry) =>
+        entry.destroyedShipsCreditedToFleet?.['Attacker 1'][
+          ShipType.Interceptor
+        ] === 1
+    );
+    expect(attacker1ThenDefender?.probability).toBeCloseTo(36 / 121, 9);
+    expect(attacker1ThenDefender?.destroyedShipsCreditedToFleet).toEqual({
+      Defender: { [ShipType.Interceptor]: 1 },
+      'Attacker 1': { [ShipType.Interceptor]: 1 },
+      'Attacker 2': {},
+    });
+
+    const attacker2ThenDefender = defenderWins.find(
+      (entry) =>
+        entry.destroyedShipsCreditedToFleet?.['Attacker 2'][
+          ShipType.Interceptor
+        ] === 1
+    );
+    expect(attacker2ThenDefender?.probability).toBeCloseTo(30 / 121, 9);
+    expect(attacker2ThenDefender?.destroyedShipsCreditedToFleet).toEqual({
+      Defender: { [ShipType.Interceptor]: 1 },
+      'Attacker 1': {},
+      'Attacker 2': { [ShipType.Interceptor]: 1 },
+    });
+
+    const attacker1Wins = result.survivorDistribution.find(
+      (entry) => entry.survivors['Attacker 1'][ShipType.Interceptor] === 1
+    );
+    expect(attacker1Wins?.probability).toBeCloseTo(30 / 121, 9);
+    expect(
+      attacker1Wins?.destroyedShipsCreditedToFleet?.['Attacker 1'][
+        ShipType.Interceptor
+      ]
+    ).toBe(2);
+
+    const attacker2Wins = result.survivorDistribution.find(
+      (entry) => entry.survivors['Attacker 2'][ShipType.Interceptor] === 1
+    );
+    expect(attacker2Wins?.probability).toBeCloseTo(25 / 121, 9);
+    expect(
+      attacker2Wins?.destroyedShipsCreditedToFleet?.['Attacker 2'][
+        ShipType.Interceptor
+      ]
+    ).toBe(2);
+  });
+
+  test('leaves the top fleet absent from credits when the lower pair draw', () => {
+    const result = computeExactCombat([
+      new Fleet('Top', [new Ship(ShipType.Dreadnought)]),
+      new Fleet('Lower 1', [new Ship(ShipType.Interceptor)]),
+      new Fleet('Lower 2', [new Ship(ShipType.Cruiser, { rift: 1 })]),
+    ]);
+
+    expect(result.ok).toBe(true);
+    const lowerPairDraw = result.survivorDistribution.find(
+      (entry) =>
+        entry.survivors.Top[ShipType.Dreadnought] === 1 &&
+        !Object.prototype.hasOwnProperty.call(
+          entry.destroyedShipsCreditedToFleet,
+          'Top'
+        )
+    );
+
+    // Rolls two and three repeat; among terminal rift rolls, six is the
+    // mutual kill, so this lower-pair draw has probability (1/6) / (4/6).
+    expect(lowerPairDraw?.probability).toBeCloseTo(1 / 4, 9);
+    expect(lowerPairDraw?.destroyedShipsCreditedToFleet).toEqual({
+      'Lower 1': { [ShipType.Cruiser]: 1 },
+      'Lower 2': { [ShipType.Interceptor]: 1 },
+    });
+  });
+
+  test('retains living retreaters separately from the final sector winner', () => {
+    const result = computeExactCombat([
+      new Fleet('Top', [new Ship(ShipType.Dreadnought)]),
+      new Fleet('Middle', [new Ship(ShipType.Cruiser)]),
+      new Fleet('Bottom', [new Ship(ShipType.Interceptor)]),
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(result.lastFleetStanding).toEqual({
+      Top: 1,
+      Middle: 0,
+      Bottom: 0,
+    });
+    expect(result.survivorDistribution).toEqual([
+      {
+        probability: 1,
+        lastFleetStanding: 'Top',
+        survivors: {
+          Top: { [ShipType.Dreadnought]: 1 },
+          Middle: { [ShipType.Cruiser]: 1 },
+          Bottom: { [ShipType.Interceptor]: 1 },
+        },
+        destroyedShipsCreditedToFleet: {
+          Bottom: {},
+          Middle: {},
+          Top: {},
+        },
+      },
+    ]);
   });
 });

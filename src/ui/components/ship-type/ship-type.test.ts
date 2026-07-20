@@ -75,6 +75,22 @@ describe('ShipType', () => {
     expect(
       element.querySelector('[data-stat="rift-cannon"] label')?.textContent
     ).toBe('Rift');
+    expect(
+      element
+        .querySelector('[data-stat="computer"] input')
+        ?.getAttribute('aria-label')
+    ).toBe('Interceptor computer');
+    expect(
+      element.querySelector('.stat-group-core')?.getAttribute('aria-label')
+    ).toBe('Interceptor systems');
+    expect(
+      element
+        .querySelector('calc-selector .selector')
+        ?.getAttribute('aria-label')
+    ).toBe('Interceptor quantity');
+    expect(
+      element.querySelector('.remove-btn')?.getAttribute('aria-label')
+    ).toBe('Remove Interceptor');
   });
 
   test('displays NPC variant names', () => {

@@ -243,12 +243,15 @@ describe('Fleet', () => {
 
     const ships = element.querySelector('.fleet-ships')!;
     const addRow = element.querySelector('.fleet-add-row')!;
+    const selectorControl = addRow.querySelector('.ship-selector-control');
     const selector = addRow.querySelector('.ship-selector');
     const presets = addRow.querySelector('.preset-chips');
 
     expect(ships.nextElementSibling).toBe(addRow);
     expect(selector?.getAttribute('aria-label')).toBe('Add ship type');
-    expect(selector?.nextElementSibling).toBe(presets);
+    expect(selectorControl?.nextElementSibling).toBe(presets);
+    expect(selector?.querySelector('option[value=""]')).toBeNull();
+    expect((selector as HTMLSelectElement).selectedIndex).toBe(-1);
   });
 
   test('preset chips add NPCs to the defender, tapping again adds more', async () => {
@@ -398,7 +401,9 @@ describe('Fleet', () => {
 
     const addedShip = state.fleets[0].shipTypes[0];
     expect(addedShip.type).toBe(ShipType.Cruiser);
-    expect(addedShip.config.hull).toBe(0);
+    expect(addedShip.config.hull).toBe(1);
+    expect(addedShip.config.computers).toBe(1);
+    expect(addedShip.config.cannons?.ion).toBe(1);
     expect(addedShip.config.initiative).toBe(2);
   });
 
@@ -495,6 +500,9 @@ describe('Fleet', () => {
     expect(select.disabled).toBe(true);
     expect(select.value).toBe('npc');
     expect(npcPlannerOption(select)?.disabled).toBe(false);
+    expect(Array.from(select.options).map((option) => option.value)).toEqual([
+      'npc',
+    ]);
   });
 
   test('ignores NPC planner change events', () => {
@@ -537,14 +545,13 @@ describe('Fleet', () => {
     element.setAttribute('is-defender', 'false');
     document.body.appendChild(element);
 
-    // Defender-only player structures are hidden and disabled.
+    // iOS may expose hidden options, so illegal structures are absent.
     for (const defenderOnly of ['starbase', 'orbital']) {
-      expect(shipOption(element, defenderOnly)?.hidden).toBe(true);
-      expect(shipOption(element, defenderOnly)?.disabled).toBe(true);
+      expect(shipOption(element, defenderOnly)).toBeUndefined();
     }
     // Player options remain available.
     for (const player of ['interceptor', 'cruiser', 'dreadnought']) {
-      expect(shipOption(element, player)?.hidden).toBe(false);
+      expect(shipOption(element, player)).toBeDefined();
     }
   });
 
@@ -555,7 +562,7 @@ describe('Fleet', () => {
     document.body.appendChild(element);
 
     for (const defenderOnly of ['starbase', 'orbital']) {
-      expect(shipOption(element, defenderOnly)?.hidden).toBe(false);
+      expect(shipOption(element, defenderOnly)).toBeDefined();
     }
     for (const npc of [
       'ancient',

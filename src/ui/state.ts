@@ -1,5 +1,10 @@
 import { ShipType, type ShipConfig } from '@calc/ship';
 import type { CombatRunDiagnostics, CombatTier } from '@calc/combat-runner';
+import type { PopulationBombardmentResult } from '@calc/population-bombardment';
+import type {
+  FleetMaterialLossSummary,
+  ReputationDrawDistributionResult,
+} from '@ui/battle-impact';
 import {
   defaultFleetColorId,
   type FactionId,
@@ -15,7 +20,7 @@ import {
 } from '@ui/fleet-rules';
 import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
 import {
-  getDefaultShipConfig,
+  getStartingShipConfig,
   presetKeysForType,
   SHIP_QUANTITY_LIMITS,
   type ShipDropdownOption,
@@ -56,7 +61,13 @@ export interface CachedShipTypeConfig {
 
 export interface SurvivorDistributionEntry {
   probability: number;
+  /** Fleet controlling the sector after combat; null represents a mutual kill. */
+  lastFleetStanding?: string | null;
   survivors: Record<string, Record<string, number>>;
+  destroyedShipsCreditedToFleet?: Record<
+    string,
+    Partial<Record<ShipType, number>>
+  >;
 }
 
 export type SimulationMethod = 'exact' | 'monte-carlo';
@@ -68,6 +79,9 @@ interface BaseSimulationResults {
   drawProbability: number;
   expectedSurvivors: Record<string, Record<string, number>>;
   survivorDistribution: SurvivorDistributionEntry[];
+  materialLosses: Record<string, FleetMaterialLossSummary>;
+  populationBombardment: PopulationBombardmentResult;
+  reputationDraws: ReputationDrawDistributionResult;
   timeTaken: number;
   targeting: 'optimal' | 'dps-policy';
   tier: CombatTier;
@@ -247,7 +261,7 @@ export function addOrSwapShipPreset(
 ): ShipTypeConfig | null {
   const fleet = getFleetById(fleetId);
   const fleetIndex = state.fleets.indexOf(fleet);
-  const variant = getDefaultShipConfig(preset);
+  const variant = getStartingShipConfig(preset, fleet.factionId);
   if (!isShipTypeAllowedForRole(variant.type, fleetIndex === 0)) return null;
 
   const existing = fleet.shipTypes.find((ship) => ship.type === variant.type);
@@ -398,8 +412,38 @@ export function setFleetPlannerType(fleetId: string, plannerType: PlannerType) {
 
 export function setFleetFaction(fleetId: string, factionId: FactionId) {
   const fleet = getFleetById(fleetId);
+  const previousFactionId = fleet.factionId;
+  for (const ship of fleet.shipTypes) {
+    migrateDefaultBlueprint(ship, previousFactionId, factionId);
+  }
+  for (const [rawType, cached] of Object.entries(
+    state.cachedShipTypes[fleet.id] ?? {}
+  )) {
+    if (!cached) continue;
+    const cachedShip = {
+      type: rawType as ShipType,
+      config: cached.config,
+    };
+    migrateDefaultBlueprint(cachedShip, previousFactionId, factionId);
+    cached.config = cachedShip.config;
+  }
   fleet.factionId = factionId;
   notifyFleetsChanged();
+}
+
+function migrateDefaultBlueprint(
+  ship: Pick<ShipTypeConfig, 'type' | 'config'>,
+  previousFactionId: FactionId | undefined,
+  factionId: FactionId
+) {
+  const preset = presetKeysForType(ship.type)[0];
+  if (!preset) return;
+  const previousDefault = getStartingShipConfig(
+    preset,
+    previousFactionId
+  ).config;
+  if (!shipConfigsEqual(ship.config, previousDefault)) return;
+  ship.config = getStartingShipConfig(preset, factionId).config;
 }
 
 export function setFleetColor(fleetId: string, colorId: FleetColorId) {

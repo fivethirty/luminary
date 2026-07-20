@@ -1,4 +1,12 @@
+calc-ship-type {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .ship-type {
+  width: 100%;
+  min-width: 0;
   margin: 0 0 var(--space-sm) 0;
   padding: 0;
   background: color-mix(
@@ -15,6 +23,7 @@
 }
 
 .ship-type > header {
+  min-width: 0;
   padding: var(--space-sm) var(--space-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 72%, transparent);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
@@ -22,16 +31,20 @@
 
 .ship-type-name {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--color-text-primary);
   letter-spacing: 0.02em;
 }
 
 .quantity {
+  flex: 0 0 auto;
   margin-left: auto;
   margin-right: var(--space-sm);
 }
 
 .ship-type .stats {
+  min-width: 0;
   padding: var(--space-sm) calc(var(--space-md) + var(--space-sm));
   display: grid;
   grid-template-columns: 1fr;
@@ -39,6 +52,7 @@
 }
 
 .stat-group {
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
   gap: var(--space-xs);
@@ -58,15 +72,15 @@
   .ship-type .stats {
     grid-template-columns: 1fr;
     gap: var(--space-sm);
-    padding: var(--space-xs) var(--space-md) var(--space-sm);
+    padding: var(--space-xs) var(--space-sm) var(--space-sm);
   }
 
   .ship-type > header {
-    padding: var(--space-xs) var(--space-md);
+    padding: var(--space-xs) var(--space-sm);
   }
 
   .stat-group {
-    grid-template-columns: repeat(3, minmax(4rem, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .stat-group-missiles {
@@ -80,9 +94,45 @@
   }
 }
 
+@media (max-width: 42rem) {
+  .ship-type .stats {
+    gap: var(--space-xs);
+  }
+
+  .stat-group {
+    gap: 0.1875rem;
+  }
+
+  .quantity {
+    margin-right: var(--space-xs);
+  }
+}
+
+/* Five cubes fit at 360px, but stepped inputs become cramped and a four-column
+   row leaves the fifth Systems/Cannons cube stranded. Use balanced 3 + 2 rows
+   for those editable groups; Missiles already fits its four cubes exactly.
+   Read-only NPC rows and Compact mode keep the denser 5-5-4 layout. */
+@media (max-width: 27rem) {
+  body:not(.no-steppers)
+    :is(.stat-group-core, .stat-group-weapons):has(
+      calc-stat-cube:not([disabled])
+    ) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 52.0625rem) {
   .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+  }
+
+  .stat-group-core,
+  .stat-group-weapons {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .stat-group-missiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   body:not(.no-steppers) .ship-type .stats {

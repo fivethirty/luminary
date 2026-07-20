@@ -29,16 +29,19 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     const nameSpan = this.querySelector('.ship-type-name') as HTMLSpanElement;
-    nameSpan.textContent =
+    const shipName =
       SHIP_NAMES[matchShipPreset(this.shipType.type, this.shipType.config)];
+    nameSpan.textContent = shipName;
+    removeBtn.setAttribute('aria-label', `Remove ${shipName}`);
 
-    this.bindSelectors();
+    this.bindSelectors(shipName);
   }
 
-  private bindSelectors() {
+  private bindSelectors(shipName: string) {
     const statsEditable = isPlayerShipType(this.shipType.type);
     const qtyInput = this.querySelector('calc-selector') as SelectorElement;
     if (qtyInput) {
+      qtyInput.label = `${shipName} quantity`;
       qtyInput.min = 1;
       qtyInput.max = SHIP_QUANTITY_LIMITS[this.shipType.type];
       qtyInput.value = this.shipType.quantity;
@@ -52,6 +55,7 @@ export class ShipTypeElement extends HTMLElement {
     const statConfigs: Array<{
       stat: string;
       label: string;
+      accessibleLabel?: string;
       sign?: string;
       getValue: () => number;
       setValue: (config: Partial<ShipConfig>, value: number) => void;
@@ -59,6 +63,7 @@ export class ShipTypeElement extends HTMLElement {
       {
         stat: 'initiative',
         label: 'Init',
+        accessibleLabel: 'initiative',
         getValue: () => this.shipType.config.initiative || 0,
         setValue: (config, value) => {
           config.initiative = value;
@@ -75,6 +80,7 @@ export class ShipTypeElement extends HTMLElement {
       {
         stat: 'computer',
         label: 'Comp',
+        accessibleLabel: 'computer',
         sign: '+',
         getValue: () => this.shipType.config.computers || 0,
         setValue: (config, value) => {
@@ -101,6 +107,7 @@ export class ShipTypeElement extends HTMLElement {
       {
         stat: 'rift-cannon',
         label: 'Rift',
+        accessibleLabel: 'rift cannon',
         getValue: () => this.shipType.config.rift || 0,
         setValue: (config, value) => {
           config.rift = value;
@@ -126,6 +133,7 @@ export class ShipTypeElement extends HTMLElement {
       statConfigs.push({
         stat: `${type}-cannon`,
         label: label,
+        accessibleLabel: `${type} cannon`,
         getValue: () => this.shipType.config.cannons?.[type] || 0,
         setValue: (config, value) => {
           const cannons = (config.cannons ??= {
@@ -144,6 +152,7 @@ export class ShipTypeElement extends HTMLElement {
       statConfigs.push({
         stat: `${type}-missile`,
         label: label,
+        accessibleLabel: `${type === 'ion' ? 'flux' : type} missile`,
         getValue: () => this.shipType.config.missiles?.[type] || 0,
         setValue: (config, value) => {
           const missiles = (config.missiles ??= {
@@ -158,33 +167,49 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     // Bind all stat cubes
-    statConfigs.forEach(({ stat, label, sign, getValue, setValue }) => {
-      const cube = this.querySelector(
-        `[data-stat="${stat}"]`
-      ) as StatCubeElement;
-      if (cube) {
-        cube.label = label;
-        if (sign) cube.sign = sign;
-        if (stat === 'plasma-missile') cube.step = 2;
-        if (stat === 'soliton-missile' || stat === 'antimatter-missile') {
-          cube.max = 1;
+    statConfigs.forEach(
+      ({ stat, label, accessibleLabel, sign, getValue, setValue }) => {
+        const cube = this.querySelector(
+          `[data-stat="${stat}"]`
+        ) as StatCubeElement;
+        if (cube) {
+          cube.label = label;
+          cube.accessibleLabel = `${shipName} ${accessibleLabel ?? label.toLowerCase()}`;
+          if (sign) cube.sign = sign;
+          if (stat === 'plasma-missile') cube.step = 2;
+          if (stat === 'soliton-missile' || stat === 'antimatter-missile') {
+            cube.max = 1;
+          }
+          const initialValue = getValue();
+          cube.value = initialValue;
+          if (cube.value !== initialValue) {
+            const config = cloneShipConfig(this.shipType.config);
+            setValue(config, cube.value);
+            updateShipType(this.fleetId, this.shipType.id, { config });
+          }
+          cube.disabled = !statsEditable;
+          cube.addEventListener('change', () => {
+            if (cube.disabled) return;
+            const config = cloneShipConfig(this.shipType.config);
+            setValue(config, cube.value);
+            updateShipType(this.fleetId, this.shipType.id, { config });
+          });
         }
-        const initialValue = getValue();
-        cube.value = initialValue;
-        if (cube.value !== initialValue) {
-          const config = cloneShipConfig(this.shipType.config);
-          setValue(config, cube.value);
-          updateShipType(this.fleetId, this.shipType.id, { config });
-        }
-        cube.disabled = !statsEditable;
-        cube.addEventListener('change', () => {
-          if (cube.disabled) return;
-          const config = cloneShipConfig(this.shipType.config);
-          setValue(config, cube.value);
-          updateShipType(this.fleetId, this.shipType.id, { config });
-        });
       }
-    });
+    );
+
+    this.querySelector('.stat-group-core')?.setAttribute(
+      'aria-label',
+      `${shipName} systems`
+    );
+    this.querySelector('.stat-group-weapons')?.setAttribute(
+      'aria-label',
+      `${shipName} cannons`
+    );
+    this.querySelector('.stat-group-missiles')?.setAttribute(
+      'aria-label',
+      `${shipName} missiles`
+    );
   }
 }
 

@@ -4,6 +4,7 @@ import './stat-cube.css';
 export class StatCubeElement extends HTMLElement {
   private _value: number = 0;
   private _label = '';
+  private _accessibleLabel = '';
   private _sign = '';
   private _disabled = false;
   private _max = 99;
@@ -97,6 +98,7 @@ export class StatCubeElement extends HTMLElement {
     this.applyInputConstraints();
     this.applyDisabledState();
     this.applyStepperState();
+    this.applyAccessibleLabels();
 
     this.addEventListener('click', (e) => {
       if (this.disabled) return;
@@ -124,6 +126,12 @@ export class StatCubeElement extends HTMLElement {
       if (e.data && !/^[0-9]+$/.test(e.data)) {
         e.preventDefault();
       }
+    });
+
+    this.input.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      this.adjustValue(e.key === 'ArrowUp' ? 1 : -1);
     });
 
     this.input.addEventListener('input', () => {
@@ -195,6 +203,26 @@ export class StatCubeElement extends HTMLElement {
 
     dec.disabled = this.disabled || this.value <= 0;
     inc.disabled = this.disabled || this.value >= this.effectiveMax();
+    if (this.input) {
+      this.input.setAttribute('aria-valuemin', '0');
+      this.input.setAttribute('aria-valuemax', String(this.effectiveMax()));
+      this.input.setAttribute('aria-valuenow', String(this.value));
+      this.input.setAttribute('aria-disabled', String(this.disabled));
+    }
+  }
+
+  private applyAccessibleLabels() {
+    if (!this.input) return;
+    const label = this.accessibleLabel || this.label || 'Stat';
+    this.input.setAttribute('aria-label', label);
+    this.querySelector('.stat-dec')?.setAttribute(
+      'aria-label',
+      `Decrease ${label}`
+    );
+    this.querySelector('.stat-inc')?.setAttribute(
+      'aria-label',
+      `Increase ${label}`
+    );
   }
 
   // Tap steps once; press-and-hold repeats. The repeat suppresses the click
@@ -243,6 +271,16 @@ export class StatCubeElement extends HTMLElement {
     if (labelEl) {
       labelEl.textContent = val;
     }
+    this.applyAccessibleLabels();
+  }
+
+  get accessibleLabel(): string {
+    return this._accessibleLabel;
+  }
+
+  set accessibleLabel(val: string) {
+    this._accessibleLabel = val;
+    this.applyAccessibleLabels();
   }
 
   // A sign glyph shown just before the value (e.g. '+' for computers, '−' for

@@ -25,6 +25,26 @@ describe('StatCubeElement', () => {
 
     const labelEl = cube.querySelector('label');
     expect(labelEl?.textContent).toBe('Hull');
+    expect(cube.querySelector('input')?.getAttribute('aria-label')).toBe(
+      'Hull'
+    );
+  });
+
+  test('uses contextual accessible labels for the field and steppers', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.label = 'Comp';
+    cube.accessibleLabel = 'Cruiser computer';
+    document.body.appendChild(cube);
+
+    expect(cube.querySelector('input')?.getAttribute('aria-label')).toBe(
+      'Cruiser computer'
+    );
+    expect(cube.querySelector('.stat-dec')?.getAttribute('aria-label')).toBe(
+      'Decrease Cruiser computer'
+    );
+    expect(cube.querySelector('.stat-inc')?.getAttribute('aria-label')).toBe(
+      'Increase Cruiser computer'
+    );
   });
 
   test('updates value through property', () => {
@@ -136,6 +156,20 @@ describe('StatCubeElement', () => {
     expect(inc.disabled).toBe(true);
     inc.click();
     expect(cube.value).toBe(99);
+  });
+
+  test('supports arrow keys on the spinbutton input', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const input = cube.querySelector('input') as HTMLInputElement;
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+    expect(cube.value).toBe(1);
+    expect(input.getAttribute('aria-valuenow')).toBe('1');
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    expect(cube.value).toBe(0);
+    expect(input.getAttribute('aria-valuenow')).toBe('0');
   });
 
   test('supports custom step and max constraints', () => {

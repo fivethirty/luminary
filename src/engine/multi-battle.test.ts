@@ -69,6 +69,31 @@ describe('MultiBattle', () => {
       expect(results[1].outcome).toBe(BattleOutcome.Attacker);
     });
 
+    test('credits destroyed hulls only to fleets in each engagement', () => {
+      const defender = new Fleet('defender', [
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
+      ]);
+      const attacker1 = new Fleet('attacker1', [
+        new Ship(
+          ShipType.Interceptor,
+          { initiative: 2, cannons: { ion: 1 } },
+          GUARANTEED_HIT
+        ),
+      ]);
+      const attacker2 = new Fleet('attacker2', [
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
+      ]);
+
+      const multiBattle = new MultiBattle([defender, attacker1, attacker2]);
+      multiBattle.run();
+
+      expect(multiBattle.getDestroyedShipsCreditedToFleet()).toEqual({
+        defender: {},
+        attacker1: { [ShipType.Interceptor]: 2 },
+        attacker2: {},
+      });
+    });
+
     test('stalemate is victory for defender', () => {
       const defender = new Fleet('defender', [
         new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
@@ -107,6 +132,10 @@ describe('MultiBattle', () => {
       const remaining = multiBattle.getRemainingFleets();
       expect(remaining).toHaveLength(1);
       expect(remaining[0]).toBe(defender);
+      expect(multiBattle.getDestroyedShipsCreditedToFleet()).toEqual({
+        attacker1: { [ShipType.Cruiser]: 1 },
+        attacker2: { [ShipType.Interceptor]: 1 },
+      });
     });
 
     test('winning fleet carries damage between battles', () => {

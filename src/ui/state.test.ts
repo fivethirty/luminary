@@ -156,6 +156,17 @@ describe('State', () => {
   });
 
   describe('addOrSwapShipPreset', () => {
+    test('adds player ships with their operating blueprint', () => {
+      const cruiser = addOrSwapShipPreset('fleet-0', 'cruiser')!;
+
+      expect(cruiser.config).toMatchObject({
+        hull: 1,
+        computers: 1,
+        initiative: 2,
+        cannons: { ion: 1 },
+      });
+    });
+
     test('replaces an incompatible composition with one notification', () => {
       addOrSwapShipPreset('fleet-0', 'cruiser');
       addOrSwapShipPreset('fleet-0', 'interceptor');
@@ -311,6 +322,60 @@ describe('State', () => {
 
       expect(state.fleets[1].factionId).toBe('rho-indi');
       expect(state.fleets[1].colorId).toBe('blue');
+    });
+
+    test('migrates an untouched operating blueprint when faction changes', () => {
+      const interceptor = addOrSwapShipPreset('fleet-1', 'interceptor')!;
+
+      setFleetFaction('fleet-1', 'orion');
+
+      expect(interceptor.config).toMatchObject({
+        shields: 1,
+        initiative: 4,
+        cannons: { ion: 1 },
+      });
+    });
+
+    test('migrates an untouched cached blueprint when faction changes', () => {
+      const interceptor = addOrSwapShipPreset('fleet-1', 'interceptor')!;
+      removeShipType('fleet-1', interceptor.id);
+
+      setFleetFaction('fleet-1', 'orion');
+      const restored = addOrSwapShipPreset('fleet-1', 'interceptor')!;
+
+      expect(restored.config).toMatchObject({
+        shields: 1,
+        initiative: 4,
+        cannons: { ion: 1 },
+      });
+    });
+
+    test('preserves a customized cached blueprint when faction changes', () => {
+      const interceptor = addOrSwapShipPreset('fleet-1', 'interceptor')!;
+      updateShipType('fleet-1', interceptor.id, {
+        config: { ...interceptor.config, hull: 2 },
+      });
+      removeShipType('fleet-1', interceptor.id);
+
+      setFleetFaction('fleet-1', 'orion');
+      const restored = addOrSwapShipPreset('fleet-1', 'interceptor')!;
+
+      expect(restored.config.hull).toBe(2);
+      expect(restored.config.shields).toBe(0);
+      expect(restored.config.initiative).toBe(3);
+    });
+
+    test('preserves a customized blueprint when faction changes', () => {
+      const interceptor = addOrSwapShipPreset('fleet-1', 'interceptor')!;
+      updateShipType('fleet-1', interceptor.id, {
+        config: { ...interceptor.config, hull: 2 },
+      });
+
+      setFleetFaction('fleet-1', 'orion');
+
+      expect(interceptor.config.hull).toBe(2);
+      expect(interceptor.config.shields).toBe(0);
+      expect(interceptor.config.initiative).toBe(3);
     });
 
     test('swaps board colors when another fleet already uses the selected color', () => {

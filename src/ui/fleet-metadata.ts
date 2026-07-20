@@ -3,14 +3,65 @@ import { isNpcComposition } from '@ui/fleet-rules';
 
 export const MAX_FLEETS = 7;
 
+// Physical player colors stay recognizable across themes, while the light
+// result pair is dark enough for text and its tint is safe behind that text.
 export const FLEET_COLORS = [
-  { id: 'red', label: 'Red', color: '#b91f2c', soft: '#3f171c' },
-  { id: 'yellow', label: 'Yellow', color: '#d9ae32', soft: '#3f3214' },
-  { id: 'green', label: 'Green', color: '#2f8f4e', soft: '#173822' },
-  { id: 'blue', label: 'Blue', color: '#2f6fb7', soft: '#172c47' },
-  { id: 'white', label: 'White', color: '#f2efe3', soft: '#3d3a31' },
-  { id: 'black', label: 'Black', color: '#575a61', soft: '#181a20' },
-  { id: 'neutral', label: 'Neutral', color: '#a87845', soft: '#342414' },
+  {
+    id: 'red',
+    label: 'Red',
+    color: '#b91f2c',
+    soft: '#3f171c',
+    lightResult: '#a61b29',
+    lightResultSoft: '#f7e1e4',
+  },
+  {
+    id: 'yellow',
+    label: 'Yellow',
+    color: '#d9ae32',
+    soft: '#3f3214',
+    lightResult: '#765900',
+    lightResultSoft: '#f3eac8',
+  },
+  {
+    id: 'green',
+    label: 'Green',
+    color: '#2f8f4e',
+    soft: '#173822',
+    lightResult: '#176b3a',
+    lightResultSoft: '#dcefe3',
+  },
+  {
+    id: 'blue',
+    label: 'Blue',
+    color: '#2f6fb7',
+    soft: '#172c47',
+    lightResult: '#155fa0',
+    lightResultSoft: '#dceafb',
+  },
+  {
+    id: 'white',
+    label: 'White',
+    color: '#f2efe3',
+    soft: '#3d3a31',
+    lightResult: '#586270',
+    lightResultSoft: '#edf0f3',
+  },
+  {
+    id: 'black',
+    label: 'Black',
+    color: '#575a61',
+    soft: '#181a20',
+    lightResult: '#23262d',
+    lightResultSoft: '#e1e4e8',
+  },
+  {
+    id: 'neutral',
+    label: 'Neutral',
+    color: '#a87845',
+    soft: '#342414',
+    lightResult: '#8a4a12',
+    lightResultSoft: '#f2e3d4',
+  },
 ] as const;
 
 export type FleetColorId = (typeof FLEET_COLORS)[number]['id'];

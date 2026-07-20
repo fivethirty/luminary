@@ -61,6 +61,7 @@ export class FleetElement extends HTMLElement {
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     const canRemove = this.getAttribute('can-remove') !== 'false';
+    removeBtn.setAttribute('aria-label', `Remove ${this.displayName()} fleet`);
     if (!canRemove) {
       removeBtn.disabled = true;
     } else {
@@ -86,11 +87,12 @@ export class FleetElement extends HTMLElement {
     const shipSelector = this.querySelector(
       '.ship-selector'
     ) as HTMLSelectElement;
+    shipSelector.selectedIndex = -1;
     shipSelector.addEventListener('change', () => {
       const value = shipSelector.value;
       if (value) {
         this.addShip(value as ShipDropdownOption);
-        shipSelector.value = '';
+        shipSelector.selectedIndex = -1;
       }
     });
 
@@ -123,8 +125,8 @@ export class FleetElement extends HTMLElement {
     const fleetRoot = this.querySelector('.fleet') as HTMLElement | null;
     if (!fleetRoot) return;
     const color = fleetColor(this.fleet.colorId, this.fleetIndex);
-    fleetRoot.style.setProperty('--fleet-accent', color.color);
-    fleetRoot.style.setProperty('--fleet-accent-soft', color.soft);
+    fleetRoot.style.setProperty('--fleet-accent-source', color.color);
+    fleetRoot.style.setProperty('--fleet-accent-soft-source', color.soft);
     fleetRoot.classList.toggle(
       'fleet-neutral',
       this.fleet.colorId === 'neutral'
@@ -172,6 +174,10 @@ export class FleetElement extends HTMLElement {
     const settingsBtn = this.querySelector(
       '.fleet-settings-btn'
     ) as HTMLButtonElement;
+    settingsBtn.setAttribute(
+      'aria-label',
+      `Edit ${this.displayName()} faction and color`
+    );
     settingsBtn.addEventListener('click', () => {
       if (typeof dialog.showModal === 'function') {
         dialog.showModal();
@@ -252,6 +258,10 @@ export class FleetElement extends HTMLElement {
     const moveDownBtn = this.querySelector(
       '.move-down-btn'
     ) as HTMLButtonElement;
+
+    const fleetName = this.displayName();
+    moveUpBtn.setAttribute('aria-label', `Move ${fleetName} up`);
+    moveDownBtn.setAttribute('aria-label', `Move ${fleetName} down`);
 
     moveUpBtn.disabled = fleetIndex === 0;
     moveDownBtn.disabled = fleetIndex >= fleetCount - 1;
@@ -340,15 +350,20 @@ export class FleetElement extends HTMLElement {
         variantData.type,
         !isAttacker
       );
-      option.hidden = attackerForbidden;
+      // iOS can expose hidden native options. Components are freshly rendered
+      // after a role change, so remove illegal choices from this picker.
+      if (attackerForbidden) {
+        option.remove();
+        return;
+      }
       // Types with variants (Ancient/Guardian/GCDS) stay selectable while
       // fielded — picking a variant swaps the ship's stats. Single-variant
       // types would be duplicates, so those disable.
       const hasVariants = presetKeysForType(variantData.type).length > 1;
       option.disabled =
-        attackerForbidden ||
-        (existingTypes.includes(variantData.type) && !hasVariants);
+        existingTypes.includes(variantData.type) && !hasVariants;
     });
+    shipSelector.selectedIndex = -1;
   }
 
   private addShip(dropdownOption: ShipDropdownOption) {
@@ -374,32 +389,28 @@ export class FleetElement extends HTMLElement {
       '.planner-type-select'
     ) as HTMLSelectElement | null;
     if (!select) return;
-    let npcOption = select.querySelector(
-      'option[value="npc"]'
-    ) as HTMLOptionElement | null;
     const types = this.fleet.shipTypes;
     const allAi =
       types.length > 0 && types.every((st) => !isPlayerShipType(st.type));
 
-    if (allAi && !npcOption) {
-      npcOption = document.createElement('option');
+    // Rebuild with only applicable choices. Hidden options still appear in
+    // some iOS pickers, even when the select itself is disabled.
+    select.innerHTML = '';
+    if (allAi) {
+      const npcOption = document.createElement('option');
       npcOption.value = 'npc';
       npcOption.textContent = 'NPC';
       select.appendChild(npcOption);
-    } else if (!allAi) {
-      npcOption?.remove();
-    }
-
-    select.querySelectorAll('option:not([value="npc"])').forEach((opt) => {
-      const option = opt as HTMLOptionElement;
-      option.hidden = allAi;
-      option.disabled = allAi;
-    });
-
-    if (allAi) {
       select.value = 'npc';
       select.disabled = true;
     } else {
+      const dpsOption = document.createElement('option');
+      dpsOption.value = 'dps';
+      dpsOption.textContent = 'Max DPS removal';
+      const optimalOption = document.createElement('option');
+      optimalOption.value = 'optimal';
+      optimalOption.textContent = 'Optimal';
+      select.append(dpsOption, optimalOption);
       select.disabled = false;
       select.value = this.fleet.plannerType;
     }

@@ -18,6 +18,12 @@ const DEFAULT_RESULTS = {
   drawProbability: 0,
   expectedSurvivors: {},
   survivorDistribution: [],
+  materialLosses: {},
+  populationBombardment: { byAttacker: {} },
+  reputationDraws: {
+    available: false as const,
+    reason: 'no-outcomes' as const,
+  },
   timeTaken: 1000,
 };
 

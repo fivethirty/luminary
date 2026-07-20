@@ -13,6 +13,7 @@
       content="Eclipse battle calculator, Eclipse Second Dawn, Eclipse fleet simulator, Eclipse board game, battle calculator, fleet combat, Eclipse strategy, board game calculator, Eclipse combat simulator"
     />
     <meta name="author" content="Luminary" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="canonical" href="https://luminary.baysoft.dev/" />
 
     <!-- Open Graph / Facebook -->
@@ -105,7 +106,7 @@
           <div id="fleets"></div>
           <div class="add-fleet-row">
             <button id="add-fleet-btn">+ Fleet</button>
-            <button id="clear-all-btn" class="danger">Clear</button>
+            <button id="clear-all-btn" class="danger">Clear setup</button>
           </div>
         </section>
 
@@ -115,21 +116,37 @@
         </section>
 
         <div class="controls">
-          <select id="recent-battles" class="standard-select" hidden>
-            <option value="">Recent battles…</option>
-          </select>
+          <label id="recent-battles-control" class="command-select" hidden>
+            <span>Recent battles…</span>
+            <select
+              id="recent-battles"
+              aria-label="Open a recent battle"
+            ></select>
+          </label>
         </div>
-        <div class="steppers-control">
-          <span id="steppers-toggle-label">UI Controls</span>
-          <div
-            class="steppers-toggle"
-            id="steppers-toggle"
-            role="group"
-            aria-labelledby="steppers-toggle-label"
-          >
-            <button type="button" data-steppers="on">Steppers</button>
-            <button type="button" data-steppers="off">Compact</button>
+        <div class="preferences-row">
+          <div class="steppers-control">
+            <span id="steppers-toggle-label" class="preference-label"
+              >UI Controls</span
+            >
+            <div
+              class="steppers-toggle"
+              id="steppers-toggle"
+              role="group"
+              aria-labelledby="steppers-toggle-label"
+            >
+              <button type="button" data-steppers="on">Steppers</button>
+              <button type="button" data-steppers="off">Compact</button>
+            </div>
           </div>
+          <label class="theme-control" for="theme-select">
+            <span class="preference-label">Theme</span>
+            <select id="theme-select" class="standard-select">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -181,12 +198,19 @@
       </div>
     </main>
 
-    <div id="live-bar" class="live-bar" hidden>
-      <div class="live-bar-row">
+    <button
+      id="live-bar"
+      class="live-bar"
+      type="button"
+      aria-live="polite"
+      aria-atomic="true"
+      hidden
+    >
+      <span class="live-bar-row">
         <span class="live-label">Live odds</span>
         <span class="live-verdict"></span>
-      </div>
-      <div class="live-odds"></div>
-    </div>
+      </span>
+      <span class="live-odds"></span>
+    </button>
   </body>
 </html>

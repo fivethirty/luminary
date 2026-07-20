@@ -1,6 +1,7 @@
 import { CombatRunner } from '@calc/combat-runner';
 import { Fleet } from '@calc/fleet';
 import { Ship } from '@calc/ship';
+import { calculatePopulationBombardment } from '@calc/population-bombardment';
 import '@ui/components/fleet';
 import type { FleetElement } from '@ui/components/fleet';
 import '@ui/components/results';
@@ -12,13 +13,17 @@ import {
   replaceFleets,
   setSimulationResults,
 } from '@ui/state';
-import type { PlannerType } from '@ui/state';
+import type { PlannerType, SurvivorDistributionEntry } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
 import { deriveFleetNames, fleetColor, MAX_FLEETS } from '@ui/fleet-metadata';
 import {
   applySteppersPreference,
+  applyThemePreference,
   loadSteppersPreference,
+  loadThemePreference,
   saveSteppersPreference,
+  saveThemePreference,
+  type ThemePreference,
 } from '@ui/preferences';
 import {
   loadRecentBattles,
@@ -27,6 +32,10 @@ import {
   saveSetup,
 } from '@ui/storage';
 import { resultClassNameForFleet } from '@ui/result-presentation';
+import {
+  calculateMaterialLosses,
+  calculateReputationDrawDistributions,
+} from '@ui/battle-impact';
 import { DamageType } from 'src/constants';
 
 const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
@@ -151,6 +160,9 @@ function simulate() {
   updateFleetNames();
   const engineFleets = buildEngineFleets();
   const result = new CombatRunner().run(engineFleets);
+  const participatingFleets = state.fleets.filter(fleetHasShips);
+  const survivorDistribution =
+    result.survivorDistribution as SurvivorDistributionEntry[];
   const common = {
     // Engine maps remain keyed by stable fleet IDs. Components translate those
     // IDs to the current display names only while rendering.
@@ -160,10 +172,23 @@ function simulate() {
       string,
       Record<string, number>
     >,
-    survivorDistribution: result.survivorDistribution as {
-      probability: number;
-      survivors: Record<string, Record<string, number>>;
-    }[],
+    survivorDistribution,
+    materialLosses: calculateMaterialLosses(
+      participatingFleets,
+      survivorDistribution
+    ),
+    populationBombardment: calculatePopulationBombardment(
+      engineFleets,
+      survivorDistribution,
+      {
+        defenderFleetName: state.fleets[0]?.id,
+        automaticWipe: state.fleets[0]?.factionId === 'planta',
+      }
+    ),
+    reputationDraws: calculateReputationDrawDistributions(
+      participatingFleets,
+      survivorDistribution
+    ),
     timeTaken: result.timeTaken,
     targeting: result.targeting,
     tier: result.tier,
@@ -247,18 +272,24 @@ function renderLiveBar() {
     probability: number;
     className: string;
     color?: string;
-  }> = state.fleets.map((fleet, index) => ({
-    label: fleet.name,
-    probability: results.victoryProbability[fleet.id] ?? 0,
-    className: resultClassNameForFleet(index),
-    color: fleetColor(fleet.colorId, index).color,
-  }));
+    lightColor?: string;
+  }> = state.fleets.map((fleet, index) => {
+    const color = fleetColor(fleet.colorId, index);
+    return {
+      label: fleet.name,
+      probability: results.victoryProbability[fleet.id] ?? 0,
+      className: resultClassNameForFleet(index),
+      color: color.color,
+      lightColor: color.lightResult,
+    };
+  });
   if (results.drawProbability > 0) {
     outcomes.push({
       label: 'Draw',
       probability: results.drawProbability,
       className: resultClassNameForFleet(null, true),
       color: undefined,
+      lightColor: undefined,
     });
   }
 
@@ -268,7 +299,18 @@ function renderLiveBar() {
   const verdict = bar.querySelector('.live-verdict')!;
   verdict.textContent = `${leader.label} ${(leader.probability * 100).toFixed(1)}%`;
   verdict.className = `live-verdict ${leader.className}`;
-  (verdict as HTMLElement).style.color = leader.color ?? '';
+  (verdict as HTMLElement).style.setProperty(
+    '--fleet-result-source',
+    leader.color ?? ''
+  );
+  (verdict as HTMLElement).style.setProperty(
+    '--fleet-result-light-source',
+    leader.lightColor ?? ''
+  );
+  bar.setAttribute(
+    'aria-label',
+    `View full results. ${leader.label} ${(leader.probability * 100).toFixed(1)} percent`
+  );
 
   const odds = bar.querySelector('.live-odds')!;
   odds.innerHTML = '';
@@ -278,7 +320,11 @@ function renderLiveBar() {
       const segment = document.createElement('i');
       segment.className = outcome.className;
       segment.style.width = `${outcome.probability * 100}%`;
-      segment.style.color = outcome.color ?? '';
+      segment.style.setProperty('--fleet-result-source', outcome.color ?? '');
+      segment.style.setProperty(
+        '--fleet-result-light-source',
+        outcome.lightColor ?? ''
+      );
       odds.appendChild(segment);
     });
 
@@ -291,16 +337,12 @@ function refreshRecentsPicker() {
   const select = document.getElementById(
     'recent-battles'
   ) as HTMLSelectElement | null;
+  const control = document.getElementById('recent-battles-control');
   if (!select) return;
 
   const recents = loadRecentBattles();
-  select.hidden = recents.length === 0;
+  if (control) control.hidden = recents.length === 0;
   select.innerHTML = '';
-
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = 'Recent battles…';
-  select.appendChild(placeholder);
 
   // A width:auto <select> grows to fit its widest option, so multi-fleet
   // matchups overflow on phones. Abbreviate ship names on narrow screens to
@@ -315,7 +357,7 @@ function refreshRecentsPicker() {
     option.textContent = fleets ? battleLabel(fleets, short) : recent.label;
     select.appendChild(option);
   });
-  select.value = '';
+  select.selectedIndex = -1;
 }
 
 function handleRouteChange() {
@@ -389,13 +431,27 @@ function init(): () => void {
     });
   });
 
+  const themeSelect = document.getElementById(
+    'theme-select'
+  ) as HTMLSelectElement | null;
+  const theme = loadThemePreference();
+  applyThemePreference(theme);
+  if (themeSelect) {
+    themeSelect.value = theme;
+    listen(themeSelect, 'change', () => {
+      const nextTheme = themeSelect.value as ThemePreference;
+      saveThemePreference(nextTheme);
+      applyThemePreference(nextTheme);
+    });
+  }
+
   const recentsSelect = document.getElementById(
     'recent-battles'
   ) as HTMLSelectElement | null;
   if (recentsSelect) {
     listen(recentsSelect, 'change', () => {
       const fleets = parseBattleQuery(recentsSelect.value);
-      recentsSelect.value = '';
+      recentsSelect.selectedIndex = -1;
       if (!fleets) return;
       replaceFleets(fleets);
       renderFleets();

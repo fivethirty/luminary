@@ -116,4 +116,20 @@ describe('Selector', () => {
     element.value = 7;
     expect(value?.textContent).toBe('7');
   });
+
+  test('gives quantity controls contextual accessible labels', () => {
+    element.label = 'Cruiser quantity';
+    const { value, increment, decrement } = getElements();
+
+    expect(element.querySelector('.selector')?.getAttribute('aria-label')).toBe(
+      'Cruiser quantity'
+    );
+    expect(decrement.getAttribute('aria-label')).toBe(
+      'Decrease Cruiser quantity'
+    );
+    expect(increment.getAttribute('aria-label')).toBe(
+      'Increase Cruiser quantity'
+    );
+    expect(value?.getAttribute('aria-label')).toBe('Cruiser quantity: 0');
+  });
 });

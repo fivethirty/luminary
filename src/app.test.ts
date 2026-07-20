@@ -12,7 +12,9 @@ import {
 import { monteCarloResults } from '@ui/test-helpers';
 import {
   loadSteppersPreference,
+  loadThemePreference,
   saveSteppersPreference,
+  saveThemePreference,
 } from '@ui/preferences';
 import { init } from './app';
 import { exactDpsPlannerOverrides } from '@calc/exact-combat';
@@ -173,6 +175,7 @@ describe('App', () => {
     const clearBtn = document.getElementById(
       'clear-all-btn'
     ) as HTMLButtonElement;
+    expect(clearBtn.textContent).toBe('Clear setup');
     clearBtn.click();
 
     expect(state.fleets.length).toBe(2);
@@ -198,6 +201,15 @@ describe('App', () => {
     expect(state.simulationResults!.victoryProbability).toBeDefined();
     expect(state.simulationResults!.drawProbability).toBeDefined();
     expect(state.simulationResults!.expectedSurvivors).toBeDefined();
+    expect(
+      state.simulationResults!.materialLosses[state.fleets[0].id].totalCost
+    ).toBe(3);
+    expect(
+      state.simulationResults!.populationBombardment.byAttacker[
+        state.fleets[1].id
+      ]
+    ).toHaveLength(7);
+    expect(state.simulationResults!.reputationDraws.available).toBe(true);
     expect(state.simulationResults!.tier).toBe('exact-dps');
     expect(state.simulationResults!.methodLabel).toBe('Exact · DPS targeting');
     expect(state.simulationResults!.diagnostics.attempts).not.toHaveLength(0);
@@ -208,6 +220,8 @@ describe('App', () => {
 
     const liveBar = document.getElementById('live-bar')!;
     expect(liveBar.hidden).toBe(false);
+    expect(liveBar.tagName).toBe('BUTTON');
+    expect(liveBar.getAttribute('aria-label')).toContain('View full results');
     expect(liveBar.querySelector('.live-verdict')!.textContent).not.toBe('');
   });
 
@@ -255,6 +269,31 @@ describe('App', () => {
     expect(
       state.simulationResults!.victoryProbability[state.fleets[2].id]
     ).toBeCloseTo(25 / 121, 9);
+    expect(state.simulationResults!.reputationDraws.available).toBe(true);
+    if (state.simulationResults!.reputationDraws.available) {
+      expect(
+        Object.keys(state.simulationResults!.reputationDraws.byFleet)
+      ).toEqual(state.fleets.map((fleet) => fleet.id));
+    }
+  });
+
+  test('treats attacker victory over Planta as an automatic population wipe', async () => {
+    setFleetFaction(state.fleets[0].id, 'planta');
+    addShipType(state.fleets[0].id, ShipType.Interceptor);
+    addShipType(state.fleets[1].id, ShipType.Cruiser, {
+      computers: 4,
+      cannons: { ion: 1 },
+    });
+
+    await settle();
+
+    const results = state.simulationResults!;
+    const attackerWin = results.victoryProbability[state.fleets[1].id];
+    const attackerBombardment =
+      results.populationBombardment.byAttacker[state.fleets[1].id];
+    for (const bucket of attackerBombardment.slice(1)) {
+      expect(bucket.atLeastProbability).toBeCloseTo(attackerWin, 12);
+    }
   });
 
   test('auto-simulates populated fleets while an added fleet is empty', async () => {
@@ -528,6 +567,8 @@ describe('App shared battle links', () => {
     init();
 
     expect(state.fleets[1].shipTypes[0].type).toBe(ShipType.Cruiser);
+    expect(state.fleets[1].shipTypes[0].config.hull).toBe(0);
+    expect(state.fleets[1].shipTypes[0].config.cannons?.ion).toBe(0);
   });
 
   test('does not simulate a shared battle with an empty fleet', async () => {
@@ -548,14 +589,18 @@ describe('App shared battle links', () => {
     const select = document.getElementById(
       'recent-battles'
     ) as HTMLSelectElement;
-    expect(select.hidden).toBe(false);
+    expect(document.getElementById('recent-battles-control')?.hidden).toBe(
+      false
+    );
     const options = Array.from(select.querySelectorAll('option'));
-    expect(options.length).toBe(2);
-    expect(options[1].textContent).toBe('3× Interceptor vs 2× Cruiser');
+    expect(options).toHaveLength(1);
+    expect(options[0].value).not.toBe('');
+    expect(options[0].textContent).toBe('3× Interceptor vs 2× Cruiser');
+    expect(select.selectedIndex).toBe(-1);
 
     // Picking a recent battle loads it.
     resetFleets();
-    select.value = options[1].value;
+    select.value = options[0].value;
     select.dispatchEvent(new Event('change'));
     expect(state.fleets[0].shipTypes[0].type).toBe(ShipType.Interceptor);
     expect(state.fleets[0].shipTypes[0].quantity).toBe(3);
@@ -577,7 +622,7 @@ describe('App shared battle links', () => {
         'recent-battles'
       ) as HTMLSelectElement;
       const options = Array.from(select.querySelectorAll('option'));
-      expect(options[1].textContent).toBe('3× I vs 2× C');
+      expect(options[0].textContent).toBe('3× I vs 2× C');
     } finally {
       window.matchMedia = realMatchMedia;
     }
@@ -611,6 +656,20 @@ describe('App shared battle links', () => {
 
     resetFleets();
     expect(window.location.search).toBe('');
+  });
+
+  test('serializes UI operating blueprints explicitly for v1 link safety', () => {
+    init();
+    const attackerSelector = document.querySelectorAll<HTMLSelectElement>(
+      'calc-fleet .ship-selector'
+    )[1];
+
+    attackerSelector.value = 'cruiser';
+    attackerSelector.dispatchEvent(new Event('change'));
+
+    expect(window.location.search).toBe(
+      '?v=1&a.cruiser=1&a.cruiser.hull=1&a.cruiser.comp=1&a.cruiser.ion=1'
+    );
   });
 
   test('keeps the URL canonical after loading a shared battle', () => {
@@ -668,5 +727,43 @@ describe('App steppers preference', () => {
         ?.classList.contains('active')
     ).toBe(true);
     expect(document.body.classList.contains('no-steppers')).toBe(true);
+  });
+});
+
+describe('App theme preference', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetFleets();
+    setSimulationResults(null);
+    document.cookie = 'luminary:theme=; Max-Age=0; Path=/';
+    delete document.documentElement.dataset.theme;
+    document.documentElement.innerHTML = indexHtml;
+  });
+
+  afterEach(() => {
+    document.cookie = 'luminary:theme=; Max-Age=0; Path=/';
+    delete document.documentElement.dataset.theme;
+  });
+
+  test('follows the system by default and saves an explicit theme', () => {
+    init();
+
+    const select = document.getElementById('theme-select') as HTMLSelectElement;
+    expect(select.value).toBe('system');
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+
+    select.value = 'light';
+    select.dispatchEvent(new Event('change'));
+    expect(loadThemePreference()).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  test('restores an explicit saved theme', () => {
+    saveThemePreference('dark');
+    init();
+
+    const select = document.getElementById('theme-select') as HTMLSelectElement;
+    expect(select.value).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
   });
 });

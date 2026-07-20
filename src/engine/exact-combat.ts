@@ -1,7 +1,11 @@
 import { DamageType } from 'src/constants';
 import { Fleet } from './fleet';
 import { Ship, ShipType } from './ship';
-import { CombatOutcomeSummary } from './combat-result';
+import type {
+  CombatOutcomeSummary,
+  DestroyedShipsCreditedToFleet,
+  ShipCountByType,
+} from './combat-result';
 import { BattleModel, Role } from './battle-state';
 import {
   AssignmentMode,
@@ -59,8 +63,14 @@ type FleetState = {
 };
 
 type ExactBranch = {
-  probability: number;
   fleets: FleetState[];
+  outcomeVariants: Map<string, OutcomeVariant>;
+};
+
+type OutcomeVariant = {
+  probability: number;
+  destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
+  retreatedSurvivors: Record<string, ShipCountByType>;
 };
 
 /**
@@ -136,6 +146,12 @@ export function computeExactBattle(
     },
     survivorDistribution: outcome.survivorDistribution.map((entry) => ({
       probability: entry.probability,
+      lastFleetStanding: standingFleetForTwoFleetOutcome(
+        defender.name,
+        attacker.name,
+        entry.defenderSurvivors as ShipCountByType,
+        entry.attackerSurvivors as ShipCountByType
+      ),
       survivors: {
         [defender.name]: entry.defenderSurvivors as Partial<
           Record<ShipType, number>
@@ -143,6 +159,16 @@ export function computeExactBattle(
         [attacker.name]: entry.attackerSurvivors as Partial<
           Record<ShipType, number>
         >,
+      },
+      destroyedShipsCreditedToFleet: {
+        [defender.name]: destroyedShipCounts(
+          livingShipCounts(attacker.getRoster()),
+          entry.attackerSurvivors as ShipCountByType
+        ),
+        [attacker.name]: destroyedShipCounts(
+          livingShipCounts(defender.getRoster()),
+          entry.defenderSurvivors as ShipCountByType
+        ),
       },
     })),
     timeTaken: Date.now() - start,
@@ -170,10 +196,21 @@ export function computeExactCombat(
   }
 
   const names = fleets.map((fleet) => fleet.name);
+  const initialCredits: DestroyedShipsCreditedToFleet = {};
+  const initialRetreatedSurvivors: Record<string, ShipCountByType> = {};
   let branches: ExactBranch[] = [
     {
-      probability: 1,
       fleets: fleets.map(fleetStateFromFleet),
+      outcomeVariants: new Map([
+        [
+          outcomeVariantKey(initialCredits, initialRetreatedSurvivors),
+          {
+            probability: 1,
+            destroyedShipsCreditedToFleet: initialCredits,
+            retreatedSurvivors: initialRetreatedSurvivors,
+          },
+        ],
+      ]),
     },
   ];
 
@@ -213,14 +250,51 @@ export function computeExactCombat(
 
       for (const entry of solved.entries) {
         const fleetsAfter = branch.fleets.slice(0, secondLastIndex);
+        const retreatedInEngagement: Record<string, ShipCountByType> = {};
         if (entry.outcome === 'AttackerWins') {
           fleetsAfter.push(withHp(attackerState, entry.hpA));
+          retainLivingRemovedFleet(
+            retreatedInEngagement,
+            defenderState,
+            entry.hpB
+          );
         } else if (entry.outcome === 'DefenderWins') {
           fleetsAfter.push(withHp(defenderState, entry.hpB));
+          retainLivingRemovedFleet(
+            retreatedInEngagement,
+            attackerState,
+            entry.hpA
+          );
+        } else {
+          retainLivingRemovedFleet(
+            retreatedInEngagement,
+            defenderState,
+            entry.hpB
+          );
+          retainLivingRemovedFleet(
+            retreatedInEngagement,
+            attackerState,
+            entry.hpA
+          );
         }
+        const destroyedInEngagement: DestroyedShipsCreditedToFleet = {
+          [attackerState.name]: destroyedShipCounts(
+            livingShipCounts(defenderState.ships),
+            survivorCountsAtHp(defenderState.ships, entry.hpB)
+          ),
+          [defenderState.name]: destroyedShipCounts(
+            livingShipCounts(attackerState.ships),
+            survivorCountsAtHp(attackerState.ships, entry.hpA)
+          ),
+        };
         nextBranches.push({
-          probability: branch.probability * entry.probability,
           fleets: fleetsAfter,
+          outcomeVariants: advanceOutcomeVariants(
+            branch.outcomeVariants,
+            destroyedInEngagement,
+            retreatedInEngagement,
+            entry.probability
+          ),
         });
       }
     }
@@ -408,7 +482,7 @@ function mergeBranches(branches: ExactBranch[]): ExactBranch[] {
     const key = branchKey(branch.fleets);
     const existing = merged.get(key);
     if (existing) {
-      existing.probability += branch.probability;
+      mergeOutcomeVariants(existing.outcomeVariants, branch.outcomeVariants);
     } else {
       merged.set(key, branch);
     }
@@ -446,37 +520,54 @@ function summarizeBranches(
     string,
     {
       probability: number;
+      lastFleetStanding: string | null;
       survivors: Record<string, Partial<Record<ShipType, number>>>;
+      destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
     }
   >();
   let drawPercentage = 0;
 
   for (const branch of branches) {
-    const survivors = survivorsForNames(names, branch.fleets);
-    const compositionKey = survivorCompositionKey(names, survivors);
-    const existing = compositionMass.get(compositionKey);
-    if (existing) {
-      existing.probability += branch.probability;
-    } else {
-      compositionMass.set(compositionKey, {
-        probability: branch.probability,
-        survivors,
-      });
-    }
+    const standingFleetName = branch.fleets[0]?.name ?? null;
+    for (const variant of branch.outcomeVariants.values()) {
+      const survivors = survivorsForNames(
+        names,
+        branch.fleets,
+        variant.retreatedSurvivors
+      );
+      const survivorKey = survivorCompositionKey(names, survivors);
+      const compositionKey = `${survivorKey}||standing:${
+        standingFleetName ?? 'draw'
+      }||variant:${outcomeVariantKey(
+        variant.destroyedShipsCreditedToFleet,
+        variant.retreatedSurvivors
+      )}`;
+      const existing = compositionMass.get(compositionKey);
+      if (existing) {
+        existing.probability += variant.probability;
+      } else {
+        compositionMass.set(compositionKey, {
+          probability: variant.probability,
+          lastFleetStanding: standingFleetName,
+          survivors,
+          destroyedShipsCreditedToFleet: variant.destroyedShipsCreditedToFleet,
+        });
+      }
 
-    if (branch.fleets.length === 0) {
-      drawPercentage += branch.probability;
-      continue;
-    }
+      if (branch.fleets.length === 0) {
+        drawPercentage += variant.probability;
+        continue;
+      }
 
-    const winner = branch.fleets[0];
-    lastFleetStanding[winner.name] += branch.probability;
-    const counts = survivorCounts(winner);
-    for (const [type, count] of Object.entries(counts)) {
-      const shipType = type as ShipType;
-      expectedSurvivorSums[winner.name][shipType] =
-        (expectedSurvivorSums[winner.name][shipType] ?? 0) +
-        branch.probability * count!;
+      const winner = branch.fleets[0];
+      lastFleetStanding[winner.name] += variant.probability;
+      const counts = survivorCounts(winner);
+      for (const [type, count] of Object.entries(counts)) {
+        const shipType = type as ShipType;
+        expectedSurvivorSums[winner.name][shipType] =
+          (expectedSurvivorSums[winner.name][shipType] ?? 0) +
+          variant.probability * count!;
+      }
     }
   }
 
@@ -511,7 +602,8 @@ function summarizeBranches(
 
 function survivorsForNames(
   names: string[],
-  fleets: FleetState[]
+  fleets: FleetState[],
+  retreatedSurvivors: Record<string, ShipCountByType>
 ): Record<string, Partial<Record<ShipType, number>>> {
   const survivors = Object.fromEntries(
     names.map((name) => [name, {}])
@@ -519,17 +611,185 @@ function survivorsForNames(
   for (const fleet of fleets) {
     survivors[fleet.name] = survivorCounts(fleet);
   }
+  for (const [fleetName, counts] of Object.entries(retreatedSurvivors)) {
+    survivors[fleetName] = { ...counts };
+  }
   return survivors;
 }
 
 function survivorCounts(fleet: FleetState): Partial<Record<ShipType, number>> {
-  const counts: Partial<Record<ShipType, number>> = {};
-  for (const ship of fleet.ships) {
+  return livingShipCounts(fleet.ships);
+}
+
+function survivorCountsAtHp(
+  ships: readonly Ship[],
+  hp: readonly number[]
+): ShipCountByType {
+  const counts: ShipCountByType = {};
+  for (let index = 0; index < ships.length; index++) {
+    if ((hp[index] ?? 0) > 0) {
+      const shipType = ships[index].type;
+      counts[shipType] = (counts[shipType] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+function livingShipCounts(ships: readonly Ship[]): ShipCountByType {
+  const counts: ShipCountByType = {};
+  for (const ship of ships) {
     if (ship.isAlive()) {
       counts[ship.type] = (counts[ship.type] ?? 0) + 1;
     }
   }
   return counts;
+}
+
+function destroyedShipCounts(
+  before: ShipCountByType,
+  after: ShipCountByType
+): ShipCountByType {
+  const destroyed: ShipCountByType = {};
+  for (const shipType of Object.values(ShipType)) {
+    const count = (before[shipType] ?? 0) - (after[shipType] ?? 0);
+    if (count > 0) destroyed[shipType] = count;
+  }
+  return destroyed;
+}
+
+function retainLivingRemovedFleet(
+  target: Record<string, ShipCountByType>,
+  fleet: FleetState,
+  hp: readonly number[]
+): void {
+  const counts = survivorCountsAtHp(fleet.ships, hp);
+  if (shipCount(counts) > 0) target[fleet.name] = counts;
+}
+
+function advanceOutcomeVariants(
+  variants: ReadonlyMap<string, OutcomeVariant>,
+  destroyedInEngagement: DestroyedShipsCreditedToFleet,
+  retreatedInEngagement: Record<string, ShipCountByType>,
+  probability: number
+): Map<string, OutcomeVariant> {
+  const advanced = new Map<string, OutcomeVariant>();
+  for (const variant of variants.values()) {
+    const credits = cloneDestructionCredits(
+      variant.destroyedShipsCreditedToFleet
+    );
+    const retreatedSurvivors = cloneSurvivorMap(variant.retreatedSurvivors);
+    for (const [fleetName, destroyed] of Object.entries(
+      destroyedInEngagement
+    )) {
+      const credited = credits[fleetName] ?? (credits[fleetName] = {});
+      for (const [shipType, count] of Object.entries(destroyed)) {
+        const type = shipType as ShipType;
+        credited[type] = (credited[type] ?? 0) + count!;
+      }
+    }
+    for (const [fleetName, counts] of Object.entries(retreatedInEngagement)) {
+      retreatedSurvivors[fleetName] = { ...counts };
+    }
+    addOutcomeVariant(advanced, {
+      probability: variant.probability * probability,
+      destroyedShipsCreditedToFleet: credits,
+      retreatedSurvivors,
+    });
+  }
+  return advanced;
+}
+
+function mergeOutcomeVariants(
+  target: Map<string, OutcomeVariant>,
+  source: ReadonlyMap<string, OutcomeVariant>
+): void {
+  for (const variant of source.values()) {
+    addOutcomeVariant(target, variant);
+  }
+}
+
+function addOutcomeVariant(
+  target: Map<string, OutcomeVariant>,
+  variant: OutcomeVariant
+): void {
+  const key = outcomeVariantKey(
+    variant.destroyedShipsCreditedToFleet,
+    variant.retreatedSurvivors
+  );
+  const existing = target.get(key);
+  if (existing) {
+    existing.probability += variant.probability;
+  } else {
+    target.set(key, variant);
+  }
+}
+
+function cloneDestructionCredits(
+  credits: DestroyedShipsCreditedToFleet
+): DestroyedShipsCreditedToFleet {
+  return Object.fromEntries(
+    Object.entries(credits).map(([fleetName, counts]) => [
+      fleetName,
+      { ...counts },
+    ])
+  );
+}
+
+function cloneSurvivorMap(
+  survivors: Record<string, ShipCountByType>
+): Record<string, ShipCountByType> {
+  return Object.fromEntries(
+    Object.entries(survivors).map(([fleetName, counts]) => [
+      fleetName,
+      { ...counts },
+    ])
+  );
+}
+
+function outcomeVariantKey(
+  credits: DestroyedShipsCreditedToFleet,
+  retreatedSurvivors: Record<string, ShipCountByType>
+): string {
+  return `${destructionCreditKey(credits)}||retreated:${shipCountMapKey(
+    retreatedSurvivors
+  )}`;
+}
+
+function destructionCreditKey(credits: DestroyedShipsCreditedToFleet): string {
+  return shipCountMapKey(credits);
+}
+
+function shipCountMapKey(
+  countsByFleet: Record<string, ShipCountByType>
+): string {
+  return Object.entries(countsByFleet)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([fleetName, counts]) => {
+      const shipCounts = Object.entries(counts)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([type, count]) => `${type}:${count}`)
+        .join(',');
+      return `${fleetName}=${shipCounts}`;
+    })
+    .join('|');
+}
+
+function standingFleetForTwoFleetOutcome(
+  defenderName: string,
+  attackerName: string,
+  defenderSurvivors: ShipCountByType,
+  attackerSurvivors: ShipCountByType
+): string | null {
+  if (shipCount(defenderSurvivors) > 0) return defenderName;
+  if (shipCount(attackerSurvivors) > 0) return attackerName;
+  return null;
+}
+
+function shipCount(counts: ShipCountByType): number {
+  return Object.values(counts).reduce(
+    (total, count) => total + (count ?? 0),
+    0
+  );
 }
 
 function survivorCompositionKey(

@@ -5,6 +5,7 @@ import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
 import { fleetColor } from '@ui/fleet-metadata';
 import { resultClassesForFleet } from '@ui/result-presentation';
 import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
+import { isNpcComposition } from '@ui/fleet-rules';
 
 const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
   Object.entries(SHIP_NAMES).map(([key, name]) => [
@@ -37,6 +38,7 @@ export class ResultsElement extends HTMLElement {
     const results = state.simulationResults!;
 
     this.renderWinPercentages(results);
+    this.renderBattleImpact(results);
     this.renderSurvivorDistribution(results);
     this.renderSurvivors(results);
   }
@@ -107,9 +109,9 @@ export class ResultsElement extends HTMLElement {
     const tbody = this.querySelector('#survivor-distribution-tbody')!;
     tbody.innerHTML = '';
 
-    const entries = results.survivorDistribution.filter(
-      (entry) => entry.probability > 0
-    );
+    const entries = this.aggregateSurvivorCompositions(
+      results.survivorDistribution
+    ).filter((entry) => entry.probability > 0);
     if (entries.length === 0) {
       section.style.display = 'none';
       return;
@@ -130,6 +132,209 @@ export class ResultsElement extends HTMLElement {
     }
 
     section.style.display = 'block';
+  }
+
+  private aggregateSurvivorCompositions(
+    entries: SimulationResults['survivorDistribution']
+  ): SimulationResults['survivorDistribution'] {
+    const aggregated = new Map<
+      string,
+      SimulationResults['survivorDistribution'][number]
+    >();
+
+    for (const entry of entries) {
+      const key = JSON.stringify(
+        Object.entries(entry.survivors)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([fleetKey, ships]) => [
+            fleetKey,
+            Object.entries(ships)
+              .filter(([, count]) => count > 0)
+              .sort(([left], [right]) => left.localeCompare(right)),
+          ])
+      );
+      const existing = aggregated.get(key);
+      if (existing) {
+        existing.probability += entry.probability;
+      } else {
+        aggregated.set(key, {
+          probability: entry.probability,
+          survivors: entry.survivors,
+        });
+      }
+    }
+
+    return [...aggregated.values()].sort(
+      (left, right) => right.probability - left.probability
+    );
+  }
+
+  private renderBattleImpact(results: SimulationResults) {
+    const materialVisible = this.renderMaterialImpact(results);
+    const populationVisible = this.renderPopulationImpact(results);
+    const reputationVisible = this.renderReputationImpact(results);
+    const section = this.querySelector('#battle-impact-section') as HTMLElement;
+    section.style.display =
+      materialVisible || populationVisible || reputationVisible
+        ? 'block'
+        : 'none';
+  }
+
+  private renderMaterialImpact(results: SimulationResults): boolean {
+    const section = this.querySelector('#material-impact') as HTMLElement;
+    const rows = this.querySelector('#material-impact-rows')!;
+    rows.innerHTML = '';
+
+    for (const fleet of state.fleets) {
+      const material = this.resultForFleet(results.materialLosses, fleet);
+      if (!material) continue;
+
+      const row = document.createElement('tr');
+      row.classList.add(...this.sideClasses(fleet.id));
+      this.applyFleetResultColor(row, fleet.id);
+
+      const fleetCell = document.createElement('th');
+      fleetCell.scope = 'row';
+      fleetCell.textContent = fleet.name;
+
+      const costCell = document.createElement('td');
+      costCell.textContent = this.formatImpactNumber(material.totalCost);
+
+      const lossCell = document.createElement('td');
+      lossCell.textContent =
+        material.expectedLostCost === null
+          ? '—'
+          : this.formatImpactNumber(material.expectedLostCost);
+
+      row.appendChild(fleetCell);
+      row.appendChild(costCell);
+      row.appendChild(lossCell);
+      rows.appendChild(row);
+    }
+
+    const visible = rows.children.length > 0;
+    section.style.display = visible ? 'block' : 'none';
+    return visible;
+  }
+
+  private renderPopulationImpact(results: SimulationResults): boolean {
+    const section = this.querySelector('#population-impact') as HTMLElement;
+    const rows = this.querySelector('#population-impact-rows')!;
+    const note = this.querySelector('#population-impact-note') as HTMLElement;
+    rows.innerHTML = '';
+
+    const defender = state.fleets[0];
+    const visible =
+      Boolean(defender) &&
+      !isNpcComposition(defender.shipTypes) &&
+      Object.keys(results.populationBombardment.byAttacker).length > 0;
+    if (!visible) {
+      section.style.display = 'none';
+      note.hidden = true;
+      return false;
+    }
+
+    for (const fleet of state.fleets.slice(1)) {
+      const bombardment = this.resultForFleet(
+        results.populationBombardment.byAttacker,
+        fleet
+      );
+      if (!bombardment) continue;
+
+      const row = document.createElement('div');
+      row.className = 'population-attacker-row';
+      row.classList.add(...this.sideClasses(fleet.id));
+      this.applyFleetResultColor(row, fleet.id);
+
+      const label = document.createElement('div');
+      label.className = 'population-attacker-label';
+      label.textContent = fleet.name;
+
+      const grid = document.createElement('div');
+      grid.className = 'population-impact-grid';
+
+      for (const bucket of bombardment) {
+        if (bucket.damage === 0) continue;
+
+        const threshold = document.createElement('div');
+        threshold.className = 'population-threshold';
+        threshold.setAttribute(
+          'aria-label',
+          `${fleet.name}: ${this.formatPercent(bucket.atLeastProbability)} chance to destroy at least ${bucket.damage} population`
+        );
+
+        const damage = document.createElement('span');
+        damage.textContent = bucket.damage === 6 ? '6+' : `${bucket.damage}+`;
+        const probability = document.createElement('strong');
+        probability.textContent = this.formatPercent(bucket.atLeastProbability);
+
+        threshold.appendChild(damage);
+        threshold.appendChild(probability);
+        grid.appendChild(threshold);
+      }
+
+      row.appendChild(label);
+      row.appendChild(grid);
+      rows.appendChild(row);
+    }
+
+    const automaticWipe = defender.factionId === 'planta';
+    note.textContent = automaticWipe
+      ? "Each row is that fleet's win chance; Planta then loses all population."
+      : "Each row includes that fleet's win chance. Assumes no Neutron Bombs; missiles do not fire against population.";
+    note.hidden = false;
+    section.style.display = 'block';
+    return true;
+  }
+
+  private renderReputationImpact(results: SimulationResults): boolean {
+    const section = this.querySelector('#reputation-impact') as HTMLElement;
+    const rows = this.querySelector('#reputation-impact-rows')!;
+    rows.innerHTML = '';
+
+    if (!results.reputationDraws.available) {
+      section.style.display = 'none';
+      return false;
+    }
+
+    for (const fleet of state.fleets) {
+      if (isNpcComposition(fleet.shipTypes)) continue;
+      const reputation = this.resultForFleet(
+        results.reputationDraws.byFleet,
+        fleet
+      );
+      if (!reputation) continue;
+
+      const row = document.createElement('div');
+      row.className = 'reputation-impact-row';
+      row.classList.add(...this.sideClasses(fleet.id));
+      this.applyFleetResultColor(row, fleet.id);
+
+      const label = document.createElement('span');
+      label.textContent = fleet.name;
+      const value = document.createElement('strong');
+      value.textContent = this.formatImpactNumber(reputation.expectedDraws);
+
+      const distribution = Object.entries(reputation.probabilityByDrawCount)
+        .map(
+          ([draws, probability]) =>
+            `${draws} draw${draws === '1' ? '' : 's'}: ${this.formatPercent(probability)}`
+        )
+        .join('; ');
+      row.title = distribution;
+      row.setAttribute(
+        'aria-label',
+        `${fleet.name}: ${value.textContent} expected reputation draws. ${distribution}`
+      );
+
+      row.appendChild(label);
+      row.appendChild(value);
+      rows.appendChild(row);
+    }
+
+    const visible = rows.children.length > 0;
+    section.style.display = visible ? 'block' : 'none';
+    return visible;
   }
 
   private renderSurvivors(results: SimulationResults) {
@@ -249,56 +454,49 @@ export class ResultsElement extends HTMLElement {
     survivors: Record<string, Record<string, number>>
   ): HTMLElement {
     const row = document.createElement('tr');
-    const defender = state.fleets[0];
-    const defenderKey = defender?.id ?? 'Defender';
-    const defenderText = this.formatFleetComposition(
-      defender ? this.resultForFleet(survivors, defender) : undefined
-    );
-    const attackerCompositions = state.fleets
-      .slice(1)
+    const survivingFleets = state.fleets
       .map((fleet) => ({
         key: fleet.id,
+        label: fleet.name,
         text: this.formatFleetComposition(
           this.resultForFleet(survivors, fleet)
         ),
       }))
       .filter((entry) => entry.text !== '—');
 
-    if (defenderText !== '—') row.classList.add('defender-result');
-    if (defenderText !== '—') this.applyFleetResultColor(row, defenderKey);
-    if (attackerCompositions.length === 1) {
-      row.classList.add(...this.sideClasses(attackerCompositions[0].key));
-      this.applyFleetResultColor(row, attackerCompositions[0].key);
-    } else if (attackerCompositions.length > 1) {
-      row.classList.add('attacker-result');
+    if (survivingFleets.length === 1) {
+      row.classList.add(...this.sideClasses(survivingFleets[0].key));
+      this.applyFleetResultColor(row, survivingFleets[0].key);
+    } else if (survivingFleets.length === 0) {
+      row.classList.add('draw-result');
     }
 
-    const defenderCell = document.createElement('td');
-    defenderCell.textContent = defenderText;
+    const compositionCell = document.createElement('td');
+    if (survivingFleets.length === 0) {
+      compositionCell.textContent = 'No surviving ships';
+    } else {
+      survivingFleets.forEach((entry, index) => {
+        if (index > 0) {
+          compositionCell.appendChild(document.createElement('br'));
+        }
+        const label = document.createElement('span');
+        label.className = 'composition-fleet-label';
+        label.classList.add(...this.sideClasses(entry.key));
+        this.applyFleetResultColor(label, entry.key);
+        label.textContent = `${entry.label}: `;
+        const ships = document.createElement('span');
+        ships.textContent = entry.text;
+        compositionCell.appendChild(label);
+        compositionCell.appendChild(ships);
+      });
+    }
 
     const probabilityCell = document.createElement('td');
     probabilityCell.className = 'composition-probability';
     probabilityCell.textContent = this.formatPercent(probability);
 
-    const attackerCell = document.createElement('td');
-    if (attackerCompositions.length === 0) {
-      attackerCell.textContent = '—';
-    } else {
-      attackerCompositions.forEach((entry, index) => {
-        if (index > 0) {
-          attackerCell.appendChild(document.createTextNode(' / '));
-        }
-        const label = document.createElement('span');
-        label.classList.add(...this.sideClasses(entry.key));
-        this.applyFleetResultColor(label, entry.key);
-        label.textContent = entry.text;
-        attackerCell.appendChild(label);
-      });
-    }
-
-    row.appendChild(defenderCell);
+    row.appendChild(compositionCell);
     row.appendChild(probabilityCell);
-    row.appendChild(attackerCell);
     return row;
   }
 
@@ -313,12 +511,8 @@ export class ResultsElement extends HTMLElement {
     probabilityCell.className = 'composition-probability';
     probabilityCell.textContent = this.formatPercent(probability);
 
-    const emptyCell = document.createElement('td');
-    emptyCell.textContent = '—';
-
     row.appendChild(labelCell);
     row.appendChild(probabilityCell);
-    row.appendChild(emptyCell);
     return row;
   }
 
@@ -391,6 +585,10 @@ export class ResultsElement extends HTMLElement {
     return `${(value * 100).toFixed(value >= 0.1 ? 1 : 2)}%`;
   }
 
+  private formatImpactNumber(value: number): string {
+    return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+  }
+
   private sideClass(fleetKey: string, isDraw = false): string {
     return this.sideClasses(fleetKey, isDraw).join(' ');
   }
@@ -409,16 +607,23 @@ export class ResultsElement extends HTMLElement {
     isDraw = false
   ) {
     if (isDraw || fleetKey === 'Draw') {
-      element.style.removeProperty('--fleet-result');
-      element.style.removeProperty('--fleet-result-soft');
+      element.style.removeProperty('--fleet-result-source');
+      element.style.removeProperty('--fleet-result-soft-source');
+      element.style.removeProperty('--fleet-result-light-source');
+      element.style.removeProperty('--fleet-result-light-soft-source');
       return;
     }
 
     const fleetIndex = this.fleetIndex(fleetKey);
     if (fleetIndex === Number.MAX_SAFE_INTEGER) return;
     const color = fleetColor(state.fleets[fleetIndex].colorId, fleetIndex);
-    element.style.setProperty('--fleet-result', color.color);
-    element.style.setProperty('--fleet-result-soft', color.soft);
+    element.style.setProperty('--fleet-result-source', color.color);
+    element.style.setProperty('--fleet-result-soft-source', color.soft);
+    element.style.setProperty('--fleet-result-light-source', color.lightResult);
+    element.style.setProperty(
+      '--fleet-result-light-soft-source',
+      color.lightResultSoft
+    );
   }
 
   private fleetIndex(fleetKey: string): number {
