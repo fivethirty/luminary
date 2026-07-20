@@ -377,6 +377,119 @@ describe('computeExactBattle', () => {
 });
 
 describe('computeExactCombat', () => {
+  test('reuses identity-free engagement solves within one multi-fleet request', () => {
+    const interceptor = () =>
+      new Ship(ShipType.Interceptor, {
+        initiative: 3,
+        cannons: { ion: 1 },
+      });
+    const result = computeExactCombat(
+      Array.from(
+        { length: 4 },
+        (_, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [interceptor()],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('keeps different weapon behavior in the engagement cache key', () => {
+    const interceptor = (ion: number) =>
+      new Ship(ShipType.Interceptor, {
+        initiative: 3,
+        cannons: { ion },
+      });
+    const result = computeExactCombat(
+      [
+        new Fleet('Top', [interceptor(2)]),
+        new Fleet('Middle', [interceptor(1)]),
+        new Fleet('Bottom', [interceptor(1)]),
+      ],
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 3,
+      engagementSolves: 2,
+      engagementCacheHits: 1,
+    });
+  });
+
+  test('reuses engagements with the same resolved initiative-slot order', () => {
+    const combat = (initiatives: number[]) =>
+      computeExactCombat(
+        initiatives.map(
+          (initiative, index) =>
+            new Fleet(
+              `Fleet ${index + 1}`,
+              [
+                new Ship(ShipType.Interceptor, {
+                  initiative,
+                  cannons: { ion: 1 },
+                }),
+              ],
+              false,
+              DamageType.OPTIMAL
+            )
+        ),
+        undefined,
+        { plannerPreflight: false }
+      );
+    const tied = combat([3, 3, 3, 3]);
+    const shifted = combat([5, 4, 3, 3]);
+
+    expect(shifted.ok).toBe(true);
+    expect(shifted.lastFleetStanding).toEqual(tied.lastFleetStanding);
+    expect(shifted.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('does not merge defender-first and attacker-first initiative orders', () => {
+    const result = computeExactCombat(
+      [1, 2, 3, 3].map(
+        (initiative, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Interceptor, {
+                initiative,
+                cannons: { ion: 1 },
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 2,
+      engagementCacheHits: 4,
+    });
+  });
+
   test('composes a three-fleet exact battle in MultiBattle order', () => {
     const interceptor = () =>
       new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });

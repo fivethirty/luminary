@@ -25,10 +25,17 @@ type ShipGroup = {
   config: ShipConfig;
 };
 
+type FleetSpec = {
+  id: string;
+  groups: ShipGroup[];
+  damageType?: DamageType;
+  antimatterSplitter?: boolean;
+};
+
 type Scenario = {
   name: string;
-  groups: ShipGroup[];
-  probeExactOptimal?: boolean;
+  fleets: FleetSpec[];
+  probeExactOptimal?: { defender: number; attacker: number };
 };
 
 type SolverProbe = {
@@ -37,94 +44,217 @@ type SolverProbe = {
   graph: SolverGraphStats;
 };
 
-const scenarios: Scenario[] = [
+type BenchmarkSample = {
+  elapsedMillis: number;
+  result: CombatRunResult;
+  solverProbe?: SolverProbe;
+};
+
+const interceptor = (initiative = 3): ShipGroup => ({
+  type: ShipType.Interceptor,
+  count: 1,
+  config: { initiative, cannons: { ion: 1 } },
+});
+
+const smallMixedGroups: ShipGroup[] = [
   {
-    name: 'interceptor + cruiser exact-optimal mirror',
-    probeExactOptimal: true,
-    groups: [
-      {
-        type: ShipType.Interceptor,
-        count: 1,
-        config: { initiative: 3, cannons: { ion: 1 } },
-      },
-      {
-        type: ShipType.Cruiser,
-        count: 1,
-        config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
-      },
-    ],
+    type: ShipType.Interceptor,
+    count: 1,
+    config: { initiative: 3, cannons: { ion: 1 } },
   },
   {
-    name: '8 interceptors + 4 cruisers optimal mirror',
-    groups: [
-      {
-        type: ShipType.Interceptor,
-        count: 8,
-        config: { initiative: 3, cannons: { ion: 1 } },
-      },
-      {
-        type: ShipType.Cruiser,
-        count: 4,
-        config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
-      },
-    ],
-  },
-  {
-    name: '8 interceptors + 4 cruisers + 2 dreadnoughts optimal mirror',
-    groups: [
-      {
-        type: ShipType.Interceptor,
-        count: 8,
-        config: { initiative: 3, cannons: { ion: 1 } },
-      },
-      {
-        type: ShipType.Cruiser,
-        count: 4,
-        config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
-      },
-      {
-        type: ShipType.Dreadnought,
-        count: 2,
-        config: { initiative: 1, hull: 2, cannons: { plasma: 1 } },
-      },
-    ],
+    type: ShipType.Cruiser,
+    count: 1,
+    config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
   },
 ];
+
+const mediumMixedGroups: ShipGroup[] = [
+  {
+    type: ShipType.Interceptor,
+    count: 8,
+    config: { initiative: 3, cannons: { ion: 1 } },
+  },
+  {
+    type: ShipType.Cruiser,
+    count: 4,
+    config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
+  },
+];
+
+const largeMixedGroups: ShipGroup[] = [
+  ...mediumMixedGroups,
+  {
+    type: ShipType.Dreadnought,
+    count: 2,
+    config: { initiative: 1, hull: 2, cannons: { plasma: 1 } },
+  },
+];
+
+const scenarios: Scenario[] = [
+  mirrorScenario(
+    'interceptor + cruiser exact-optimal mirror',
+    smallMixedGroups,
+    true
+  ),
+  mirrorScenario(
+    '10 homogeneous interceptors exact-optimal mirror',
+    [
+      {
+        type: ShipType.Interceptor,
+        count: 10,
+        config: { initiative: 3, cannons: { ion: 1 } },
+      },
+    ],
+    true
+  ),
+  mirrorScenario(
+    '3 interceptors + 1 cruiser state-local shortcut control',
+    [
+      {
+        type: ShipType.Interceptor,
+        count: 3,
+        config: { initiative: 3, cannons: { ion: 1 } },
+      },
+      {
+        type: ShipType.Cruiser,
+        count: 1,
+        config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
+      },
+    ],
+    true
+  ),
+  {
+    name: '4 identical interceptor fleets engagement reuse',
+    fleets: Array.from({ length: 4 }, (_, index) => ({
+      id: `fleet-${index + 1}`,
+      groups: [interceptor()],
+    })),
+  },
+  {
+    name: '3 identical mixed fleets engagement reuse',
+    fleets: Array.from({ length: 3 }, (_, index) => ({
+      id: `fleet-${index + 1}`,
+      groups: [
+        {
+          type: ShipType.Interceptor,
+          count: 2,
+          config: { initiative: 3, cannons: { ion: 1 } },
+        },
+        {
+          type: ShipType.Cruiser,
+          count: 1,
+          config: { initiative: 2, hull: 1, cannons: { ion: 1 } },
+        },
+      ],
+    })),
+  },
+  {
+    name: '4 interceptor fleets with equivalent resolved initiative order',
+    fleets: [5, 4, 3, 3].map((initiative, index) => ({
+      id: `fleet-${index + 1}`,
+      groups: [interceptor(initiative)],
+    })),
+  },
+  {
+    name: '4 interceptor fleets with two resolved initiative orders',
+    fleets: [1, 2, 3, 3].map((initiative, index) => ({
+      id: `fleet-${index + 1}`,
+      groups: [interceptor(initiative)],
+    })),
+  },
+  {
+    name: 'missile cruiser vs interceptor swarm',
+    probeExactOptimal: { defender: 0, attacker: 1 },
+    fleets: [
+      {
+        id: 'defender',
+        groups: [
+          {
+            type: ShipType.Interceptor,
+            count: 3,
+            config: { initiative: 3, cannons: { ion: 1 } },
+          },
+        ],
+      },
+      {
+        id: 'attacker',
+        groups: [
+          {
+            type: ShipType.Cruiser,
+            count: 1,
+            config: {
+              initiative: 2,
+              hull: 1,
+              computers: 2,
+              cannons: { ion: 1 },
+              missiles: { plasma: 2 },
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'healing plasma cruiser duel',
+    probeExactOptimal: { defender: 0, attacker: 1 },
+    fleets: ['defender', 'attacker'].map((id) => ({
+      id,
+      groups: [
+        {
+          type: ShipType.Cruiser,
+          count: 1,
+          config: {
+            initiative: 2,
+            hull: 1,
+            heal: 1,
+            cannons: { plasma: 1 },
+          },
+        },
+      ],
+    })),
+  },
+  mirrorScenario(
+    '8 interceptors + 4 cruisers optimal mirror',
+    mediumMixedGroups
+  ),
+  mirrorScenario(
+    '8 interceptors + 4 cruisers + 2 dreadnoughts optimal mirror',
+    largeMixedGroups
+  ),
+];
+
+function mirrorScenario(
+  name: string,
+  groups: ShipGroup[],
+  probeExactOptimal = false
+): Scenario {
+  return {
+    name,
+    fleets: [
+      {
+        id: 'defender',
+        groups,
+      },
+      {
+        id: 'attacker',
+        groups,
+      },
+    ],
+    probeExactOptimal: probeExactOptimal
+      ? { defender: 0, attacker: 1 }
+      : undefined,
+  };
+}
 
 const runs = Math.max(1, Number.parseInt(process.argv[2] ?? '3', 10) || 3);
 
 for (const scenario of scenarios) {
-  const samples: {
-    elapsedMillis: number;
-    result: CombatRunResult;
-    solverProbe?: SolverProbe;
-  }[] = [];
+  // Warm the scenario without including it in the reported samples.
+  runScenario(scenario, 0x5eed - 1);
+  const samples: BenchmarkSample[] = [];
   for (let run = 0; run < runs; run++) {
-    const roller = seededD6(0x5eed + run);
-    const fleets = [
-      new Fleet(
-        'defender',
-        buildShips(scenario.groups, roller),
-        false,
-        DamageType.OPTIMAL
-      ),
-      new Fleet(
-        'attacker',
-        buildShips(scenario.groups, roller),
-        false,
-        DamageType.OPTIMAL
-      ),
-    ];
-    const startedAt = performance.now();
-    const result = new CombatRunner().run(fleets);
-    const elapsedMillis = performance.now() - startedAt;
-    samples.push({
-      elapsedMillis,
-      result,
-      solverProbe: scenario.probeExactOptimal
-        ? runExactOptimalProbe(scenario.groups)
-        : undefined,
-    });
+    samples.push(runScenario(scenario, 0x5eed + run));
   }
 
   const results = samples.map(({ result }) => result);
@@ -146,17 +276,16 @@ for (const scenario of scenarios) {
         0
       ),
       outcome: {
-        defenderWin: summarize(
-          results.map(
-            ({ lastFleetStanding }) => lastFleetStanding.defender ?? 0
-          ),
-          4
-        ),
-        attackerWin: summarize(
-          results.map(
-            ({ lastFleetStanding }) => lastFleetStanding.attacker ?? 0
-          ),
-          4
+        fleetWin: Object.fromEntries(
+          scenario.fleets.map(({ id }) => [
+            id,
+            summarize(
+              results.map(
+                ({ lastFleetStanding }) => lastFleetStanding[id] ?? 0
+              ),
+              4
+            ),
+          ])
         ),
         draw: summarize(
           results.map(({ drawPercentage }) => drawPercentage),
@@ -164,10 +293,9 @@ for (const scenario of scenarios) {
         ),
       },
       scenarioInput: {
-        shipTypesPerFleet: scenario.groups.length,
-        shipsPerFleet: scenario.groups.reduce(
-          (total, group) => total + group.count,
-          0
+        shipTypesPerFleet: scenario.fleets.map(({ groups }) => groups.length),
+        shipsPerFleet: scenario.fleets.map(({ groups }) =>
+          groups.reduce((total, group) => total + group.count, 0)
         ),
         preflightStateEstimate: preflight.estimatedStates,
         preflightReason: preflight.reason,
@@ -185,6 +313,32 @@ for (const scenario of scenarios) {
   );
 }
 
+function runScenario(scenario: Scenario, seed: number): BenchmarkSample {
+  const roller = seededD6(seed);
+  const fleets = scenario.fleets.map(
+    ({ id, groups, antimatterSplitter = false, damageType }) =>
+      new Fleet(
+        id,
+        buildShips(groups, roller),
+        antimatterSplitter,
+        damageType ?? DamageType.OPTIMAL
+      )
+  );
+  const startedAt = performance.now();
+  const result = new CombatRunner().run(fleets);
+  const elapsedMillis = performance.now() - startedAt;
+  return {
+    elapsedMillis,
+    result,
+    solverProbe: scenario.probeExactOptimal
+      ? runExactOptimalProbe(
+          scenario.fleets[scenario.probeExactOptimal.defender],
+          scenario.fleets[scenario.probeExactOptimal.attacker]
+        )
+      : undefined,
+  };
+}
+
 function seededD6(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -199,13 +353,16 @@ function buildShips(groups: ShipGroup[], roller?: () => number): Ship[] {
   );
 }
 
-function runExactOptimalProbe(groups: ShipGroup[]): SolverProbe {
+function runExactOptimalProbe(
+  defender: FleetSpec,
+  attacker: FleetSpec
+): SolverProbe {
   const startedAt = performance.now();
   const model = new BattleModel(
-    buildShips(groups),
-    buildShips(groups),
-    false,
-    false
+    buildShips(attacker.groups),
+    buildShips(defender.groups),
+    attacker.antimatterSplitter ?? false,
+    defender.antimatterSplitter ?? false
   );
   const solver = new WinProbabilitySolver(model, {
     perspective: 'A',
@@ -290,11 +447,40 @@ function aggregateAttempts(results: CombatRunResult[]) {
             reasons: countValues(
               attempts.flatMap(({ reason }) => (reason ? [reason] : []))
             ),
+            exactEngagements: summarizeExactEngagements(
+              attempts.flatMap(({ exactDiagnostics }) =>
+                exactDiagnostics === undefined ? [] : [exactDiagnostics]
+              )
+            ),
           },
         ],
       ];
     })
   );
+}
+
+function summarizeExactEngagements(
+  diagnostics: Array<{
+    engagementRequests: number;
+    engagementSolves: number;
+    engagementCacheHits: number;
+  }>
+) {
+  if (diagnostics.length === 0) return undefined;
+  return {
+    requests: summarize(
+      diagnostics.map(({ engagementRequests }) => engagementRequests),
+      0
+    ),
+    solves: summarize(
+      diagnostics.map(({ engagementSolves }) => engagementSolves),
+      0
+    ),
+    cacheHits: summarize(
+      diagnostics.map(({ engagementCacheHits }) => engagementCacheHits),
+      0
+    ),
+  };
 }
 
 function round(value: number, digits: number): number {

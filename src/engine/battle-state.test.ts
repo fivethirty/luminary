@@ -176,12 +176,18 @@ describe('BattleModel', () => {
     });
 
     test('optimal mode exposes decisions for both player fleets', () => {
-      const make = () =>
+      const make = () => [
         new Ship(ShipType.Interceptor, {
           initiative: 3,
           cannons: { ion: 1 },
-        });
-      const model = new BattleModel([make()], [make()], false, false);
+        }),
+        new Ship(ShipType.Cruiser, {
+          initiative: 3,
+          hull: 1,
+          cannons: { ion: 1 },
+        }),
+      ];
+      const model = new BattleModel(make(), make(), false, false);
       const ctx: ExpandContext = {
         decisionRoles: ['A', 'D'],
         maxOutcomes: 100_000,
@@ -192,19 +198,28 @@ describe('BattleModel', () => {
       if (defenderMove.kind !== 'move') return;
       expect(defenderMove.decisionRole).toBe('D');
 
-      const attackerMove = model.expand({ hpA: [1], hpB: [1], slot: 1 }, ctx);
+      const attackerMove = model.expand(
+        { hpA: [1, 2], hpB: [1, 2], slot: 1 },
+        ctx
+      );
       expect(attackerMove.kind).toBe('move');
       if (attackerMove.kind !== 'move') return;
       expect(attackerMove.decisionRole).toBe('A');
     });
 
     test('decision roles leave unselected player fleets on DPS policy', () => {
-      const make = () =>
+      const make = () => [
         new Ship(ShipType.Interceptor, {
           initiative: 3,
           cannons: { ion: 1 },
-        });
-      const model = new BattleModel([make()], [make()], false, false);
+        }),
+        new Ship(ShipType.Cruiser, {
+          initiative: 3,
+          hull: 1,
+          cannons: { ion: 1 },
+        }),
+      ];
+      const model = new BattleModel(make(), make(), false, false);
       const ctx: ExpandContext = {
         decisionRoles: ['A'],
         maxOutcomes: 100_000,
@@ -215,10 +230,43 @@ describe('BattleModel', () => {
       if (defenderMove.kind !== 'move') return;
       expect(defenderMove.decisionRole).toBeNull();
 
-      const attackerMove = model.expand({ hpA: [1], hpB: [1], slot: 1 }, ctx);
+      const attackerMove = model.expand(
+        { hpA: [1, 2], hpB: [1, 2], slot: 1 },
+        ctx
+      );
       expect(attackerMove.kind).toBe('move');
       if (attackerMove.kind !== 'move') return;
       expect(attackerMove.decisionRole).toBe('A');
+    });
+
+    test('optimal mode uses deterministic DPS concentration against one living configuration', () => {
+      const target = () =>
+        new Ship(ShipType.Interceptor, {
+          initiative: 2,
+          hull: 1,
+          cannons: { ion: 1 },
+        });
+      const model = new BattleModel(
+        [target(), target()],
+        [
+          new Ship(ShipType.Cruiser, {
+            initiative: 3,
+            cannons: { ion: 2 },
+          }),
+        ],
+        false,
+        false
+      );
+
+      const exp = model.expand(model.initialState(), {
+        decisionRoles: ['D'],
+        maxOutcomes: 100_000,
+      });
+
+      expect(exp.kind).toBe('move');
+      if (exp.kind !== 'move') return;
+      expect(exp.decisionRole).toBeNull();
+      expect(exp.edges.every((edge) => edge.options.length === 1)).toBe(true);
     });
 
     test('minimax mode keeps NPC assignments deterministic', () => {

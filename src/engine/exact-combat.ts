@@ -11,6 +11,7 @@ import {
   AssignmentMode,
   DEFAULT_CAPS,
   SolverCaps,
+  TerminalDistributionResult,
   WinProbabilitySolver,
 } from './win-probability-solver';
 
@@ -35,6 +36,13 @@ export const EXACT_INTERACTIVE_CAPS: SolverCaps = {
 export type ExactBattleResult = CombatOutcomeSummary & {
   ok: boolean;
   reason?: string;
+  exactDiagnostics?: ExactCombatDiagnostics;
+};
+
+export type ExactCombatDiagnostics = {
+  engagementRequests: number;
+  engagementSolves: number;
+  engagementCacheHits: number;
 };
 
 export type ExactCombatOptions = {
@@ -44,10 +52,7 @@ export type ExactCombatOptions = {
   plannerPreflight?: boolean;
 };
 
-export type ExactPlannerPreflightReason =
-  | 'trivial-target'
-  | 'complexity'
-  | null;
+export type ExactPlannerPreflightReason = 'complexity' | null;
 
 export type ExactPlannerPreflight = {
   overrides: (DamageType | undefined)[];
@@ -181,6 +186,12 @@ export function computeExactCombat(
   options: ExactCombatOptions = {}
 ): ExactBattleResult {
   const start = Date.now();
+  const exactDiagnostics: ExactCombatDiagnostics = {
+    engagementRequests: 0,
+    engagementSolves: 0,
+    engagementCacheHits: 0,
+  };
+  const engagementCache = new Map<string, TerminalDistributionResult>();
   const fail = (reason: string): ExactBattleResult => ({
     ok: false,
     reason,
@@ -189,6 +200,7 @@ export function computeExactCombat(
     expectedSurvivors: {},
     survivorDistribution: [],
     timeTaken: Date.now() - start,
+    exactDiagnostics,
   });
 
   if (fleets.length < 2) {
@@ -235,11 +247,13 @@ export function computeExactCombat(
         ...caps,
         maxMillis: caps.maxMillis === Infinity ? Infinity : remainingMillis,
       };
-      const solved = solveEngagement(
+      const solved = solveEngagementCached(
         defenderState,
         attackerState,
         engagementCaps,
-        options.plannerPreflight ?? true
+        options.plannerPreflight ?? true,
+        engagementCache,
+        exactDiagnostics
       );
       if (!solved.ok) {
         return fail(solved.reason ?? 'solve failed');
@@ -301,7 +315,12 @@ export function computeExactCombat(
     branches = mergeBranches(nextBranches);
   }
 
-  return summarizeBranches(branches, names, Date.now() - start);
+  return summarizeBranches(
+    branches,
+    names,
+    Date.now() - start,
+    exactDiagnostics
+  );
 }
 
 export function exactDpsPlannerOverrides(
@@ -318,16 +337,6 @@ export function exactPlannerPreflight(
 
   if (fleets.length !== 2) {
     return { overrides, reason: null, estimatedStates };
-  }
-
-  if (hasSingleShipType(fleets[0]) && isOptimalFleet(fleets[1])) {
-    overrides[1] = DamageType.DPS;
-  }
-  if (hasSingleShipType(fleets[1]) && isOptimalFleet(fleets[0])) {
-    overrides[0] = DamageType.DPS;
-  }
-  if (overrides.some(Boolean)) {
-    return { overrides, reason: 'trivial-target', estimatedStates };
   }
 
   if (!fleets.some(isOptimalFleet)) {
@@ -442,6 +451,120 @@ function solveEngagement(
   }).solveTerminalDistribution();
 }
 
+function solveEngagementCached(
+  defenderState: FleetState,
+  attackerState: FleetState,
+  caps: SolverCaps,
+  plannerPreflight: boolean,
+  cache: Map<string, TerminalDistributionResult>,
+  diagnostics: ExactCombatDiagnostics
+): TerminalDistributionResult {
+  diagnostics.engagementRequests++;
+  const key = engagementCacheKey(
+    defenderState,
+    attackerState,
+    plannerPreflight
+  );
+  const cached = cache.get(key);
+  if (cached) {
+    diagnostics.engagementCacheHits++;
+    return cached;
+  }
+
+  diagnostics.engagementSolves++;
+  const solved = solveEngagement(
+    defenderState,
+    attackerState,
+    caps,
+    plannerPreflight
+  );
+  if (solved.ok) cache.set(key, solved);
+  return solved;
+}
+
+function engagementCacheKey(
+  defenderState: FleetState,
+  attackerState: FleetState,
+  plannerPreflight: boolean
+): string {
+  const initiativeSlots = resolvedInitiativeSlots(defenderState, attackerState);
+  const fleetKey = (fleet: FleetState, role: Role): string => {
+    const ships = fleet.ships
+      .map((ship) => {
+        const initiativeKey = `${role}:${ship.initiative}`;
+        return `${shipBehaviorKey(
+          ship,
+          initiativeSlots.cannon.get(initiativeKey)!,
+          ship.hasMissiles()
+            ? initiativeSlots.missile.get(initiativeKey)!
+            : null
+        )}@${ship.remainingHP()}`;
+      })
+      .join(',');
+    return `${fleet.damageType}:${fleet.antimatterSplitter}:${ships}`;
+  };
+  return `preflight:${plannerPreflight}|D:${fleetKey(
+    defenderState,
+    'D'
+  )}|A:${fleetKey(attackerState, 'A')}`;
+}
+
+function resolvedInitiativeSlots(
+  defenderState: FleetState,
+  attackerState: FleetState
+): { cannon: Map<string, number>; missile: Map<string, number> } {
+  const slotsForFleet = (fleet: FleetState, role: Role) => {
+    const initiatives = Array.from(
+      new Set(fleet.ships.map((ship) => ship.initiative))
+    );
+    return initiatives.map((initiative) => ({
+      role,
+      initiative,
+      missile: fleet.ships.some(
+        (ship) => ship.initiative === initiative && ship.hasMissiles()
+      ),
+    }));
+  };
+  const slots = [
+    ...slotsForFleet(defenderState, 'D'),
+    ...slotsForFleet(attackerState, 'A'),
+  ];
+  const sorted = (missile: boolean) =>
+    slots
+      .filter((slot) => !missile || slot.missile)
+      .sort((left, right) => right.initiative - left.initiative);
+  const toMap = (ordered: ReturnType<typeof sorted>) =>
+    new Map(
+      ordered.map((slot, index) => [`${slot.role}:${slot.initiative}`, index])
+    );
+  return { cannon: toMap(sorted(false)), missile: toMap(sorted(true)) };
+}
+
+function shipBehaviorKey(
+  ship: Ship,
+  cannonInitiativeSlot: number,
+  missileInitiativeSlot: number | null
+): string {
+  return [
+    ship.type,
+    ship.hull,
+    ship.computers,
+    ship.shields,
+    `c${cannonInitiativeSlot}`,
+    `m${missileInitiativeSlot ?? '-'}`,
+    ship.cannons.ion,
+    ship.cannons.plasma,
+    ship.cannons.soliton,
+    ship.cannons.antimatter,
+    ship.missiles.ion,
+    ship.missiles.plasma,
+    ship.missiles.soliton,
+    ship.missiles.antimatter,
+    ship.rift,
+    ship.heal,
+  ].join('|');
+}
+
 function fleetStateFromFleet(fleet: Fleet): FleetState {
   return {
     name: fleet.name,
@@ -504,7 +627,8 @@ function branchKey(fleets: FleetState[]): string {
 function summarizeBranches(
   branches: ExactBranch[],
   names: string[],
-  timeTaken: number
+  timeTaken: number,
+  exactDiagnostics: ExactCombatDiagnostics
 ): ExactBattleResult {
   const lastFleetStanding = Object.fromEntries(
     names.map((name) => [name, 0])
@@ -597,6 +721,7 @@ function summarizeBranches(
       (a, b) => b.probability - a.probability
     ),
     timeTaken,
+    exactDiagnostics,
   };
 }
 
@@ -806,14 +931,6 @@ function survivorCompositionKey(
       return `${name}=${shipCounts}`;
     })
     .join('|');
-}
-
-function hasSingleShipType(fleet: Fleet): boolean {
-  return shipTypeCount(fleet) <= 1;
-}
-
-function shipTypeCount(fleet: Fleet): number {
-  return new Set(fleet.getRoster().map((ship) => ship.type)).size;
 }
 
 function isOptimalFleet(fleet: Fleet): boolean {

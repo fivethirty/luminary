@@ -383,7 +383,12 @@ export class BattleModel {
       };
     }
 
-    const assignmentControl = this.assignmentControl(slot, shooterIsNpc, ctx);
+    const assignmentControl = this.assignmentControl(
+      slot,
+      shooterIsNpc,
+      this.hasOneLivingConfiguration(targetTemplates, targetHp),
+      ctx
+    );
     const decisionRole =
       assignmentControl.kind === 'decision' ? assignmentControl.role : null;
 
@@ -550,15 +555,27 @@ export class BattleModel {
   private assignmentControl(
     slot: Slot,
     shooterIsNpc: boolean,
+    targetIsHomogeneous: boolean,
     ctx: ExpandContext
   ): AssignmentControl {
     if (shooterIsNpc) {
       return { kind: 'heuristic', damageType: DamageType.NPC };
     }
-    if (ctx.decisionRoles.includes(slot.role)) {
+    if (ctx.decisionRoles.includes(slot.role) && !targetIsHomogeneous) {
       return { kind: 'decision', role: slot.role };
     }
     return { kind: 'heuristic', damageType: DamageType.DPS };
+  }
+
+  private hasOneLivingConfiguration(templates: Ship[], hp: number[]): boolean {
+    let livingConfig: string | null = null;
+    for (let index = 0; index < templates.length; index++) {
+      if (hp[index] <= 0) continue;
+      const key = templates[index].configKey();
+      if (livingConfig === null) livingConfig = key;
+      else if (key !== livingConfig) return false;
+    }
+    return livingConfig !== null;
   }
 
   // Terminal check after a slot's damage (fact 4), else advance.

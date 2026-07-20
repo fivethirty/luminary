@@ -210,8 +210,10 @@ describe('App', () => {
       ]
     ).toHaveLength(7);
     expect(state.simulationResults!.reputationDraws.available).toBe(true);
-    expect(state.simulationResults!.tier).toBe('exact-dps');
-    expect(state.simulationResults!.methodLabel).toBe('Exact · DPS targeting');
+    expect(state.simulationResults!.tier).toBe('exact-optimal');
+    expect(state.simulationResults!.methodLabel).toBe(
+      'Exact · optimal targeting'
+    );
     expect(state.simulationResults!.diagnostics.attempts).not.toHaveLength(0);
 
     const resultsContainer = document.getElementById('results-container')!;
@@ -425,7 +427,7 @@ describe('App', () => {
     ]);
   });
 
-  test('uses DPS against a target fleet with one ship type', () => {
+  test('keeps optimal mode when homogeneous targeting is reduced in the solver', () => {
     const singleTypeDefender = new Fleet(
       'Defender',
       [
@@ -447,7 +449,7 @@ describe('App', () => {
 
     expect(
       exactDpsPlannerOverrides([singleTypeDefender, mixedAttacker])
-    ).toEqual([undefined, DamageType.DPS]);
+    ).toEqual([undefined, undefined]);
   });
 
   test('clears results when a fleet empties', async () => {

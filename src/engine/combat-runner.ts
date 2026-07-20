@@ -6,6 +6,7 @@ import {
 } from './combat-simulator';
 import {
   computeExactCombat,
+  ExactCombatDiagnostics,
   ExactBattleResult,
   ExactCombatOptions,
   exactPlannerPreflight,
@@ -24,6 +25,7 @@ export type CombatAttempt = {
   budgetMillis: number;
   elapsedMillis: number;
   reason?: string;
+  exactDiagnostics?: ExactCombatDiagnostics;
 };
 
 export type CombatFallback = {
@@ -289,6 +291,7 @@ export class CombatRunner {
       budgetMillis,
       elapsedMillis: Math.max(0, this.deps.now() - startedAt),
       reason: result.ok ? undefined : (result.reason ?? 'exact solve failed'),
+      exactDiagnostics: result.exactDiagnostics,
     });
     return result.ok ? result : null;
   }

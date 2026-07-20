@@ -43,9 +43,15 @@ estimate at or above 50,000 states skips the minimax tier; for example, the trac
 plus 4-cruiser mirror estimates 72,900 states. Keep the threshold with the exact preflight, cover
 it with focused tests, and measure whether it still avoids wasted work as the solver changes.
 
-The preflight also reports `trivial-target` when one engaged fleet has a single ship type. Damage
-assignment against that target uses DPS policy without discarding any still-meaningful optimal role
-for the other side.
+Homogeneous targeting is reduced inside the exact state model rather than by the preflight. When
+all living targets share one combat configuration, the slot uses deterministic DPS concentration
+without discarding optimal decisions against heterogeneous targets elsewhere in the same battle.
+
+Exact multi-fleet combat memoizes successful engagements for one request. Fleet identity and
+reputation payload do not enter the engagement key; attacker/defender role, planner policy,
+splitter state, current HP, configuration, and resolved missile/cannon initiative-slot order do.
+Equivalent raw initiative values therefore share a solve when they produce the same phase order.
+Diagnostics report engagement requests, solves, and cache hits on each exact attempt.
 
 ## What to Measure
 
@@ -57,6 +63,7 @@ machines. At minimum, exact-solver investigations should capture:
 - enumerated chance outcomes and assignment options;
 - value-iteration sweeps and convergence/failure reason;
 - multi-fleet branch count where applicable; and
+- engagement requests, solves, and request-local cache hits;
 - selected strategy tier and remaining budget at each transition.
 
 Also record input shape: fleet and ship counts, distinct ship configurations, weapon dice, shield
@@ -77,8 +84,10 @@ Permanent repository assets are warranted when they make algorithmic regressions
 
 Shared scenarios in `scripts/matchups.ts` are correctness fixtures. The opt-in permanent harness is
 `scripts/benchmark-combat.ts`; run it with `bun run benchmark:combat -- [runs]` (three runs by
-default). Neither file is a timing baseline. A scenario may be shared with the benchmark runner,
-but a slow exploratory case should be promoted only when it represents a lasting correctness or
+default). It covers small and large mirrors, homogeneous and late-homogeneous minimax states,
+repeated multi-fleet engagements, positive and negative initiative-order reuse, missiles, and
+healing. Neither file is a timing baseline. A scenario may be shared with the benchmark runner, but
+a slow exploratory case should be promoted only when it represents a lasting correctness or
 complexity boundary.
 
 Keep these artifacts temporary and out of version control:

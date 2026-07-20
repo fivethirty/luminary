@@ -59,7 +59,10 @@ composition root between those layers.
   owns matchup-level solver caching.
 - `exact-combat.ts`: converts one or more fleets into exact solves and maps their outcomes to the
   shared engine result shape. Multi-fleet combat composes adjacent two-fleet exact engagements in
-  the same order as `MultiBattle`, carrying terminal HP into the next engagement.
+  the same order as `MultiBattle`, carrying terminal HP into the next engagement. A request-local
+  engagement cache excludes fleet names while retaining roles, policy, configuration, HP, and
+  resolved phase order; the multi-fleet reporting layer applies fleet identity and attribution to
+  cached terminal HP.
 - `combat-runner.ts`: owns the interactive `exact-optimal` → `exact-dps` → `monte-carlo-dps`
   strategy ladder, its single request-wide deadline, planner-safe fleet cloning, and serializable
   fallback diagnostics.
@@ -195,7 +198,9 @@ cycles and must not be treated as a DAG.
 
 Policy transitions call the real `BinnedDamageAssignmentHelper` on materialized ship clones.
 They do not reimplement NPC or DPS targeting. Minimax transitions reuse `enumerateCandidates`
-to produce legal, distinct successor assignments; NPC assignment remains deterministic.
+to produce legal, distinct successor assignments; NPC assignment remains deterministic. When all
+living targets have one combat configuration, concentrating damage is deterministic under DPS and
+is used as an exact reduction of that otherwise redundant minimax decision node.
 
 `dice-distribution.ts` groups ordinary die rolls by the set of living shield values they hit.
 Identical dice are exchangeable, so it enumerates multinomial multisets rather than roll
