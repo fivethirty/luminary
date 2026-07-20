@@ -157,16 +157,18 @@ function restoreSavedSetup(): boolean {
 
 let autoSimulateTimer: ReturnType<typeof setTimeout> | undefined;
 
+function fleetHasShips(fleet: (typeof state.fleets)[number]): boolean {
+  return fleet.shipTypes.some((shipType) => shipType.quantity > 0);
+}
+
 // There is no Simulate button: every fleet change re-solves the battle after a
-// short pause. Battles with an empty fleet clear the results instead, so stale
-// odds never linger next to a half-edited setup.
+// short pause. Empty fleets sit out, and at least two populated fleets are
+// required so stale odds never linger next to a half-edited setup.
 function scheduleAutoSimulate() {
   clearTimeout(autoSimulateTimer);
   autoSimulateTimer = setTimeout(() => {
     updateFleetNames();
-    const ready =
-      state.fleets.length >= 2 &&
-      state.fleets.every((fleet) => fleet.shipTypes.length > 0);
+    const ready = state.fleets.filter(fleetHasShips).length >= 2;
     if (ready) {
       simulate();
     } else {
@@ -226,7 +228,7 @@ function simulate() {
 function buildEngineFleets(
   plannerOverrides: readonly (DamageType | undefined)[] = []
 ): Fleet[] {
-  return state.fleets.map((fleet, index) => {
+  return state.fleets.flatMap((fleet, index) => {
     const ships: Ship[] = [];
 
     fleet.shipTypes.forEach((shipType) => {
@@ -236,12 +238,17 @@ function buildEngineFleets(
       }
     });
 
-    return new Fleet(
-      fleet.name,
-      ships,
-      fleet.antimatterSplitter,
-      plannerOverrides[index] ?? PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
-    );
+    if (ships.length === 0) return [];
+
+    return [
+      new Fleet(
+        fleet.name,
+        ships,
+        fleet.antimatterSplitter,
+        plannerOverrides[index] ??
+          PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
+      ),
+    ];
   });
 }
 

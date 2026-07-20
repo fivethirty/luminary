@@ -63,10 +63,12 @@
 .fleet-name {
   min-width: 0;
   overflow-wrap: anywhere;
+  align-self: baseline;
 }
 
 .fleet-settings-btn {
   flex: 0 0 auto;
+  align-self: baseline;
   padding: 0 var(--space-xs);
   border-color: transparent;
   background: transparent;

@@ -207,6 +207,29 @@ describe('App', () => {
     ).toBeCloseTo(25 / 121, 9);
   });
 
+  test('auto-simulates populated fleets while an added fleet is empty', async () => {
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+    addBtn.click();
+
+    addShipType(state.fleets[0].id, ShipType.Interceptor, {
+      cannons: { ion: 1 },
+    });
+    addShipType(state.fleets[1].id, ShipType.Cruiser, {
+      cannons: { ion: 1 },
+      hull: 1,
+    });
+    await settle();
+
+    expect(state.fleets[2].shipTypes).toHaveLength(0);
+    expect(state.simulationResults).not.toBeNull();
+    expect(
+      state.simulationResults!.victoryProbability['Attacker 2']
+    ).toBeUndefined();
+    expect(document.querySelector('calc-results')).not.toBeNull();
+  });
+
   test('keeps duplicate faction attackers separate in live odds', async () => {
     const addBtn = document.getElementById(
       'add-fleet-btn'

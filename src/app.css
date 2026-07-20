@@ -338,6 +338,24 @@ select {
 }
 
 @media (max-width: 42rem) {
+  #recent-battles {
+    width: 100%;
+    max-width: none;
+  }
+
+  .add-fleet-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .add-fleet-row button {
+    width: 100%;
+  }
+
+  .add-fleet-row .danger {
+    margin-left: 0;
+  }
+
   .steppers-control {
     display: flex;
     justify-content: space-between;
