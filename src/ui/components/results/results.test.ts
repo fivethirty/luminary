@@ -172,12 +172,8 @@ describe('Results', () => {
     expect(segments[1].classList.contains('attacker-result')).toBe(true);
     expect(segments[1].classList.contains('attacker-result-2')).toBe(false);
     expect(segments[2].classList.contains('attacker-result-2')).toBe(true);
-    expect(segments[1].querySelector('span')?.textContent).toBe(
-      'Terran'
-    );
-    expect(segments[2].querySelector('span')?.textContent).toBe(
-      'Terran'
-    );
+    expect(segments[1].querySelector('span')?.textContent).toBe('Terran');
+    expect(segments[2].querySelector('span')?.textContent).toBe('Terran');
   });
 
   test('applies selected board colors to result segments', () => {
