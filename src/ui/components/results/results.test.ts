@@ -150,8 +150,8 @@ describe('Results', () => {
 
   test('uses stable IDs and distinct colors when display names collide', () => {
     addFleet();
-    state.fleets[1].name = 'Terran Directorate';
-    state.fleets[2].name = 'Terran Directorate';
+    state.fleets[1].name = 'Terran';
+    state.fleets[2].name = 'Terran';
     const [defenderId, firstAttackerId, secondAttackerId] = state.fleets.map(
       (fleet) => fleet.id
     );
@@ -173,10 +173,10 @@ describe('Results', () => {
     expect(segments[1].classList.contains('attacker-result-2')).toBe(false);
     expect(segments[2].classList.contains('attacker-result-2')).toBe(true);
     expect(segments[1].querySelector('span')?.textContent).toBe(
-      'Terran Directorate'
+      'Terran'
     );
     expect(segments[2].querySelector('span')?.textContent).toBe(
-      'Terran Directorate'
+      'Terran'
     );
   });
 
@@ -466,8 +466,8 @@ describe('Results', () => {
 
   test('uses shortened faction names in survivor compositions', () => {
     const attacker = state.fleets[1];
-    attacker.factionId = 'terran';
-    attacker.name = 'Terran Directorate';
+    attacker.factionId = 'eridani';
+    attacker.name = 'Eridani Empire';
     setSimulationResults(
       exactResults({
         survivorDistribution: [
@@ -486,7 +486,7 @@ describe('Results', () => {
     document.body.appendChild(element);
 
     expect(element.querySelector('.composition-fleet-label')?.textContent).toBe(
-      'Terran'
+      'Eridani'
     );
   });
 

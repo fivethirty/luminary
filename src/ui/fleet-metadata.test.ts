@@ -24,7 +24,7 @@ describe('fleet naming metadata', () => {
       )
     ).toBe('The Ancients');
     expect(baseFleetName({ factionId: 'terran', shipTypes: [] }, 1, 2)).toBe(
-      'Terran Directorate'
+      'Terran'
     );
   });
 
@@ -35,7 +35,7 @@ describe('fleet naming metadata', () => {
         { factionId: 'terran', shipTypes: [] },
         { factionId: 'terran', shipTypes: [] },
       ])
-    ).toEqual(['Defender', 'Terran Directorate 1', 'Terran Directorate 2']);
+    ).toEqual(['Defender', 'Terran 1', 'Terran 2']);
   });
 
   test('derives unique shortened faction names', () => {

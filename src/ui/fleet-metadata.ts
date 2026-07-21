@@ -82,7 +82,7 @@ const DEFAULT_FLEET_COLOR_IDS: FleetColorId[] = [
 
 export const FACTIONS = [
   { id: '', label: 'No faction' },
-  { id: 'terran', label: 'Terran Directorate', shortLabel: 'Terran' },
+  { id: 'terran', label: 'Terran', shortLabel: 'Terran' },
   { id: 'eridani', label: 'Eridani Empire', shortLabel: 'Eridani' },
   { id: 'planta', label: 'Planta', shortLabel: 'Planta' },
   { id: 'mechanema', label: 'Mechanema', shortLabel: 'Mechanema' },

@@ -225,7 +225,7 @@ calc-stat-cube[disabled] .stat-step {
    glyph and its value, especially between the two stepper controls. */
 calc-stat-cube[data-stat='computer'] .stat-cube input,
 calc-stat-cube[data-stat='shield'] .stat-cube input {
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
 }
 
 .stat-cube input::-webkit-inner-spin-button,

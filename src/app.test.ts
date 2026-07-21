@@ -111,13 +111,13 @@ describe('App', () => {
     factionSelect.value = 'terran';
     factionSelect.dispatchEvent(new Event('change'));
 
-    expect(state.fleets[0].name).toBe('Terran Directorate');
+    expect(state.fleets[0].name).toBe('Terran');
     expect(state.fleets[1].name).toBe('Attacker');
 
     const fleetNames = Array.from(document.querySelectorAll('.fleet-name')).map(
       (name) => name.textContent
     );
-    expect(fleetNames).toEqual(['Terran Directorate', 'Attacker']);
+    expect(fleetNames).toEqual(['Terran', 'Attacker']);
   });
 
   test('uses The Ancients for an NPC defender fleet', async () => {
@@ -355,8 +355,8 @@ describe('App', () => {
 
     await settle();
 
-    expect(state.fleets[1].name).toBe('Terran Directorate 1');
-    expect(state.fleets[2].name).toBe('Terran Directorate 2');
+    expect(state.fleets[1].name).toBe('Terran 1');
+    expect(state.fleets[2].name).toBe('Terran 2');
     expect(
       state.simulationResults!.victoryProbability[state.fleets[1].id]
     ).toBe(0);
