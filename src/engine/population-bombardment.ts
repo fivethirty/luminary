@@ -3,11 +3,11 @@ import { enumerateSlotOutcomes } from './dice-distribution';
 import { Fleet } from './fleet';
 import { Ship, ShipType, WeaponType } from './ship';
 
-/** The last bucket represents six or more damage. */
-export const MAX_POPULATION_DAMAGE_BUCKET = 6;
+/** The last bucket represents seven or more damage. */
+export const MAX_POPULATION_DAMAGE_BUCKET = 7;
 
 export type PopulationDamageBucket = {
-  /** Exact damage for 0..5; six or more damage for the final bucket. */
+  /** Exact damage for 0..6; seven or more damage for the final bucket. */
   damage: number;
   exactProbability: number;
   /** Probability of inflicting at least `damage`. */

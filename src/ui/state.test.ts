@@ -15,6 +15,7 @@ import {
   removeShipType,
   replaceFleets,
   resetFleets,
+  setDetailedOutcomesExpanded,
   setSectorPopulation,
   setSimulationResults,
   onFleetsChanged,
@@ -48,6 +49,10 @@ describe('State', () => {
 
     test('defaults sector population to two', () => {
       expect(state.sectorPopulation).toBe(2);
+    });
+
+    test('defaults detailed outcomes to collapsed', () => {
+      expect(state.detailedOutcomesExpanded).toBe(false);
     });
   });
 
@@ -557,16 +562,28 @@ describe('State', () => {
 
   describe('setSectorPopulation', () => {
     test('stores a valid sector population', () => {
-      setSectorPopulation(4);
+      setSectorPopulation(7);
 
-      expect(state.sectorPopulation).toBe(4);
+      expect(state.sectorPopulation).toBe(7);
     });
 
     test('rejects populations outside the modeled damage range', () => {
       expect(() => setSectorPopulation(0)).toThrow();
-      expect(() => setSectorPopulation(7)).toThrow();
+      expect(() => setSectorPopulation(8)).toThrow();
       expect(() => setSectorPopulation(2.5)).toThrow();
       expect(state.sectorPopulation).toBe(2);
+    });
+  });
+
+  describe('setDetailedOutcomesExpanded', () => {
+    test('remembers the detailed outcomes disclosure state', () => {
+      setDetailedOutcomesExpanded(true);
+
+      expect(state.detailedOutcomesExpanded).toBe(true);
+
+      setDetailedOutcomesExpanded(false);
+
+      expect(state.detailedOutcomesExpanded).toBe(false);
     });
   });
 

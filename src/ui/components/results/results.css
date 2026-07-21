@@ -285,12 +285,6 @@ calc-results {
   font-variant-numeric: tabular-nums;
 }
 
-.impact-note {
-  margin: var(--space-sm) 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-}
-
 .reputation-impact-row {
   padding: var(--space-xs) 0;
   display: flex;

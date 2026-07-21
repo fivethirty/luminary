@@ -220,7 +220,7 @@ describe('App', () => {
       state.simulationResults!.populationBombardment.byAttacker[
         state.fleets[1].id
       ]
-    ).toHaveLength(7);
+    ).toHaveLength(8);
     expect(state.simulationResults!.reputationDraws.available).toBe(true);
     expect(state.simulationResults!.tier).toBe('exact-optimal');
     expect(state.simulationResults!.methodLabel).toBe(

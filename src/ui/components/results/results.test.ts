@@ -510,7 +510,7 @@ describe('Results', () => {
         },
         populationBombardment: {
           byAttacker: {
-            [attackerId]: Array.from({ length: 7 }, (_, damage) => ({
+            [attackerId]: Array.from({ length: 8 }, (_, damage) => ({
               damage,
               exactProbability: damage === 0 ? 0.5 : 0,
               atLeastProbability:
@@ -564,9 +564,7 @@ describe('Results', () => {
     expect(
       element.querySelector('.population-destroyed-value')?.textContent
     ).toBe('40.0%');
-    expect(element.querySelector('#population-impact-note')?.textContent).toBe(
-      "Includes the attacker's win chance. Ignores Neutron Bombs because the defender may have Neutron Absorbers, which are not modeled."
-    );
+    expect(element.querySelector('#population-impact-note')).toBeNull();
 
     populationSelect.value = '4';
     populationSelect.dispatchEvent(new Event('change'));
@@ -634,6 +632,45 @@ describe('Results', () => {
     expect(element.textContent).not.toContain('Battle impact');
   });
 
+  test('remembers whether detailed outcomes is expanded across results', () => {
+    setSimulationResults(exactResults());
+    const firstElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(firstElement);
+
+    const firstDetails = firstElement.querySelector(
+      '.detailed-outcomes'
+    ) as HTMLDetailsElement;
+    firstDetails.open = true;
+    firstDetails.dispatchEvent(new Event('toggle'));
+
+    setSimulationResults(exactResults({ drawProbability: 0.1 }));
+    firstElement.remove();
+    const nextElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(nextElement);
+
+    const nextDetails = nextElement.querySelector(
+      '.detailed-outcomes'
+    ) as HTMLDetailsElement;
+    expect(nextDetails.open).toBe(true);
+
+    nextDetails.open = false;
+    nextDetails.dispatchEvent(new Event('toggle'));
+    nextElement.remove();
+    const finalElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(finalElement);
+
+    expect(
+      (finalElement.querySelector('.detailed-outcomes') as HTMLDetailsElement)
+        .open
+    ).toBe(false);
+  });
+
   test('shows one selected population-destruction chance per attacker', () => {
     addFleet();
     state.fleets[2].name = 'Attacker 2';
@@ -641,7 +678,7 @@ describe('Results', () => {
       (fleet) => fleet.id
     );
     const buckets = (chance: number) =>
-      Array.from({ length: 7 }, (_, damage) => ({
+      Array.from({ length: 8 }, (_, damage) => ({
         damage,
         exactProbability: damage === 0 ? 1 - chance : 0,
         atLeastProbability: damage === 0 ? 1 : chance,
@@ -680,31 +717,6 @@ describe('Results', () => {
     ).toBe('35.0%');
     expect(rows[1].getAttribute('aria-label')).toBe(
       'Attacker 2: 35.0% chance to destroy all 2 population'
-    );
-  });
-
-  test('explains Planta population loss on defeat', () => {
-    state.fleets[0].factionId = 'planta';
-    const attackerId = state.fleets[1].id;
-    setSimulationResults(
-      exactResults({
-        populationBombardment: {
-          byAttacker: {
-            [attackerId]: Array.from({ length: 7 }, (_, damage) => ({
-              damage,
-              exactProbability: damage === 0 ? 0.6 : 0,
-              atLeastProbability: damage === 0 ? 1 : 0.4,
-            })),
-          },
-        },
-      })
-    );
-
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
-
-    expect(element.querySelector('#population-impact-note')?.textContent).toBe(
-      'Planta loses all sector population on defeat. Neutron Bombs and Neutron Absorbers are not modeled.'
     );
   });
 

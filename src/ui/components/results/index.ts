@@ -1,6 +1,11 @@
 import html from './results.html' with { type: 'text' };
 import './results.css';
-import { setSectorPopulation, state, type SimulationResults } from '@ui/state';
+import {
+  setDetailedOutcomesExpanded,
+  setSectorPopulation,
+  state,
+  type SimulationResults,
+} from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
 import { fleetColor } from '@ui/fleet-metadata';
 import { resultClassesForFleet } from '@ui/result-presentation';
@@ -30,6 +35,7 @@ export class ResultsElement extends HTMLElement {
     this.innerHTML = html;
     this.bindShareActions();
     this.bindPopulationControl();
+    this.bindDetailedOutcomes();
     this.render();
   }
 
@@ -95,6 +101,16 @@ export class ResultsElement extends HTMLElement {
 
       setSectorPopulation(population);
       this.renderPopulationImpact(state.simulationResults!);
+    });
+  }
+
+  private bindDetailedOutcomes() {
+    const details = this.querySelector(
+      '.detailed-outcomes'
+    ) as HTMLDetailsElement;
+    details.open = state.detailedOutcomesExpanded;
+    details.addEventListener('toggle', () => {
+      setDetailedOutcomesExpanded(details.open);
     });
   }
 
@@ -257,7 +273,6 @@ export class ResultsElement extends HTMLElement {
   private renderPopulationImpact(results: SimulationResults): boolean {
     const section = this.querySelector('#population-impact') as HTMLElement;
     const rows = this.querySelector('#population-impact-rows')!;
-    const note = this.querySelector('#population-impact-note') as HTMLElement;
     rows.innerHTML = '';
 
     const defender = state.fleets[0];
@@ -267,7 +282,6 @@ export class ResultsElement extends HTMLElement {
       Object.keys(results.populationBombardment.byAttacker).length > 0;
     if (!visible) {
       section.style.display = 'none';
-      note.hidden = true;
       return false;
     }
 
@@ -307,11 +321,6 @@ export class ResultsElement extends HTMLElement {
       rows.appendChild(row);
     }
 
-    const automaticWipe = defender.factionId === 'planta';
-    note.textContent = automaticWipe
-      ? 'Planta loses all sector population on defeat. Neutron Bombs and Neutron Absorbers are not modeled.'
-      : "Includes the attacker's win chance. Ignores Neutron Bombs because the defender may have Neutron Absorbers, which are not modeled.";
-    note.hidden = false;
     section.style.display = 'block';
     return true;
   }

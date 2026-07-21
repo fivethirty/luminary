@@ -114,6 +114,7 @@ export interface State {
   fleets: FleetState[];
   simulationResults: SimulationResults | null;
   sectorPopulation: number;
+  detailedOutcomesExpanded: boolean;
   cachedShipTypes: Record<
     string,
     Partial<Record<ShipType, CachedShipTypeConfig>>
@@ -147,6 +148,7 @@ export const state: State = {
   fleets: DEFAULT_FLEETS.map((f) => ({ ...f, shipTypes: [] })),
   simulationResults: null,
   sectorPopulation: DEFAULT_SECTOR_POPULATION,
+  detailedOutcomesExpanded: false,
   cachedShipTypes: {},
 };
 
@@ -379,6 +381,7 @@ export function getCachedShipType(
 export function resetFleets() {
   state.fleets = DEFAULT_FLEETS.map((f) => ({ ...f, shipTypes: [] }));
   state.sectorPopulation = DEFAULT_SECTOR_POPULATION;
+  state.detailedOutcomesExpanded = false;
   state.cachedShipTypes = {};
   clearRememberedFleetColors();
   nextFleetId = 2;
@@ -415,6 +418,10 @@ export function setSectorPopulation(population: number) {
     throw new Error(`Invalid sector population: ${population}`);
   }
   state.sectorPopulation = population;
+}
+
+export function setDetailedOutcomesExpanded(expanded: boolean) {
+  state.detailedOutcomesExpanded = expanded;
 }
 
 export function toggleAntimatterSplitter(fleetId: string) {

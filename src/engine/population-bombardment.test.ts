@@ -276,7 +276,7 @@ describe('calculatePopulationBombardment', () => {
     ).toBeCloseTo(3 / 6, 12);
   });
 
-  test('caps the final bucket at six or more damage', () => {
+  test('caps the final bucket at seven or more damage', () => {
     const defender = new Fleet('defender', [new Ship(ShipType.Interceptor)]);
     const attacker = new Fleet('attacker', [
       new Ship(ShipType.Dreadnought, {
@@ -307,7 +307,7 @@ describe('calculatePopulationBombardment', () => {
       10 / 36,
       12
     );
-    expect(bucket(result.byAttacker.attacker, 6).exactProbability).toBeCloseTo(
+    expect(bucket(result.byAttacker.attacker, 7).exactProbability).toBeCloseTo(
       25 / 36,
       12
     );
@@ -316,6 +316,9 @@ describe('calculatePopulationBombardment', () => {
     ).toBeCloseTo(25 / 36, 12);
     expect(
       bucket(result.byAttacker.attacker, 6).atLeastProbability
+    ).toBeCloseTo(25 / 36, 12);
+    expect(
+      bucket(result.byAttacker.attacker, 7).atLeastProbability
     ).toBeCloseTo(25 / 36, 12);
   });
 
@@ -349,11 +352,11 @@ describe('calculatePopulationBombardment', () => {
       0.4,
       12
     );
-    expect(bucket(result.byAttacker.attacker, 6).exactProbability).toBeCloseTo(
+    expect(bucket(result.byAttacker.attacker, 7).exactProbability).toBeCloseTo(
       0.6,
       12
     );
-    for (let damage = 1; damage <= 6; damage++) {
+    for (let damage = 1; damage <= 7; damage++) {
       expect(
         bucket(result.byAttacker.attacker, damage).atLeastProbability
       ).toBeCloseTo(0.6, 12);
