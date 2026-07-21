@@ -1,17 +1,19 @@
 {
   "name": "eclipse-battle-calculator",
   "version": "0.0.1",
+  "packageManager": "bun@1.2.19",
   "description": "Battle calculator for Eclipse: Second Dawn for the Galaxy",
   "scripts": {
     "dev": "bun --hot src/index.html",
-    "build": "bun build ./src/*.html --outdir ./dist --minify && cp src/sw.js dist/sw.js",
+    "build": "bun build ./src/*.html --outdir ./dist --minify && cp src/sw.js dist/sw.js && cp src/favicons/apple-touch-icon.png dist/apple-touch-icon.png",
     "test": "bun test",
     "test:engine": "bun test src/engine",
     "test:solver": "bun test src/engine/battle-rules.test.ts src/engine/battle-state.test.ts src/engine/dice-distribution.test.ts src/engine/win-probability-solver.test.ts src/engine/win-probability-solver.optimal.test.ts src/engine/win-probability-solver.minimax.test.ts src/engine/exact-combat.test.ts src/engine/optimal-damage-planner.test.ts",
+    "benchmark:combat": "bun run scripts/benchmark-combat.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts",
     "lint:fix": "eslint src scripts --fix",
-    "check": "bun run typecheck && bun run lint && bun test"
+    "check": "bun run typecheck && bun run lint && bun test && bun run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

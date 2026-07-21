@@ -3,7 +3,10 @@ import './stat-cube.css';
 
 export class StatCubeElement extends HTMLElement {
   private _value: number = 0;
+  private _defaultValue: number = 0;
   private _label = '';
+  private _accessibleLabel = '';
+  private _sign = '';
   private _disabled = false;
   private _max = 99;
   private _step = 1;
@@ -21,9 +24,26 @@ export class StatCubeElement extends HTMLElement {
   set value(val: number) {
     this._value = this.normalizeValue(val);
     if (this.input) {
-      this.input.value = String(this.value);
+      this.input.value = this.displayValue();
     }
     this.applyStepperState();
+    this.applyModifiedState();
+  }
+
+  get defaultValue(): number {
+    return this._defaultValue;
+  }
+
+  set defaultValue(val: number) {
+    this._defaultValue = this.normalizeValue(val);
+    this.applyModifiedState();
+  }
+
+  // The value as shown in the input, prefixed with the sign glyph when one is
+  // set (e.g. '+3' for computers, '−2' for shields). The input is cleared for
+  // digit-only editing while focused, so the sign only appears at rest.
+  private displayValue(value = this.value): string {
+    return `${this._sign}${value}`;
   }
 
   get max(): number {
@@ -84,11 +104,13 @@ export class StatCubeElement extends HTMLElement {
     this.input = this.querySelector('input') as HTMLInputElement;
     const label = this.querySelector('label') as HTMLElement;
 
-    this.input.value = String(this.value);
+    this.input.value = this.displayValue();
     label.textContent = this._label;
     this.applyInputConstraints();
     this.applyDisabledState();
     this.applyStepperState();
+    this.applyAccessibleLabels();
+    this.applyModifiedState();
 
     this.addEventListener('click', (e) => {
       if (this.disabled) return;
@@ -118,6 +140,12 @@ export class StatCubeElement extends HTMLElement {
       }
     });
 
+    this.input.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      this.adjustValue(e.key === 'ArrowUp' ? 1 : -1);
+    });
+
     this.input.addEventListener('input', () => {
       this.input.value = this.input.value.replace(/[^0-9]/g, '');
 
@@ -128,12 +156,12 @@ export class StatCubeElement extends HTMLElement {
 
     this.input.addEventListener('change', () => {
       if (this.disabled) {
-        this.input.value = String(this.value);
+        this.input.value = this.displayValue();
         return;
       }
       const newValue = parseInt(this.input.value) || 0;
       this.value = newValue;
-      this.input.value = String(this.value);
+      this.input.value = this.displayValue();
 
       this.dispatchEvent(new Event('change', { bubbles: true }));
     });
@@ -158,10 +186,12 @@ export class StatCubeElement extends HTMLElement {
 
   private normalizeCurrentValue() {
     this._value = this.normalizeValue(this.value);
+    this._defaultValue = this.normalizeValue(this.defaultValue);
     if (this.input) {
-      this.input.value = String(this.value);
+      this.input.value = this.displayValue();
     }
     this.applyStepperState();
+    this.applyModifiedState();
   }
 
   private effectiveMax(): number {
@@ -187,6 +217,41 @@ export class StatCubeElement extends HTMLElement {
 
     dec.disabled = this.disabled || this.value <= 0;
     inc.disabled = this.disabled || this.value >= this.effectiveMax();
+    if (this.input) {
+      this.input.setAttribute('aria-valuemin', '0');
+      this.input.setAttribute('aria-valuemax', String(this.effectiveMax()));
+      this.input.setAttribute('aria-valuenow', String(this.value));
+      this.input.setAttribute('aria-disabled', String(this.disabled));
+    }
+  }
+
+  private applyAccessibleLabels() {
+    if (!this.input) return;
+    const label = this.accessibleLabel || this.label || 'Stat';
+    this.input.setAttribute('aria-label', label);
+    this.querySelector('.stat-dec')?.setAttribute(
+      'aria-label',
+      `Decrease ${label}`
+    );
+    this.querySelector('.stat-inc')?.setAttribute(
+      'aria-label',
+      `Increase ${label}`
+    );
+  }
+
+  private applyModifiedState() {
+    const modified = this.value !== this.defaultValue;
+    this.toggleAttribute('modified', modified);
+    if (!this.input) return;
+
+    if (modified) {
+      this.input.setAttribute(
+        'aria-description',
+        `Modified from default ${this.displayValue(this.defaultValue)}`
+      );
+    } else {
+      this.input.removeAttribute('aria-description');
+    }
   }
 
   // Tap steps once; press-and-hold repeats. The repeat suppresses the click
@@ -196,6 +261,7 @@ export class StatCubeElement extends HTMLElement {
     let holdTimer: ReturnType<typeof setTimeout> | undefined;
     let repeatTimer: ReturnType<typeof setInterval> | undefined;
     let repeated = false;
+    let pointerType = '';
 
     const stopRepeat = () => {
       clearTimeout(holdTimer);
@@ -204,7 +270,11 @@ export class StatCubeElement extends HTMLElement {
       repeatTimer = undefined;
     };
 
-    button.addEventListener('pointerdown', () => {
+    button.addEventListener('pointerdown', (event) => {
+      pointerType = event.pointerType;
+      if (pointerType !== 'mouse' && document.activeElement === this.input) {
+        this.input.blur();
+      }
       repeated = false;
       holdTimer = setTimeout(() => {
         repeated = true;
@@ -219,9 +289,13 @@ export class StatCubeElement extends HTMLElement {
     button.addEventListener('click', () => {
       if (repeated) {
         repeated = false;
+        if (pointerType && pointerType !== 'mouse') button.blur();
+        pointerType = '';
         return;
       }
       this.adjustValue(delta);
+      if (pointerType && pointerType !== 'mouse') button.blur();
+      pointerType = '';
     });
   }
 
@@ -235,6 +309,33 @@ export class StatCubeElement extends HTMLElement {
     if (labelEl) {
       labelEl.textContent = val;
     }
+    this.applyAccessibleLabels();
+  }
+
+  get accessibleLabel(): string {
+    return this._accessibleLabel;
+  }
+
+  set accessibleLabel(val: string) {
+    this._accessibleLabel = val;
+    this.applyAccessibleLabels();
+  }
+
+  // A sign glyph shown just before the value (e.g. '+' for computers, '−' for
+  // shields) to hint how the stat shifts a to-hit roll. Purely cosmetic — the
+  // stored value stays a plain unsigned number and the field is edited as
+  // digits only.
+  get sign(): string {
+    return this._sign;
+  }
+
+  set sign(val: string) {
+    this._sign = val;
+    // Don't clobber an in-progress edit; the sign reappears on the next render.
+    if (this.input && document.activeElement !== this.input) {
+      this.input.value = this.displayValue();
+    }
+    this.applyModifiedState();
   }
 }
 

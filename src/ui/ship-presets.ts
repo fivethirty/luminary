@@ -1,8 +1,10 @@
-import { ShipType, type ShipConfig } from '@calc/ship';
+import { isPlayerShipType, ShipType, type ShipConfig } from '@calc/ship';
+import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
+import type { FactionId } from '@ui/fleet-metadata';
 
-// The ship presets behind the "+ Ship Type" dropdown, shared with the URL
-// codec so battle links can name a preset (e.g. `guardian-wa`) and only carry
-// stats that differ from it.
+// Ship presets shared by the "+ Add ship" dropdown, the defender NPC pills,
+// and the URL codec. Battle links can name a preset (e.g. `guardian-wa`) and
+// only carry stats that differ from it.
 export type ShipDropdownOption =
   | 'interceptor'
   | 'cruiser'
@@ -180,6 +182,43 @@ const SHIP_PRESETS: Record<ShipDropdownOption, ShipVariantData> = {
   },
 };
 
+// Keep these separate from SHIP_PRESETS. The latter is the v1 share-link
+// baseline, so changing it would silently reinterpret historical links whose
+// omitted stats meant zero. UI-added ships use these operating blueprints and
+// serialize their effective stats explicitly against that legacy baseline.
+const GENERIC_STARTING_PLAYER_CONFIGS: Partial<
+  Record<ShipType, Required<ShipConfig>>
+> = {
+  [ShipType.Interceptor]: {
+    ...createEmptyConfig(3),
+    cannons: { ion: 1, plasma: 0, soliton: 0, antimatter: 0 },
+  },
+  [ShipType.Cruiser]: {
+    ...createEmptyConfig(2),
+    hull: 1,
+    computers: 1,
+    cannons: { ion: 1, plasma: 0, soliton: 0, antimatter: 0 },
+  },
+  [ShipType.Dreadnought]: {
+    ...createEmptyConfig(1),
+    hull: 2,
+    computers: 1,
+    cannons: { ion: 2, plasma: 0, soliton: 0, antimatter: 0 },
+  },
+  [ShipType.Orbital]: {
+    ...createEmptyConfig(4),
+    hull: 3,
+    computers: 1,
+    cannons: { ion: 2, plasma: 0, soliton: 0, antimatter: 0 },
+  },
+  [ShipType.Starbase]: {
+    ...createEmptyConfig(4),
+    hull: 2,
+    computers: 1,
+    cannons: { ion: 1, plasma: 0, soliton: 0, antimatter: 0 },
+  },
+};
+
 export const SHIP_PRESET_KEYS = Object.keys(
   SHIP_PRESETS
 ) as ShipDropdownOption[];
@@ -195,77 +234,56 @@ export function getDefaultShipConfig(
   const preset = SHIP_PRESETS[dropdownValue];
   return {
     type: preset.type,
-    config: {
-      ...preset.config,
-      cannons: { ...preset.config.cannons },
-      missiles: { ...preset.config.missiles },
-    },
+    config: cloneShipConfig(preset.config),
   };
+}
+
+/** Returns the operating blueprint used when a player adds a ship in the UI. */
+export function getStartingShipConfig(
+  dropdownValue: ShipDropdownOption,
+  factionId: FactionId | undefined = ''
+): ShipVariantData {
+  const preset = getDefaultShipConfig(dropdownValue);
+  if (!isPlayerShipType(preset.type)) return preset;
+
+  const generic = GENERIC_STARTING_PLAYER_CONFIGS[preset.type];
+  if (!generic) return preset;
+  const config = cloneShipConfig(generic);
+
+  if (factionId === 'planta') {
+    if (preset.type === ShipType.Interceptor) {
+      config.computers += 1;
+      config.initiative -= 2;
+    } else if (preset.type === ShipType.Cruiser) {
+      config.initiative -= 1;
+    } else if (preset.type === ShipType.Starbase) {
+      config.computers += 1;
+      config.initiative -= 2;
+    }
+  } else if (factionId === 'orion') {
+    config.shields += 1;
+    config.initiative += 1;
+  } else if (factionId === 'rho-indi') {
+    config.shields += 1;
+  } else if (factionId === 'exiles' && preset.type !== ShipType.Orbital) {
+    config.computers += 1;
+  }
+
+  return { type: preset.type, config };
 }
 
 export function presetKeysForType(type: ShipType): ShipDropdownOption[] {
   return SHIP_PRESET_KEYS.filter((key) => SHIP_PRESETS[key].type === type);
 }
 
-function normalizeConfig(config: Partial<ShipConfig>): Required<ShipConfig> {
-  return {
-    hull: config.hull ?? 0,
-    computers: config.computers ?? 0,
-    shields: config.shields ?? 0,
-    initiative: config.initiative ?? 0,
-    heal: config.heal ?? 0,
-    rift: config.rift ?? 0,
-    cannons: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-      ...config.cannons,
-    },
-    missiles: {
-      ion: 0,
-      plasma: 0,
-      soliton: 0,
-      antimatter: 0,
-      ...config.missiles,
-    },
-  };
-}
-
-function configsEqual(
-  a: Required<ShipConfig>,
-  b: Required<ShipConfig>
-): boolean {
-  return (
-    a.hull === b.hull &&
-    a.computers === b.computers &&
-    a.shields === b.shields &&
-    a.initiative === b.initiative &&
-    a.heal === b.heal &&
-    a.rift === b.rift &&
-    a.cannons.ion === b.cannons.ion &&
-    a.cannons.plasma === b.cannons.plasma &&
-    a.cannons.soliton === b.cannons.soliton &&
-    a.cannons.antimatter === b.cannons.antimatter &&
-    a.missiles.ion === b.missiles.ion &&
-    a.missiles.plasma === b.missiles.plasma &&
-    a.missiles.soliton === b.missiles.soliton &&
-    a.missiles.antimatter === b.missiles.antimatter
-  );
-}
-
 export function matchShipPreset(
   type: ShipType,
   config: Partial<ShipConfig>
 ): ShipDropdownOption {
-  const normalizedConfig = normalizeConfig(config);
   const candidates = presetKeysForType(type);
   return (
     candidates.find((candidate) =>
-      configsEqual(
-        normalizedConfig,
-        normalizeConfig(getDefaultShipConfig(candidate).config)
-      )
+      shipConfigsEqual(config, getDefaultShipConfig(candidate).config)
     ) ?? candidates[0]
   );
 }

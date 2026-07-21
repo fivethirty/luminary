@@ -81,6 +81,32 @@ describe('enumerateSlotOutcomes', () => {
     expect(twoHits).toBeCloseTo((1 / 6) * (1 / 6), 12);
   });
 
+  test('groups ordinary weapon dice by saturated damage behavior', () => {
+    const ship = new Ship(ShipType.Interceptor, {
+      cannons: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+    });
+
+    const nominal = enumerateSlotOutcomes([ship], false, [0], false, CAP)!;
+    const saturated = enumerateSlotOutcomes(
+      [ship],
+      false,
+      [0],
+      false,
+      CAP,
+      undefined,
+      1
+    )!;
+
+    expect(nominal).toHaveLength(16);
+    expect(saturated).toHaveLength(5);
+    expect(probSum(saturated)).toBeCloseTo(1, 12);
+    expect(
+      saturated.every((outcome) =>
+        outcome.shots.every((shot) => shot.damage === 1)
+      )
+    ).toBe(true);
+  });
+
   test('rift die: five fixed classes', () => {
     const ship = new Ship(ShipType.Cruiser, { rift: 1 });
     const outcomes = enumerateSlotOutcomes([ship], false, [0], false, CAP)!;
@@ -120,6 +146,25 @@ describe('enumerateSlotOutcomes', () => {
     expect(landed.prob).toBeCloseTo(1 / 6, 12);
   });
 
+  test('does not flatten a split antimatter die into one saturated shot', () => {
+    const ship = new Ship(ShipType.Interceptor, {
+      cannons: { antimatter: 1 },
+    });
+    const outcomes = enumerateSlotOutcomes(
+      [ship],
+      false,
+      [0],
+      true,
+      CAP,
+      undefined,
+      1
+    )!;
+
+    const landed = outcomes.find((outcome) => outcome.shots.length > 0)!;
+    expect(landed.shots).toHaveLength(4);
+    expect(landed.shots.every((shot) => shot.damage === 1)).toBe(true);
+  });
+
   test('combines groups from multiple ships and respects the cap', () => {
     const a = new Ship(ShipType.Interceptor, { cannons: { ion: 2 } });
     const b = new Ship(ShipType.Cruiser, {
@@ -131,6 +176,41 @@ describe('enumerateSlotOutcomes', () => {
 
     // A tiny cap forces a bail-out.
     expect(enumerateSlotOutcomes([a, b], false, [0], false, 2)).toBeNull();
+  });
+
+  test('accepts a single-group outcome count at the cap', () => {
+    const ship = new Ship(ShipType.Cruiser, { rift: 3 });
+    const outcomes = enumerateSlotOutcomes([ship], false, [0], false, 35);
+
+    // Three identical dice over five classes have C(7, 4) compositions.
+    expect(outcomes).toHaveLength(35);
+    expect(probSum(outcomes!)).toBeCloseTo(1, 12);
+    expect(enumerateSlotOutcomes([ship], false, [0], false, 34)).toBeNull();
+  });
+
+  test('rejects an extreme single group before materializing its outcomes', () => {
+    const ship = new Ship(ShipType.Cruiser, { rift: 1_000_000 });
+
+    // This valid numeric input has far more than ten multiset outcomes. The
+    // cap must be checked before factorials or million-shot arrays are built.
+    expect(enumerateSlotOutcomes([ship], false, [0], false, 10)).toBeNull();
+  });
+
+  test('cooperatively aborts during a bounded group expansion', () => {
+    const ship = new Ship(ShipType.Cruiser, { rift: 20 });
+    let abortChecks = 0;
+
+    const outcomes = enumerateSlotOutcomes(
+      [ship],
+      false,
+      [0],
+      false,
+      CAP,
+      () => ++abortChecks >= 2
+    );
+
+    expect(outcomes).toBeNull();
+    expect(abortChecks).toBe(2);
   });
 
   test('no dice at all: single empty outcome', () => {

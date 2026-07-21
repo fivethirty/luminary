@@ -13,11 +13,12 @@
       content="Eclipse battle calculator, Eclipse Second Dawn, Eclipse fleet simulator, Eclipse board game, battle calculator, fleet combat, Eclipse strategy, board game calculator, Eclipse combat simulator"
     />
     <meta name="author" content="Luminary" />
-    <link rel="canonical" href="https://fivethirty.github.io/luminary/" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="canonical" href="https://luminary.baysoft.dev/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://fivethirty.github.io/luminary/" />
+    <meta property="og:url" content="https://luminary.baysoft.dev/" />
     <meta property="og:title" content="Luminary - Eclipse Battle Calculator" />
     <meta
       property="og:description"
@@ -25,12 +26,12 @@
     />
     <meta
       property="og:image"
-      content="https://fivethirty.github.io/luminary/src/favicons/apple-touch-icon.png"
+      content="https://luminary.baysoft.dev/apple-touch-icon.png"
     />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:url" content="https://fivethirty.github.io/luminary/" />
+    <meta name="twitter:url" content="https://luminary.baysoft.dev/" />
     <meta name="twitter:title" content="Luminary - Eclipse Battle Calculator" />
     <meta
       name="twitter:description"
@@ -38,7 +39,7 @@
     />
     <meta
       name="twitter:image"
-      content="https://fivethirty.github.io/luminary/src/favicons/apple-touch-icon.png"
+      content="https://luminary.baysoft.dev/apple-touch-icon.png"
     />
 
     <link rel="icon" type="image/svg+xml" href="/src/favicons/favicon.svg" />
@@ -75,7 +76,7 @@
         "name": "Luminary",
         "alternateName": "Eclipse Battle Calculator",
         "description": "A battle calculator for Eclipse: Second Dawn for the Galaxy.",
-        "url": "https://fivethirty.github.io/luminary/",
+        "url": "https://luminary.baysoft.dev/",
         "applicationCategory": "GameApplication",
         "genre": "Board Game Tool",
         "keywords": "Eclipse, battle calculator, Second Dawn, board game, fleet simulator",
@@ -101,9 +102,12 @@
         <section class="fleets-section">
           <div class="section-header">
             <h2>Fleets</h2>
-            <button id="add-fleet-btn">+ Fleet</button>
           </div>
           <div id="fleets"></div>
+          <div class="add-fleet-row">
+            <button id="add-fleet-btn">+ Fleet</button>
+            <button id="clear-all-btn" class="danger">Clear setup</button>
+          </div>
         </section>
 
         <section class="results-section">
@@ -112,25 +116,43 @@
         </section>
 
         <div class="controls">
-          <select id="recent-battles" hidden>
-            <option value="">Recent battles…</option>
-          </select>
-          <button id="clear-all-btn" class="danger">Clear</button>
+          <label id="recent-battles-control" class="command-select" hidden>
+            <span>Recent battles…</span>
+            <select
+              id="recent-battles"
+              aria-label="Open a recent battle"
+            ></select>
+          </label>
         </div>
-        <div class="steppers-control">
-          <span id="steppers-toggle-label">UI Controls</span>
-          <div
-            class="steppers-toggle"
-            id="steppers-toggle"
-            role="group"
-            aria-labelledby="steppers-toggle-label"
-          >
-            <button type="button" data-steppers="on">Steppers</button>
-            <button type="button" data-steppers="off">Compact</button>
+        <section class="ui-section" aria-labelledby="ui-heading">
+          <h2 id="ui-heading">UI</h2>
+          <div class="preferences-row">
+            <div class="steppers-control">
+              <span id="steppers-toggle-label" class="preference-label"
+                >Controls</span
+              >
+              <div
+                class="steppers-toggle"
+                id="steppers-toggle"
+                role="group"
+                aria-labelledby="steppers-toggle-label"
+              >
+                <button type="button" data-steppers="on">Steppers</button>
+                <button type="button" data-steppers="off">Compact</button>
+              </div>
+            </div>
+            <label class="theme-control" for="theme-select">
+              <span class="preference-label">Theme</span>
+              <select id="theme-select" class="standard-select">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
           </div>
-        </div>
+        </section>
       </div>
-      
+
       <div id="about-content" style="display: none">
         <h2>About</h2>
         <p>
@@ -141,15 +163,33 @@
             >Eclipse: Second Dawn for the Galaxy</a
           >.
         </p>
-        <h3>Targeting</h3>
+        <h3>Battles</h3>
         <p>
-          Luminary assumes that AI follow the targeting rules for AI ships and
-          that damage will be stacked on previously damaged ships.
+          Luminary supports a defender and up to six attacking fleets. In a
+          battle with multiple attackers, combat starts at the bottom of the
+          fleet list. The winner continues upward to face the next fleet,
+          carrying any damage from the previous engagement.
         </p>
         <p>
-          Player ships are assumed to remove as much enemy damage as possible
-          with their shots &lpar;they ignore missile damage after a ship has
-          fired its missiles&rpar;.
+          Whenever possible, Luminary calculates every dice outcome to produce
+          exact, deterministic odds. Battles that are too complex to solve
+          within the interactive limit automatically fall back to a 5,000-run
+          Monte Carlo simulation. The method used is shown with the results.
+        </p>
+        <h3>Damage Planning</h3>
+        <p>
+          <strong>Optimal</strong> targeting evaluates legal damage assignments
+          for both sides and chooses the assignments that give each fleet its
+          best chance of winning. <strong>Max DPS removal</strong> instead
+          prioritizes taking enemy damage output off the board. Ancient,
+          Guardian, and GCDS fleets always use the official NPC targeting rules.
+        </p>
+        <h3>Sharing and Table Play</h3>
+        <p>
+          Every setup is saved in the page URL, so you can copy a link or a
+          chat-ready results summary. Your latest setup and recent battles are
+          also kept in this browser, and the calculator works offline after its
+          first load.
         </p>
         <h3>Bugs</h3>
         <p>
@@ -161,12 +201,19 @@
       </div>
     </main>
 
-    <div id="live-bar" class="live-bar" hidden>
-      <div class="live-bar-row">
+    <button
+      id="live-bar"
+      class="live-bar"
+      type="button"
+      aria-live="polite"
+      aria-atomic="true"
+      hidden
+    >
+      <span class="live-bar-row">
         <span class="live-label">Live odds</span>
         <span class="live-verdict"></span>
-      </div>
-      <div class="live-odds"></div>
-    </div>
+      </span>
+      <span class="live-odds"></span>
+    </button>
   </body>
 </html>

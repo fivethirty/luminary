@@ -377,6 +377,246 @@ describe('computeExactBattle', () => {
 });
 
 describe('computeExactCombat', () => {
+  test('reuses identity-free engagement solves within one multi-fleet request', () => {
+    const interceptor = () =>
+      new Ship(ShipType.Interceptor, {
+        initiative: 3,
+        cannons: { ion: 1 },
+      });
+    const result = computeExactCombat(
+      Array.from(
+        { length: 4 },
+        (_, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [interceptor()],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('keeps different weapon behavior in the engagement cache key', () => {
+    const interceptor = (ion: number) =>
+      new Ship(ShipType.Interceptor, {
+        initiative: 3,
+        cannons: { ion },
+      });
+    const result = computeExactCombat(
+      [
+        new Fleet('Top', [interceptor(2)]),
+        new Fleet('Middle', [interceptor(1)]),
+        new Fleet('Bottom', [interceptor(1)]),
+      ],
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 3,
+      engagementSolves: 2,
+      engagementCacheHits: 1,
+    });
+  });
+
+  test('reuses optimal engagements when ordinary damage saturates target HP', () => {
+    const cannonVariants = [
+      { ion: 1 },
+      { plasma: 1 },
+      { soliton: 1 },
+      { antimatter: 1 },
+    ];
+    const fleets = (
+      variants: Array<
+        Partial<Record<'ion' | 'plasma' | 'soliton' | 'antimatter', number>>
+      >
+    ) =>
+      variants.map(
+        (cannons, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Interceptor, {
+                initiative: 3,
+                cannons,
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      );
+    const result = computeExactCombat(fleets(cannonVariants), undefined, {
+      plannerPreflight: false,
+    });
+    const reference = computeExactCombat(
+      fleets(cannonVariants.map(() => ({ ion: 1 }))),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.lastFleetStanding).toEqual(reference.lastFleetStanding);
+    expect(result.drawPercentage).toBe(reference.drawPercentage);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('does not saturate ordinary damage below reachable target HP', () => {
+    const result = computeExactCombat(
+      [{ ion: 1 }, { plasma: 1 }, { ion: 1 }, { plasma: 1 }].map(
+        (cannons, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Cruiser, {
+                initiative: 3,
+                hull: 1,
+                cannons,
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics!.engagementSolves).toBeGreaterThan(1);
+  });
+
+  test('saturates ordinary missile damage against current 1 HP targets', () => {
+    const result = computeExactCombat(
+      [{ ion: 1 }, { plasma: 1 }, { soliton: 1 }, { antimatter: 1 }].map(
+        (missiles, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Interceptor, {
+                initiative: 3,
+                missiles,
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('retains nominal weapon loadouts for DPS-policy engagement keys', () => {
+    const cannonVariants = [
+      { ion: 1 },
+      { plasma: 1 },
+      { soliton: 1 },
+      { antimatter: 1 },
+    ];
+    const result = computeExactCombat(
+      cannonVariants.map(
+        (cannons, index) =>
+          new Fleet(`Fleet ${index + 1}`, [
+            new Ship(ShipType.Interceptor, {
+              initiative: 3,
+              cannons,
+            }),
+          ])
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 6,
+      engagementCacheHits: 0,
+    });
+  });
+
+  test('reuses engagements with the same resolved initiative-slot order', () => {
+    const combat = (initiatives: number[]) =>
+      computeExactCombat(
+        initiatives.map(
+          (initiative, index) =>
+            new Fleet(
+              `Fleet ${index + 1}`,
+              [
+                new Ship(ShipType.Interceptor, {
+                  initiative,
+                  cannons: { ion: 1 },
+                }),
+              ],
+              false,
+              DamageType.OPTIMAL
+            )
+        ),
+        undefined,
+        { plannerPreflight: false }
+      );
+    const tied = combat([3, 3, 3, 3]);
+    const shifted = combat([5, 4, 3, 3]);
+
+    expect(shifted.ok).toBe(true);
+    expect(shifted.lastFleetStanding).toEqual(tied.lastFleetStanding);
+    expect(shifted.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 1,
+      engagementCacheHits: 5,
+    });
+  });
+
+  test('does not merge defender-first and attacker-first initiative orders', () => {
+    const result = computeExactCombat(
+      [1, 2, 3, 3].map(
+        (initiative, index) =>
+          new Fleet(
+            `Fleet ${index + 1}`,
+            [
+              new Ship(ShipType.Interceptor, {
+                initiative,
+                cannons: { ion: 1 },
+              }),
+            ],
+            false,
+            DamageType.OPTIMAL
+          )
+      ),
+      undefined,
+      { plannerPreflight: false }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.exactDiagnostics).toEqual({
+      engagementRequests: 6,
+      engagementSolves: 2,
+      engagementCacheHits: 4,
+    });
+  });
+
   test('composes a three-fleet exact battle in MultiBattle order', () => {
     const interceptor = () =>
       new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });
@@ -399,5 +639,118 @@ describe('computeExactCombat', () => {
     expect(result.expectedSurvivors['Attacker 2'][ShipType.Interceptor]).toBe(
       1
     );
+
+    // The two defender-win paths have the same final survivor composition,
+    // but different fleets fought (and destroyed ships) in the first battle.
+    // Keep them distinct for reputation attribution without changing the
+    // aggregate defender win probability above.
+    expect(result.survivorDistribution).toHaveLength(4);
+    const defenderWins = result.survivorDistribution.filter(
+      (entry) => entry.survivors['Defender'][ShipType.Interceptor] === 1
+    );
+    expect(defenderWins).toHaveLength(2);
+
+    const attacker1ThenDefender = defenderWins.find(
+      (entry) =>
+        entry.destroyedShipsCreditedToFleet?.['Attacker 1'][
+          ShipType.Interceptor
+        ] === 1
+    );
+    expect(attacker1ThenDefender?.probability).toBeCloseTo(36 / 121, 9);
+    expect(attacker1ThenDefender?.destroyedShipsCreditedToFleet).toEqual({
+      Defender: { [ShipType.Interceptor]: 1 },
+      'Attacker 1': { [ShipType.Interceptor]: 1 },
+      'Attacker 2': {},
+    });
+
+    const attacker2ThenDefender = defenderWins.find(
+      (entry) =>
+        entry.destroyedShipsCreditedToFleet?.['Attacker 2'][
+          ShipType.Interceptor
+        ] === 1
+    );
+    expect(attacker2ThenDefender?.probability).toBeCloseTo(30 / 121, 9);
+    expect(attacker2ThenDefender?.destroyedShipsCreditedToFleet).toEqual({
+      Defender: { [ShipType.Interceptor]: 1 },
+      'Attacker 1': {},
+      'Attacker 2': { [ShipType.Interceptor]: 1 },
+    });
+
+    const attacker1Wins = result.survivorDistribution.find(
+      (entry) => entry.survivors['Attacker 1'][ShipType.Interceptor] === 1
+    );
+    expect(attacker1Wins?.probability).toBeCloseTo(30 / 121, 9);
+    expect(
+      attacker1Wins?.destroyedShipsCreditedToFleet?.['Attacker 1'][
+        ShipType.Interceptor
+      ]
+    ).toBe(2);
+
+    const attacker2Wins = result.survivorDistribution.find(
+      (entry) => entry.survivors['Attacker 2'][ShipType.Interceptor] === 1
+    );
+    expect(attacker2Wins?.probability).toBeCloseTo(25 / 121, 9);
+    expect(
+      attacker2Wins?.destroyedShipsCreditedToFleet?.['Attacker 2'][
+        ShipType.Interceptor
+      ]
+    ).toBe(2);
+  });
+
+  test('leaves the top fleet absent from credits when the lower pair draw', () => {
+    const result = computeExactCombat([
+      new Fleet('Top', [new Ship(ShipType.Dreadnought)]),
+      new Fleet('Lower 1', [new Ship(ShipType.Interceptor)]),
+      new Fleet('Lower 2', [new Ship(ShipType.Cruiser, { rift: 1 })]),
+    ]);
+
+    expect(result.ok).toBe(true);
+    const lowerPairDraw = result.survivorDistribution.find(
+      (entry) =>
+        entry.survivors.Top[ShipType.Dreadnought] === 1 &&
+        !Object.prototype.hasOwnProperty.call(
+          entry.destroyedShipsCreditedToFleet,
+          'Top'
+        )
+    );
+
+    // Rolls two and three repeat; among terminal rift rolls, six is the
+    // mutual kill, so this lower-pair draw has probability (1/6) / (4/6).
+    expect(lowerPairDraw?.probability).toBeCloseTo(1 / 4, 9);
+    expect(lowerPairDraw?.destroyedShipsCreditedToFleet).toEqual({
+      'Lower 1': { [ShipType.Cruiser]: 1 },
+      'Lower 2': { [ShipType.Interceptor]: 1 },
+    });
+  });
+
+  test('retains living retreaters separately from the final sector winner', () => {
+    const result = computeExactCombat([
+      new Fleet('Top', [new Ship(ShipType.Dreadnought)]),
+      new Fleet('Middle', [new Ship(ShipType.Cruiser)]),
+      new Fleet('Bottom', [new Ship(ShipType.Interceptor)]),
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(result.lastFleetStanding).toEqual({
+      Top: 1,
+      Middle: 0,
+      Bottom: 0,
+    });
+    expect(result.survivorDistribution).toEqual([
+      {
+        probability: 1,
+        lastFleetStanding: 'Top',
+        survivors: {
+          Top: { [ShipType.Dreadnought]: 1 },
+          Middle: { [ShipType.Cruiser]: 1 },
+          Bottom: { [ShipType.Interceptor]: 1 },
+        },
+        destroyedShipsCreditedToFleet: {
+          Bottom: {},
+          Middle: {},
+          Top: {},
+        },
+      },
+    ]);
   });
 });

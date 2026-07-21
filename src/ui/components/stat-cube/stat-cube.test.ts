@@ -25,6 +25,26 @@ describe('StatCubeElement', () => {
 
     const labelEl = cube.querySelector('label');
     expect(labelEl?.textContent).toBe('Hull');
+    expect(cube.querySelector('input')?.getAttribute('aria-label')).toBe(
+      'Hull'
+    );
+  });
+
+  test('uses contextual accessible labels for the field and steppers', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.label = 'Comp';
+    cube.accessibleLabel = 'Cruiser computer';
+    document.body.appendChild(cube);
+
+    expect(cube.querySelector('input')?.getAttribute('aria-label')).toBe(
+      'Cruiser computer'
+    );
+    expect(cube.querySelector('.stat-dec')?.getAttribute('aria-label')).toBe(
+      'Decrease Cruiser computer'
+    );
+    expect(cube.querySelector('.stat-inc')?.getAttribute('aria-label')).toBe(
+      'Increase Cruiser computer'
+    );
   });
 
   test('updates value through property', () => {
@@ -36,6 +56,30 @@ describe('StatCubeElement', () => {
     const input = cube.querySelector('input') as HTMLInputElement;
     expect(input.value).toBe('5');
     expect(cube.value).toBe(5);
+  });
+
+  test('marks values that differ from their default until restored', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.defaultValue = 2;
+    cube.value = 2;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+    const decrement = cube.querySelector('.stat-dec') as HTMLButtonElement;
+
+    expect(cube.hasAttribute('modified')).toBe(false);
+    expect(input.hasAttribute('aria-description')).toBe(false);
+
+    increment.click();
+    expect(cube.hasAttribute('modified')).toBe(true);
+    expect(input.getAttribute('aria-description')).toBe(
+      'Modified from default 2'
+    );
+
+    decrement.click();
+    expect(cube.hasAttribute('modified')).toBe(false);
+    expect(input.hasAttribute('aria-description')).toBe(false);
   });
 
   test('updates value through input', () => {
@@ -138,6 +182,20 @@ describe('StatCubeElement', () => {
     expect(cube.value).toBe(99);
   });
 
+  test('supports arrow keys on the spinbutton input', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const input = cube.querySelector('input') as HTMLInputElement;
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+    expect(cube.value).toBe(1);
+    expect(input.getAttribute('aria-valuenow')).toBe('1');
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    expect(cube.value).toBe(0);
+    expect(input.getAttribute('aria-valuenow')).toBe('0');
+  });
+
   test('supports custom step and max constraints', () => {
     const cube = document.createElement('calc-stat-cube') as StatCubeElement;
     cube.step = 2;
@@ -178,6 +236,55 @@ describe('StatCubeElement', () => {
 
     (cube.querySelector('.stat-inc') as HTMLButtonElement).click();
     expect(focusCalled).toBe(false);
+  });
+
+  test('touch stepper activation releases button focus', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+
+    increment.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerType: 'touch' })
+    );
+    increment.focus();
+    increment.click();
+
+    expect(cube.value).toBe(1);
+    expect(document.activeElement).not.toBe(increment);
+  });
+
+  test('touch stepper activation ends an active input edit', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    increment.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerType: 'touch' })
+    );
+    increment.click();
+
+    expect(cube.value).toBe(1);
+    expect(document.activeElement).not.toBe(input);
+    expect(document.activeElement).not.toBe(increment);
+  });
+
+  test('mouse stepper activation does not force focus away', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+
+    increment.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerType: 'mouse' })
+    );
+    increment.focus();
+    increment.click();
+
+    expect(cube.value).toBe(1);
+    expect(document.activeElement).toBe(increment);
   });
 
   test('dispatches change event', () => {

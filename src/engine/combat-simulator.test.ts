@@ -107,6 +107,29 @@ describe('CombatSimulator', () => {
       ).toBeCloseTo(1.0);
     });
 
+    test('distinguishes a sector winner from a living retreating fleet', () => {
+      const defender = new Fleet('defender', [new Ship(ShipType.Interceptor)]);
+      const attacker = new Fleet('attacker', [new Ship(ShipType.Cruiser)]);
+
+      const result = new CombatSimulator().simulate([defender, attacker], 1);
+
+      expect(result.lastFleetStanding).toEqual({ defender: 1, attacker: 0 });
+      expect(result.survivorDistribution).toEqual([
+        {
+          probability: 1,
+          lastFleetStanding: 'defender',
+          survivors: {
+            defender: { [ShipType.Interceptor]: 1 },
+            attacker: { [ShipType.Cruiser]: 1 },
+          },
+          destroyedShipsCreditedToFleet: {
+            defender: {},
+            attacker: {},
+          },
+        },
+      ]);
+    });
+
     test('handles variable outcomes', () => {
       let rollCount = 0;
       const { HIT, MISS } = DICE_VALUES;
@@ -149,6 +172,91 @@ describe('CombatSimulator', () => {
         results.expectedSurvivors['Consistent'][ShipType.Interceptor] || 0;
       expect(aExpected).toBeCloseTo(1.0, 1);
       expect(bExpected).toBeCloseTo(1.0, 1);
+    });
+
+    test('includes engagement destruction credit in sampled outcomes', () => {
+      const defender = new Fleet('defender', [
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
+      ]);
+      const attacker1 = new Fleet('attacker1', [
+        new Ship(
+          ShipType.Interceptor,
+          { initiative: 2, cannons: { ion: 1 } },
+          GUARANTEED_HIT
+        ),
+      ]);
+      const attacker2 = new Fleet('attacker2', [
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
+      ]);
+
+      const result = new CombatSimulator().simulate(
+        [defender, attacker1, attacker2],
+        1
+      );
+
+      expect(result.survivorDistribution).toHaveLength(1);
+      expect(
+        result.survivorDistribution[0].destroyedShipsCreditedToFleet
+      ).toEqual({
+        defender: {},
+        attacker1: { [ShipType.Interceptor]: 2 },
+        attacker2: {},
+      });
+    });
+
+    test('does not mark an untouched fleet as participating after a lower-pair draw', () => {
+      const defender = new Fleet('defender', [
+        new Ship(ShipType.Dreadnought, {}, GUARANTEED_MISS),
+      ]);
+      const attacker1 = new Fleet('attacker1', [
+        new Ship(ShipType.Interceptor, { hull: 2 }, GUARANTEED_MISS),
+      ]);
+      const attacker2 = new Fleet('attacker2', [
+        new Ship(
+          ShipType.Cruiser,
+          { rift: 1 },
+          // Six: one self-damage and three target-damage, destroying both.
+          GUARANTEED_HIT
+        ),
+      ]);
+
+      const result = new CombatSimulator().simulate(
+        [defender, attacker1, attacker2],
+        1
+      );
+
+      expect(result.survivorDistribution).toHaveLength(1);
+      expect(result.survivorDistribution[0].survivors).toEqual({
+        defender: { [ShipType.Dreadnought]: 1 },
+        attacker1: {},
+        attacker2: {},
+      });
+      expect(
+        result.survivorDistribution[0].destroyedShipsCreditedToFleet
+      ).toEqual({
+        attacker1: { [ShipType.Cruiser]: 1 },
+        attacker2: { [ShipType.Interceptor]: 1 },
+      });
+    });
+
+    test('returns completed samples when a shared deadline is reached', () => {
+      let clock = 0;
+      const strong = new Fleet('Strong', [
+        new Ship(ShipType.Interceptor, { cannons: { ion: 1 } }, GUARANTEED_HIT),
+      ]);
+      const weak = new Fleet('Weak', [
+        new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
+      ]);
+
+      const results = new CombatSimulator().simulate([weak, strong], 100, {
+        deadline: 3,
+        deadlineCheckInterval: 1,
+        now: () => clock++,
+      });
+
+      expect(results.iterations).toBe(3);
+      expect(results.lastFleetStanding['Strong']).toBe(1);
+      expect(results.drawPercentage).toBe(0);
     });
   });
 });

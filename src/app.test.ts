@@ -7,13 +7,17 @@ import {
   updateShipType,
   resetFleets,
   setSimulationResults,
+  setFleetFaction,
 } from '@ui/state';
 import { monteCarloResults } from '@ui/test-helpers';
 import {
   loadSteppersPreference,
+  loadThemePreference,
   saveSteppersPreference,
+  saveThemePreference,
 } from '@ui/preferences';
-import { exactDpsPlannerOverrides, init } from './app';
+import { init } from './app';
+import { exactDpsPlannerOverrides } from '@calc/exact-combat';
 import indexHtml from './index.html' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
 import { Fleet } from '@calc/fleet';
@@ -40,6 +44,31 @@ describe('App', () => {
     expect(fleetElements.length).toBe(2);
   });
 
+  test('reinitializing disposes the previous listeners and subscriptions', () => {
+    init();
+
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+    addBtn.click();
+
+    expect(state.fleets).toHaveLength(3);
+  });
+
+  test('a superseded disposer cannot cancel the active simulation timer', async () => {
+    const staleDispose = init();
+    init();
+
+    setSimulationResults(monteCarloResults());
+    addShipType(state.fleets[0].id, ShipType.Interceptor, {
+      cannons: { ion: 1 },
+    });
+    staleDispose();
+
+    await settle();
+    expect(state.simulationResults).toBeNull();
+  });
+
   test('add fleet button creates new fleet', () => {
     const addBtn = document.getElementById(
       'add-fleet-btn'
@@ -52,6 +81,93 @@ describe('App', () => {
 
     const fleetElements = document.querySelectorAll('calc-fleet');
     expect(fleetElements.length).toBe(3);
+  });
+
+  test('places the fleet actions together after the fleet list', () => {
+    const fleets = document.getElementById('fleets')!;
+    const addRow = document.querySelector('.add-fleet-row')!;
+
+    expect(fleets.nextElementSibling).toBe(addRow);
+    expect(addRow.querySelector('#add-fleet-btn')).not.toBeNull();
+    expect(addRow.querySelector('#clear-all-btn')).not.toBeNull();
+  });
+
+  test('groups controls and theme under the UI section', () => {
+    const section = document.querySelector('.ui-section')!;
+    const heading = section.querySelector('h2')!;
+    const optionLabels = Array.from(
+      section.querySelectorAll('.preference-label')
+    ).map((label) => label.textContent?.trim());
+
+    expect(heading.textContent).toBe('UI');
+    expect(section.getAttribute('aria-labelledby')).toBe(heading.id);
+    expect(optionLabels).toEqual(['Controls', 'Theme']);
+  });
+
+  test('uses selected faction as the fleet name', () => {
+    const factionSelect = document.querySelector(
+      'calc-fleet .faction-select'
+    ) as HTMLSelectElement;
+    factionSelect.value = 'terran';
+    factionSelect.dispatchEvent(new Event('change'));
+
+    expect(state.fleets[0].name).toBe('Terran');
+    expect(state.fleets[1].name).toBe('Attacker');
+
+    const fleetNames = Array.from(document.querySelectorAll('.fleet-name')).map(
+      (name) => name.textContent
+    );
+    expect(fleetNames).toEqual(['Terran', 'Attacker']);
+  });
+
+  test('uses The Ancients for an NPC defender fleet', async () => {
+    const defender = document.querySelector('calc-fleet')!;
+    const ancientPicker = defender.querySelector(
+      '[aria-label="Add Ancient layout"]'
+    ) as HTMLSelectElement;
+
+    ancientPicker.value = 'ancient';
+    ancientPicker.dispatchEvent(new Event('change'));
+
+    await settle();
+
+    expect(state.fleets[0].name).toBe('The Ancients');
+    expect(defender.querySelector('.fleet-name')?.textContent).toBe(
+      'The Ancients'
+    );
+    expect(state.fleets[0].colorId).toBe('neutral');
+  });
+
+  test('restores defender name after removing the last NPC ship', async () => {
+    const defender = document.querySelector('calc-fleet')!;
+    const ancientPicker = defender.querySelector(
+      '[aria-label="Add Ancient layout"]'
+    ) as HTMLSelectElement;
+
+    ancientPicker.value = 'ancient';
+    ancientPicker.dispatchEvent(new Event('change'));
+    await settle();
+
+    const removeButton = defender.querySelector(
+      'calc-ship-type .remove-btn'
+    ) as HTMLButtonElement;
+    removeButton.click();
+
+    expect(defender.querySelector('.fleet-name')?.textContent).toBe('Defender');
+  });
+
+  test('add fleet button stops at six players plus neutrals', () => {
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+
+    for (let index = 0; index < 5; index++) addBtn.click();
+
+    expect(state.fleets.length).toBe(7);
+    expect(addBtn.disabled).toBe(true);
+
+    addBtn.click();
+    expect(state.fleets.length).toBe(7);
   });
 
   test('clear all button resets to default state', () => {
@@ -71,6 +187,7 @@ describe('App', () => {
     const clearBtn = document.getElementById(
       'clear-all-btn'
     ) as HTMLButtonElement;
+    expect(clearBtn.textContent).toBe('Clear setup');
     clearBtn.click();
 
     expect(state.fleets.length).toBe(2);
@@ -96,6 +213,20 @@ describe('App', () => {
     expect(state.simulationResults!.victoryProbability).toBeDefined();
     expect(state.simulationResults!.drawProbability).toBeDefined();
     expect(state.simulationResults!.expectedSurvivors).toBeDefined();
+    expect(
+      state.simulationResults!.materialLosses[state.fleets[0].id].totalCost
+    ).toBe(3);
+    expect(
+      state.simulationResults!.populationBombardment.byAttacker[
+        state.fleets[1].id
+      ]
+    ).toHaveLength(8);
+    expect(state.simulationResults!.reputationDraws.available).toBe(true);
+    expect(state.simulationResults!.tier).toBe('exact-optimal');
+    expect(state.simulationResults!.methodLabel).toBe(
+      'Exact · optimal targeting'
+    );
+    expect(state.simulationResults!.diagnostics.attempts).not.toHaveLength(0);
 
     const resultsContainer = document.getElementById('results-container')!;
     const resultsElement = resultsContainer.querySelector('calc-results');
@@ -103,7 +234,31 @@ describe('App', () => {
 
     const liveBar = document.getElementById('live-bar')!;
     expect(liveBar.hidden).toBe(false);
+    expect(liveBar.tagName).toBe('BUTTON');
+    expect(liveBar.getAttribute('aria-label')).toContain('View full results');
     expect(liveBar.querySelector('.live-verdict')!.textContent).not.toBe('');
+  });
+
+  test('hides live odds on the about page', async () => {
+    addShipType(state.fleets[0].id, ShipType.Interceptor, {
+      cannons: { ion: 1 },
+    });
+    addShipType(state.fleets[1].id, ShipType.Cruiser, {
+      cannons: { ion: 1 },
+      hull: 1,
+    });
+    await settle();
+
+    const liveBar = document.getElementById('live-bar')!;
+    expect(liveBar.hidden).toBe(false);
+
+    (document.querySelector('a[href="/about"]') as HTMLAnchorElement).click();
+    expect(window.location.pathname).toBe('/about');
+    expect(liveBar.hidden).toBe(true);
+
+    (document.querySelector('a[href="/"]') as HTMLAnchorElement).click();
+    expect(window.location.pathname).toBe('/');
+    expect(liveBar.hidden).toBe(false);
   });
 
   test('auto-simulates three fleets with exact combat', async () => {
@@ -119,16 +274,95 @@ describe('App', () => {
 
     expect(state.simulationResults).not.toBeNull();
     expect(state.simulationResults!.method).toBe('exact');
-    expect(state.simulationResults!.victoryProbability['Defender']).toBeCloseTo(
-      66 / 121,
-      9
-    );
     expect(
-      state.simulationResults!.victoryProbability['Attacker 1']
+      state.simulationResults!.victoryProbability[state.fleets[0].id]
+    ).toBeCloseTo(66 / 121, 9);
+    expect(
+      state.simulationResults!.victoryProbability[state.fleets[1].id]
     ).toBeCloseTo(30 / 121, 9);
     expect(
-      state.simulationResults!.victoryProbability['Attacker 2']
+      state.simulationResults!.victoryProbability[state.fleets[2].id]
     ).toBeCloseTo(25 / 121, 9);
+    expect(state.simulationResults!.reputationDraws.available).toBe(true);
+    if (state.simulationResults!.reputationDraws.available) {
+      expect(
+        Object.keys(state.simulationResults!.reputationDraws.byFleet)
+      ).toEqual(state.fleets.map((fleet) => fleet.id));
+    }
+  });
+
+  test('treats attacker victory over Planta as an automatic population wipe', async () => {
+    setFleetFaction(state.fleets[0].id, 'planta');
+    addShipType(state.fleets[0].id, ShipType.Interceptor);
+    addShipType(state.fleets[1].id, ShipType.Cruiser, {
+      computers: 4,
+      cannons: { ion: 1 },
+    });
+
+    await settle();
+
+    const results = state.simulationResults!;
+    const attackerWin = results.victoryProbability[state.fleets[1].id];
+    const attackerBombardment =
+      results.populationBombardment.byAttacker[state.fleets[1].id];
+    for (const bucket of attackerBombardment.slice(1)) {
+      expect(bucket.atLeastProbability).toBeCloseTo(attackerWin, 12);
+    }
+  });
+
+  test('auto-simulates populated fleets while an added fleet is empty', async () => {
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+    addBtn.click();
+
+    addShipType(state.fleets[0].id, ShipType.Interceptor, {
+      cannons: { ion: 1 },
+    });
+    addShipType(state.fleets[1].id, ShipType.Cruiser, {
+      cannons: { ion: 1 },
+      hull: 1,
+    });
+    await settle();
+
+    expect(state.fleets[2].shipTypes).toHaveLength(0);
+    expect(state.simulationResults).not.toBeNull();
+    expect(
+      state.simulationResults!.victoryProbability[state.fleets[2].id]
+    ).toBeUndefined();
+    expect(document.querySelector('calc-results')).not.toBeNull();
+  });
+
+  test('keeps duplicate faction attackers separate in live odds', async () => {
+    const addBtn = document.getElementById(
+      'add-fleet-btn'
+    ) as HTMLButtonElement;
+    addBtn.click();
+
+    setFleetFaction(state.fleets[1].id, 'terran');
+    setFleetFaction(state.fleets[2].id, 'terran');
+    addShipType(state.fleets[0].id, ShipType.Ancient, {
+      hull: 1,
+      computers: 1,
+      initiative: 2,
+      cannons: { ion: 2 },
+    });
+    addShipType(state.fleets[1].id, ShipType.Interceptor);
+    addShipType(state.fleets[2].id, ShipType.Interceptor, {
+      hull: 1,
+      cannons: { ion: 1 },
+    });
+
+    await settle();
+
+    expect(state.fleets[1].name).toBe('Terran 1');
+    expect(state.fleets[2].name).toBe('Terran 2');
+    expect(
+      state.simulationResults!.victoryProbability[state.fleets[1].id]
+    ).toBe(0);
+    expect(
+      state.simulationResults!.victoryProbability[state.fleets[2].id]
+    ).toBeGreaterThan(0);
   });
 
   test('uses DPS exact fallback when both fleets have 3+ ship types', () => {
@@ -179,12 +413,12 @@ describe('App', () => {
     ]);
   });
 
-  test('keeps optimal exact when either fleet has fewer than 3 ship types', () => {
+  test('keeps small two-type battles optimal below the state estimate cutoff', () => {
     const defender = new Fleet(
       'Defender',
       [
-        new Ship(ShipType.Cruiser, { hull: 10 }),
-        new Ship(ShipType.Dreadnought, { hull: 10 }),
+        new Ship(ShipType.Cruiser, { hull: 1 }),
+        new Ship(ShipType.Dreadnought, { hull: 1 }),
       ],
       false,
       DamageType.OPTIMAL
@@ -192,8 +426,8 @@ describe('App', () => {
     const attacker = new Fleet(
       'Attacker',
       [
-        new Ship(ShipType.Interceptor, { hull: 10 }),
-        new Ship(ShipType.Starbase, { hull: 10 }),
+        new Ship(ShipType.Interceptor, { hull: 1 }),
+        new Ship(ShipType.Starbase, { hull: 1 }),
       ],
       false,
       DamageType.OPTIMAL
@@ -205,7 +439,7 @@ describe('App', () => {
     ]);
   });
 
-  test('uses DPS against a target fleet with one ship type', () => {
+  test('keeps optimal mode when homogeneous targeting is reduced in the solver', () => {
     const singleTypeDefender = new Fleet(
       'Defender',
       [
@@ -227,7 +461,7 @@ describe('App', () => {
 
     expect(
       exactDpsPlannerOverrides([singleTypeDefender, mixedAttacker])
-    ).toEqual([undefined, DamageType.DPS]);
+    ).toEqual([undefined, undefined]);
   });
 
   test('clears results when a fleet empties', async () => {
@@ -329,14 +563,14 @@ describe('App shared battle links', () => {
       'Interceptor'
     );
     expect(statValue(ships[0], 'hull')).toBe('1');
-    expect(statValue(ships[0], 'computer')).toBe('1');
+    expect(statValue(ships[0], 'computer')).toBe('+1');
     expect(statValue(ships[0], 'ion-cannon')).toBe('1');
 
     expect(ships[1].querySelector('.ship-type-name')?.textContent).toBe(
       'Cruiser'
     );
     expect(statValue(ships[1], 'hull')).toBe('2');
-    expect(statValue(ships[1], 'computer')).toBe('1');
+    expect(statValue(ships[1], 'computer')).toBe('+1');
     expect(statValue(ships[1], 'plasma-cannon')).toBe('1');
     expect(statValue(ships[1], 'plasma-missile')).toBe('2');
   });
@@ -347,6 +581,8 @@ describe('App shared battle links', () => {
     init();
 
     expect(state.fleets[1].shipTypes[0].type).toBe(ShipType.Cruiser);
+    expect(state.fleets[1].shipTypes[0].config.hull).toBe(0);
+    expect(state.fleets[1].shipTypes[0].config.cannons?.ion).toBe(0);
   });
 
   test('does not simulate a shared battle with an empty fleet', async () => {
@@ -367,20 +603,24 @@ describe('App shared battle links', () => {
     const select = document.getElementById(
       'recent-battles'
     ) as HTMLSelectElement;
-    expect(select.hidden).toBe(false);
+    expect(document.getElementById('recent-battles-control')?.hidden).toBe(
+      false
+    );
     const options = Array.from(select.querySelectorAll('option'));
-    expect(options.length).toBe(2);
-    expect(options[1].textContent).toBe('3× Interceptor vs 2× Cruiser');
+    expect(options).toHaveLength(1);
+    expect(options[0].value).not.toBe('');
+    expect(options[0].textContent).toBe('3I vs 2C');
+    expect(select.selectedIndex).toBe(-1);
 
     // Picking a recent battle loads it.
     resetFleets();
-    select.value = options[1].value;
+    select.value = options[0].value;
     select.dispatchEvent(new Event('change'));
     expect(state.fleets[0].shipTypes[0].type).toBe(ShipType.Interceptor);
     expect(state.fleets[0].shipTypes[0].quantity).toBe(3);
   });
 
-  test('abbreviates recent battle labels on narrow screens', async () => {
+  test('keeps recent battle labels compact on narrow screens', async () => {
     const realMatchMedia = window.matchMedia;
     window.matchMedia = ((query: string) => ({
       matches: /max-width/.test(query),
@@ -396,7 +636,7 @@ describe('App shared battle links', () => {
         'recent-battles'
       ) as HTMLSelectElement;
       const options = Array.from(select.querySelectorAll('option'));
-      expect(options[1].textContent).toBe('3× I vs 2× C');
+      expect(options[0].textContent).toBe('3I vs 2C');
     } finally {
       window.matchMedia = realMatchMedia;
     }
@@ -422,13 +662,28 @@ describe('App shared battle links', () => {
     });
     expect(window.location.search).toBe('?v=1&a.cruiser=1');
 
-    ship.quantity = 2;
-    ship.config = { initiative: 2, hull: 1 };
-    updateShipType(state.fleets[1].id, ship.id, ship);
+    updateShipType(state.fleets[1].id, ship.id, {
+      quantity: 2,
+      config: { initiative: 2, hull: 1 },
+    });
     expect(window.location.search).toBe('?v=1&a.cruiser=2&a.cruiser.hull=1');
 
     resetFleets();
     expect(window.location.search).toBe('');
+  });
+
+  test('serializes UI operating blueprints explicitly for v1 link safety', () => {
+    init();
+    const attackerSelector = document.querySelectorAll<HTMLSelectElement>(
+      'calc-fleet .ship-selector'
+    )[1];
+
+    attackerSelector.value = 'cruiser';
+    attackerSelector.dispatchEvent(new Event('change'));
+
+    expect(window.location.search).toBe(
+      '?v=1&a.cruiser=1&a.cruiser.hull=1&a.cruiser.comp=1&a.cruiser.ion=1'
+    );
   });
 
   test('keeps the URL canonical after loading a shared battle', () => {
@@ -486,5 +741,43 @@ describe('App steppers preference', () => {
         ?.classList.contains('active')
     ).toBe(true);
     expect(document.body.classList.contains('no-steppers')).toBe(true);
+  });
+});
+
+describe('App theme preference', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetFleets();
+    setSimulationResults(null);
+    document.cookie = 'luminary:theme=; Max-Age=0; Path=/';
+    delete document.documentElement.dataset.theme;
+    document.documentElement.innerHTML = indexHtml;
+  });
+
+  afterEach(() => {
+    document.cookie = 'luminary:theme=; Max-Age=0; Path=/';
+    delete document.documentElement.dataset.theme;
+  });
+
+  test('defaults to dark and saves an explicit theme', () => {
+    init();
+
+    const select = document.getElementById('theme-select') as HTMLSelectElement;
+    expect(select.value).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+
+    select.value = 'light';
+    select.dispatchEvent(new Event('change'));
+    expect(loadThemePreference()).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  test('restores an explicit saved theme', () => {
+    saveThemePreference('dark');
+    init();
+
+    const select = document.getElementById('theme-select') as HTMLSelectElement;
+    expect(select.value).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
   });
 });

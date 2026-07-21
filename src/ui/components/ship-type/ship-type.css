@@ -1,7 +1,19 @@
+calc-ship-type {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .ship-type {
+  width: 100%;
+  min-width: 0;
   margin: 0 0 var(--space-sm) 0;
   padding: 0;
-  background: color-mix(in srgb, var(--color-bg-secondary) 88%, var(--color-bg-primary));
+  background: color-mix(
+    in srgb,
+    var(--color-bg-secondary) 88%,
+    var(--color-bg-primary)
+  );
   border-top: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
@@ -11,6 +23,7 @@
 }
 
 .ship-type > header {
+  min-width: 0;
   padding: var(--space-sm) var(--space-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 72%, transparent);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
@@ -18,16 +31,20 @@
 
 .ship-type-name {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--color-text-primary);
   letter-spacing: 0.02em;
 }
 
 .quantity {
+  flex: 0 0 auto;
   margin-left: auto;
   margin-right: var(--space-sm);
 }
 
 .ship-type .stats {
+  min-width: 0;
   padding: var(--space-sm) var(--space-md);
   display: grid;
   grid-template-columns: 1fr;
@@ -35,6 +52,7 @@
 }
 
 .stat-group {
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
   gap: var(--space-xs);
@@ -62,11 +80,11 @@
   }
 
   .stat-group {
-    grid-template-columns: repeat(3, minmax(4rem, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .stat-group-missiles {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    --stat-cube-input-padding: var(--space-xs) 0;
   }
 
   .stat-group-title {
@@ -75,15 +93,51 @@
   }
 }
 
+@media (max-width: 42rem) {
+  .ship-type .stats {
+    gap: var(--space-xs);
+  }
+
+  .stat-group {
+    gap: 0.1875rem;
+  }
+
+  .quantity {
+    margin-right: var(--space-xs);
+  }
+}
+
+/* Five cubes fit at 360px, but the Stepper layout uses wider controls. Use
+   balanced 3 + 2 rows for Systems/Cannons and four columns for Missiles on
+   narrow phones. Read-only NPC layouts still match the selected view. */
+@media (max-width: 27rem) {
+  body:not(.no-steppers) :is(.stat-group-core, .stat-group-weapons) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body:not(.no-steppers) .stat-group-missiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 52.0625rem) {
   .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
   }
 
+  .stat-group-core,
+  .stat-group-weapons {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .stat-group-missiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   body:not(.no-steppers) .ship-type .stats {
     grid-template-areas:
-      "core ."
-      "weapons missiles";
+      'core .'
+      'weapons missiles';
   }
 
   body:not(.no-steppers) .stat-group-core {
@@ -96,6 +150,32 @@
 
   body:not(.no-steppers) .stat-group-missiles {
     grid-area: missiles;
+  }
+}
+
+/* Wide screens have enough room for all fourteen stats without splitting the
+   ship editor into two rows. Explicit zero minimums let the groups share the
+   available width instead of inheriting the narrower-layout cube minimum. */
+@media (min-width: 74rem) {
+  body:not(.no-steppers) .ship-type .stats {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
+    grid-template-areas: none;
+    gap: var(--space-sm);
+  }
+
+  body:not(.no-steppers) .stat-group-core,
+  body:not(.no-steppers) .stat-group-weapons,
+  body:not(.no-steppers) .stat-group-missiles {
+    grid-area: auto;
+  }
+
+  .stat-group-core,
+  .stat-group-weapons {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .stat-group-missiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -116,9 +196,7 @@ body.no-steppers .stat-group {
     grid-column: auto;
   }
 
-
   body.no-steppers .stat-group-missiles {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
-

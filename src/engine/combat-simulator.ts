@@ -2,6 +2,10 @@ import { BattleOutcome } from './battle';
 import { Fleet } from './fleet';
 import { ShipType } from './ship';
 import { MultiBattle } from './multi-battle';
+import type {
+  CombatOutcomeSummary,
+  DestroyedShipsCreditedToFleet,
+} from './combat-result';
 
 export interface SimulationStatistics {
   totalBattles: number;
@@ -10,28 +14,37 @@ export interface SimulationStatistics {
   winRateByFleetName: Record<string, number>;
 }
 
+export type CombatSimulationResult = CombatOutcomeSummary & {
+  iterations: number;
+};
+
+export type CombatSimulationOptions = {
+  // Absolute timestamp in the same clock domain as `now`. The simulator checks
+  // periodically and returns the samples completed so far, allowing an exact
+  // attempt and its Monte Carlo fallback to share one interactive deadline.
+  deadline?: number;
+  now?: () => number;
+  deadlineCheckInterval?: number;
+};
+
 export class CombatSimulator {
   simulate(
     fleets: Fleet[],
-    iterations: number
-  ): {
-    lastFleetStanding: Record<string, number>;
-    drawPercentage: number;
-    expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
-    survivorDistribution: {
-      probability: number;
-      survivors: Record<string, Partial<Record<ShipType, number>>>;
-    }[];
-    timeTaken: number;
-  } {
-    const startTime = Date.now();
+    iterations: number,
+    options: CombatSimulationOptions = {}
+  ): CombatSimulationResult {
+    const now = options.now ?? Date.now;
+    const checkInterval = Math.max(1, options.deadlineCheckInterval ?? 1);
+    const startTime = now();
     const wins: Record<string, number> = {};
     const survivors: Record<string, Partial<Record<ShipType, number>>> = {};
     const compositionCounts = new Map<
       string,
       {
         count: number;
+        lastFleetStanding: string | null;
         survivors: Record<string, Partial<Record<ShipType, number>>>;
+        destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
       }
     >();
     let draws = 0;
@@ -41,12 +54,24 @@ export class CombatSimulator {
       survivors[fleet.name] = {};
     }
 
+    let completedIterations = 0;
     for (let i = 0; i < iterations; i++) {
+      if (
+        i > 0 &&
+        i % checkInterval === 0 &&
+        options.deadline !== undefined &&
+        now() >= options.deadline
+      ) {
+        break;
+      }
       fleets.forEach((fleet) => fleet.reset());
 
       const multiBattle = new MultiBattle(fleets);
       multiBattle.run();
       const remaining = multiBattle.getRemainingFleets();
+      const standingFleetName = remaining[0]?.name ?? null;
+      const destroyedShipsCreditedToFleet =
+        multiBattle.getDestroyedShipsCreditedToFleet();
 
       if (remaining.length === 0) {
         draws++;
@@ -61,44 +86,50 @@ export class CombatSimulator {
       }
 
       const finalSurvivors = this.survivorsByFleet(fleets);
-      const key = this.compositionKey(fleets, finalSurvivors);
+      const key = this.compositionKey(
+        fleets,
+        finalSurvivors,
+        destroyedShipsCreditedToFleet,
+        standingFleetName
+      );
       const existing = compositionCounts.get(key);
       if (existing) {
         existing.count++;
       } else {
         compositionCounts.set(key, {
           count: 1,
+          lastFleetStanding: standingFleetName,
           survivors: finalSurvivors,
+          destroyedShipsCreditedToFleet,
         });
       }
+      completedIterations++;
     }
 
-    const endTime = Date.now();
+    const endTime = now();
+    // A zero-iteration request is not useful to callers and would make every
+    // percentage NaN. `iterations` is controlled by the runner/UI and is
+    // expected to be positive, but keep the result numerically safe regardless.
+    const denominator = Math.max(1, completedIterations);
 
-    const result: {
-      lastFleetStanding: Record<string, number>;
-      drawPercentage: number;
-      expectedSurvivors: Record<string, Partial<Record<ShipType, number>>>;
-      survivorDistribution: {
-        probability: number;
-        survivors: Record<string, Partial<Record<ShipType, number>>>;
-      }[];
-      timeTaken: number;
-    } = {
+    const result: CombatSimulationResult = {
       lastFleetStanding: {},
-      drawPercentage: draws / iterations,
+      drawPercentage: draws / denominator,
       expectedSurvivors: {},
       survivorDistribution: Array.from(compositionCounts.values())
         .map((entry) => ({
-          probability: entry.count / iterations,
+          probability: entry.count / denominator,
+          lastFleetStanding: entry.lastFleetStanding,
           survivors: entry.survivors,
+          destroyedShipsCreditedToFleet: entry.destroyedShipsCreditedToFleet,
         }))
         .sort((a, b) => b.probability - a.probability),
       timeTaken: endTime - startTime,
+      iterations: completedIterations,
     };
 
     for (const fleet of fleets) {
-      result.lastFleetStanding[fleet.name] = wins[fleet.name] / iterations;
+      result.lastFleetStanding[fleet.name] = wins[fleet.name] / denominator;
 
       result.expectedSurvivors[fleet.name] = {};
       if (wins[fleet.name] > 0) {
@@ -128,9 +159,11 @@ export class CombatSimulator {
 
   private compositionKey(
     fleets: Fleet[],
-    survivors: Record<string, Partial<Record<ShipType, number>>>
+    survivors: Record<string, Partial<Record<ShipType, number>>>,
+    destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet,
+    lastFleetStanding: string | null
   ): string {
-    return fleets
+    const survivorKey = fleets
       .map((fleet) => {
         const counts = survivors[fleet.name] ?? {};
         const shipCounts = Object.entries(counts)
@@ -140,5 +173,16 @@ export class CombatSimulator {
         return `${fleet.name}=${shipCounts}`;
       })
       .join('|');
+    const creditKey = fleets
+      .map((fleet) => {
+        const counts = destroyedShipsCreditedToFleet[fleet.name] ?? {};
+        const shipCounts = Object.entries(counts)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([type, count]) => `${type}:${count}`)
+          .join(',');
+        return `${fleet.name}=${shipCounts}`;
+      })
+      .join('|');
+    return `${survivorKey}||standing:${lastFleetStanding ?? 'draw'}||credits:${creditKey}`;
   }
 }

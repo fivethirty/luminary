@@ -148,15 +148,19 @@ describe('Results', () => {
     expect(element.querySelector('.verdict-caption')).toBeNull();
   });
 
-  test('uses distinct color classes for multiple attackers', () => {
+  test('uses stable IDs and distinct colors when display names collide', () => {
     addFleet();
-    state.fleets[2].name = 'Attacker 2';
+    state.fleets[1].name = 'Terran';
+    state.fleets[2].name = 'Terran';
+    const [defenderId, firstAttackerId, secondAttackerId] = state.fleets.map(
+      (fleet) => fleet.id
+    );
     setSimulationResults(
       monteCarloResults({
         victoryProbability: {
-          Defender: 0.25,
-          Attacker: 0.35,
-          'Attacker 2': 0.4,
+          [defenderId]: 0.25,
+          [firstAttackerId]: 0.35,
+          [secondAttackerId]: 0.4,
         },
       })
     );
@@ -168,6 +172,36 @@ describe('Results', () => {
     expect(segments[1].classList.contains('attacker-result')).toBe(true);
     expect(segments[1].classList.contains('attacker-result-2')).toBe(false);
     expect(segments[2].classList.contains('attacker-result-2')).toBe(true);
+    expect(segments[1].querySelector('span')?.textContent).toBe('Terran');
+    expect(segments[2].querySelector('span')?.textContent).toBe('Terran');
+  });
+
+  test('applies selected board colors to result segments', () => {
+    state.fleets[1].colorId = 'blue';
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          'fleet-0': 0.25,
+          'fleet-1': 0.75,
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const attackerSegment = element.querySelectorAll(
+      '.odds-segment'
+    )[1] as HTMLElement;
+    expect(
+      attackerSegment.style.getPropertyValue('--fleet-result-source')
+    ).toBe('#2f6fb7');
+    expect(
+      attackerSegment.style.getPropertyValue('--fleet-result-light-source')
+    ).toBe('#155fa0');
+    expect(
+      attackerSegment.style.getPropertyValue('--fleet-result-light-soft-source')
+    ).toBe('#dceafb');
   });
 
   test('displays draw probability when present', () => {
@@ -365,9 +399,19 @@ describe('Results', () => {
 
     const rows = element.querySelectorAll('#survivor-distribution-tbody tr');
     expect(rows.length).toBe(2);
-    expect(rows[0].querySelector('td:last-child')?.textContent).toBe(
-      'D, C, 2 I, O, S'
+    expect(rows[0].querySelector('td:nth-child(1)')?.textContent).toBe(
+      'Attacker'
     );
+    expect(rows[0].querySelector('td:nth-child(2)')?.textContent).toBe(
+      'D, C, 2I, O, S'
+    );
+    expect(rows[0].querySelector('td:nth-child(3)')?.textContent).toBe('42.0%');
+    expect(
+      Array.from(
+        element.querySelectorAll('.composition-table thead th'),
+        (heading) => heading.textContent
+      )
+    ).toEqual(['Faction', 'Ship', 'Odds']);
     expect(rows[0].textContent).not.toContain('Interceptor');
     expect(rows[0].textContent).not.toContain('Cruiser');
     expect(rows[0].textContent).toContain('42.0%');
@@ -378,16 +422,23 @@ describe('Results', () => {
   test('colors survivor composition attackers by fleet', () => {
     addFleet();
     state.fleets[2].name = 'Attacker 2';
+    const [defenderId, firstAttackerId, secondAttackerId] = state.fleets.map(
+      (fleet) => fleet.id
+    );
     setSimulationResults(
       exactResults({
-        victoryProbability: { Defender: 0.2, Attacker: 0.3, 'Attacker 2': 0.5 },
+        victoryProbability: {
+          [defenderId]: 0.2,
+          [firstAttackerId]: 0.3,
+          [secondAttackerId]: 0.5,
+        },
         survivorDistribution: [
           {
             probability: 0.5,
             survivors: {
-              Defender: {},
-              Attacker: {},
-              'Attacker 2': { Cruiser: 1 },
+              [defenderId]: {},
+              [firstAttackerId]: {},
+              [secondAttackerId]: { Cruiser: 1 },
             },
           },
         ],
@@ -398,9 +449,331 @@ describe('Results', () => {
     document.body.appendChild(element);
 
     const row = element.querySelector('#survivor-distribution-tbody tr')!;
-    const attackerLabel = row.querySelector('td:last-child span')!;
+    const attackerLabel = row.querySelector('.composition-fleet-label')!;
     expect(row.classList.contains('attacker-result-2')).toBe(true);
     expect(attackerLabel.classList.contains('attacker-result-2')).toBe(true);
+    expect(
+      attackerLabel.querySelector('.composition-fleet-name')?.textContent
+    ).toBe('Attacker');
+    expect(
+      attackerLabel.querySelector('.composition-fleet-suffix')?.textContent
+    ).toBe(' 2');
+  });
+
+  test('uses shortened faction names in survivor compositions', () => {
+    const attacker = state.fleets[1];
+    attacker.factionId = 'eridani';
+    attacker.name = 'Eridani Empire';
+    setSimulationResults(
+      exactResults({
+        survivorDistribution: [
+          {
+            probability: 1,
+            survivors: {
+              [state.fleets[0].id]: {},
+              [attacker.id]: { Cruiser: 1 },
+            },
+          },
+        ],
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    expect(element.querySelector('.composition-fleet-label')?.textContent).toBe(
+      'Eridani'
+    );
+  });
+
+  test('merges reputation-credit variants into one survivor composition row', () => {
+    const [defenderId, attackerId] = state.fleets.map((fleet) => fleet.id);
+    setSimulationResults(
+      exactResults({
+        survivorDistribution: [
+          {
+            probability: 0.3,
+            survivors: {
+              [defenderId]: {},
+              [attackerId]: { Cruiser: 1 },
+            },
+            destroyedShipsCreditedToFleet: {
+              [defenderId]: { Interceptor: 1 },
+              [attackerId]: { Cruiser: 1 },
+            },
+          },
+          {
+            probability: 0.2,
+            survivors: {
+              [defenderId]: {},
+              [attackerId]: { Cruiser: 1 },
+            },
+            destroyedShipsCreditedToFleet: {
+              [defenderId]: {},
+              [attackerId]: { Cruiser: 2 },
+            },
+          },
+        ],
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const rows = element.querySelectorAll('#survivor-distribution-tbody tr');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('50.0%');
+  });
+
+  test('summarizes material, population, and reputation impact compactly', () => {
+    const [defenderId, attackerId] = state.fleets.map((fleet) => fleet.id);
+    setSimulationResults(
+      exactResults({
+        materialLosses: {
+          [defenderId]: {
+            totalCost: 13,
+            expectedRemainingCost: 4.75,
+            expectedLostCost: 8.25,
+            lossDistribution: [],
+          },
+          [attackerId]: {
+            totalCost: 10,
+            expectedRemainingCost: 6,
+            expectedLostCost: 4,
+            lossDistribution: [],
+          },
+        },
+        populationBombardment: {
+          byAttacker: {
+            [attackerId]: Array.from({ length: 8 }, (_, damage) => ({
+              damage,
+              exactProbability: damage === 0 ? 0.5 : 0,
+              atLeastProbability:
+                damage === 0 ? 1 : Math.max(0, 0.6 - damage / 10),
+            })),
+          },
+        },
+        reputationDraws: {
+          available: true,
+          byFleet: {
+            [defenderId]: {
+              probabilityByDrawCount: {
+                1: 0,
+                2: 0.5,
+                3: 0.5,
+                4: 0,
+                5: 0,
+              },
+              expectedDraws: 2.5,
+            },
+            [attackerId]: {
+              probabilityByDrawCount: {
+                1: 0.25,
+                2: 0,
+                3: 0,
+                4: 0,
+                5: 0.75,
+              },
+              expectedDraws: 4,
+            },
+          },
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const materialRows = element.querySelectorAll('#material-impact-rows tr');
+    expect(materialRows).toHaveLength(2);
+    expect(materialRows[0].textContent).toBe('Defender138.3');
+    expect(materialRows[1].textContent).toBe('Attacker104');
+
+    const populationSelect = element.querySelector(
+      '#sector-population'
+    ) as HTMLSelectElement;
+    expect(populationSelect.value).toBe('2');
+    expect(
+      element.querySelector('.population-attacker-label')?.textContent
+    ).toBe('Attacker');
+    expect(
+      element.querySelector('.population-destroyed-value')?.textContent
+    ).toBe('40.0%');
+    expect(element.querySelector('#population-impact-note')).toBeNull();
+
+    populationSelect.value = '4';
+    populationSelect.dispatchEvent(new Event('change'));
+    expect(
+      element.querySelector('.population-destroyed-value')?.textContent
+    ).toBe('20.0%');
+
+    element.remove();
+    const refreshedElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(refreshedElement);
+    expect(
+      (
+        refreshedElement.querySelector(
+          '#sector-population'
+        ) as HTMLSelectElement
+      ).value
+    ).toBe('4');
+    expect(
+      refreshedElement.querySelector('.population-destroyed-value')?.textContent
+    ).toBe('20.0%');
+
+    const reputation = refreshedElement.querySelectorAll(
+      '.reputation-impact-row'
+    );
+    expect(reputation).toHaveLength(2);
+    expect(reputation[0].textContent).toBe('Defender2.5');
+    expect(reputation[1].textContent).toBe('Attacker4');
+  });
+
+  test('keeps lower-priority outcomes collapsed by default', () => {
+    setSimulationResults(
+      exactResults({
+        survivorDistribution: [
+          {
+            probability: 1,
+            survivors: { Attacker: { Interceptor: 1 } },
+          },
+        ],
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const details = element.querySelector('.detailed-outcomes')!;
+    expect(details.hasAttribute('open')).toBe(false);
+    expect(details.querySelector('summary')?.textContent).toBe(
+      'Detailed outcomes'
+    );
+    expect(details.contains(element.querySelector('#material-impact'))).toBe(
+      true
+    );
+    expect(details.contains(element.querySelector('#population-impact'))).toBe(
+      true
+    );
+    expect(details.contains(element.querySelector('#survivors-section'))).toBe(
+      false
+    );
+    expect(details.contains(element.querySelector('#reputation-impact'))).toBe(
+      true
+    );
+    const compositionSection = element.querySelector(
+      '#survivor-distribution-section'
+    )!;
+    const summaryColumn = details.querySelector('.impact-summary-column')!;
+    expect(
+      details.querySelector('.impact-grid')?.contains(compositionSection)
+    ).toBe(true);
+    expect(
+      summaryColumn.contains(element.querySelector('#material-impact'))
+    ).toBe(true);
+    expect(
+      summaryColumn.contains(element.querySelector('#population-impact'))
+    ).toBe(true);
+    expect(
+      summaryColumn.contains(element.querySelector('#reputation-impact'))
+    ).toBe(true);
+    expect(summaryColumn.contains(compositionSection)).toBe(false);
+    expect(compositionSection.classList.contains('impact-card')).toBe(true);
+    expect(compositionSection.querySelector('h4')?.textContent).toBe(
+      'Surviving fleet'
+    );
+    expect(element.querySelector('.battle-impact-section')).toBeNull();
+    expect(element.textContent).not.toContain('Battle impact');
+  });
+
+  test('remembers whether detailed outcomes is expanded across results', () => {
+    setSimulationResults(exactResults());
+    const firstElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(firstElement);
+
+    const firstDetails = firstElement.querySelector(
+      '.detailed-outcomes'
+    ) as HTMLDetailsElement;
+    firstDetails.open = true;
+    firstDetails.dispatchEvent(new Event('toggle'));
+
+    setSimulationResults(exactResults({ drawProbability: 0.1 }));
+    firstElement.remove();
+    const nextElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(nextElement);
+
+    const nextDetails = nextElement.querySelector(
+      '.detailed-outcomes'
+    ) as HTMLDetailsElement;
+    expect(nextDetails.open).toBe(true);
+
+    nextDetails.open = false;
+    nextDetails.dispatchEvent(new Event('toggle'));
+    nextElement.remove();
+    const finalElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(finalElement);
+
+    expect(
+      (finalElement.querySelector('.detailed-outcomes') as HTMLDetailsElement)
+        .open
+    ).toBe(false);
+  });
+
+  test('shows one selected population-destruction chance per attacker', () => {
+    addFleet();
+    state.fleets[2].name = 'Attacker 2';
+    const [, firstAttackerId, secondAttackerId] = state.fleets.map(
+      (fleet) => fleet.id
+    );
+    const buckets = (chance: number) =>
+      Array.from({ length: 8 }, (_, damage) => ({
+        damage,
+        exactProbability: damage === 0 ? 1 - chance : 0,
+        atLeastProbability: damage === 0 ? 1 : chance,
+      }));
+
+    setSimulationResults(
+      exactResults({
+        populationBombardment: {
+          byAttacker: {
+            [firstAttackerId]: buckets(0.2),
+            [secondAttackerId]: buckets(0.35),
+          },
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const rows = element.querySelectorAll('.population-attacker-row');
+    expect(rows).toHaveLength(2);
+    expect(
+      rows[0].querySelector('.population-attacker-label')?.textContent
+    ).toBe('Attacker');
+    expect(
+      rows[0].querySelector('.population-destroyed-value')?.textContent
+    ).toBe('20.0%');
+    expect(rows[0].getAttribute('aria-label')).toBe(
+      'Attacker: 20.0% chance to destroy all 2 population'
+    );
+    expect(
+      rows[1].querySelector('.population-attacker-label')?.textContent
+    ).toBe('Attacker 2');
+    expect(
+      rows[1].querySelector('.population-destroyed-value')?.textContent
+    ).toBe('35.0%');
+    expect(rows[1].getAttribute('aria-label')).toBe(
+      'Attacker 2: 35.0% chance to destroy all 2 population'
+    );
   });
 
   test('hides survivors section when no survivors', () => {

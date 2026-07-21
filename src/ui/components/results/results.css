@@ -22,7 +22,8 @@ calc-results {
 }
 
 .results-body {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-section-padding-block)
+    var(--results-section-padding-inline);
   display: flex;
   flex-direction: column;
   gap: var(--results-section-gap);
@@ -84,48 +85,32 @@ calc-results {
   text-transform: uppercase;
 }
 
-.defender-result {
-  color: var(--color-defender);
-}
-
-.attacker-result {
-  color: var(--color-attacker);
-  --attacker-result: var(--color-attacker);
-  --attacker-result-soft: var(--color-attacker-soft);
-}
-
-.attacker-result-2 {
-  color: var(--color-attacker-2);
-  --attacker-result: var(--color-attacker-2);
-  --attacker-result-soft: var(--color-attacker-2-soft);
-}
-
-.attacker-result-3 {
-  color: var(--color-attacker-3);
-  --attacker-result: var(--color-attacker-3);
-  --attacker-result-soft: var(--color-attacker-3-soft);
-}
-
-.attacker-result-4 {
-  color: var(--color-attacker-4);
-  --attacker-result: var(--color-attacker-4);
-  --attacker-result-soft: var(--color-attacker-4-soft);
-}
-
-.draw-result {
-  color: var(--color-draw);
-}
-
 .odds-segment.defender-result {
-  background: linear-gradient(135deg, var(--color-defender-soft), color-mix(in srgb, var(--color-defender) 28%, var(--color-bg-secondary)));
+  background: linear-gradient(
+    135deg,
+    var(--fleet-result-soft, var(--color-defender-soft)),
+    color-mix(
+      in srgb,
+      var(--fleet-result, var(--color-defender)) 28%,
+      var(--color-bg-secondary)
+    )
+  );
 }
 
 .odds-segment.attacker-result {
-  background: linear-gradient(135deg, var(--attacker-result-soft), color-mix(in srgb, var(--attacker-result) 28%, var(--color-bg-secondary)));
+  background: linear-gradient(
+    135deg,
+    var(--attacker-result-soft),
+    color-mix(in srgb, var(--attacker-result) 28%, var(--color-bg-secondary))
+  );
 }
 
 .odds-segment.draw-result {
-  background: linear-gradient(135deg, var(--color-draw-soft), color-mix(in srgb, var(--color-draw) 24%, var(--color-bg-secondary)));
+  background: linear-gradient(
+    135deg,
+    var(--color-draw-soft),
+    color-mix(in srgb, var(--color-draw) 24%, var(--color-bg-secondary))
+  );
 }
 
 .results-bars {
@@ -167,13 +152,196 @@ calc-results {
   transition: width 0.3s ease;
 }
 
-.survivor-distribution-section,
 .survivors-section {
   border-top: 1px solid var(--color-border);
 }
 
+.impact-grid {
+  padding: 0 var(--results-section-padding-inline)
+    var(--results-section-padding-block);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-sm);
+}
+
+.impact-summary-column {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.impact-card {
+  min-width: 0;
+  padding: var(--space-md);
+  background: color-mix(
+    in srgb,
+    var(--color-bg-primary) 42%,
+    var(--color-bg-secondary)
+  );
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.impact-card h4 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-sm);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
+}
+
+.impact-card-heading {
+  margin-bottom: var(--space-sm);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.impact-card-heading h4 {
+  margin: 0;
+}
+
+.impact-card-heading > span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.material-impact-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.material-impact-table th,
+.material-impact-table td {
+  padding: var(--space-xs) 0;
+  border-top: 1px solid var(--color-border);
+  text-align: right;
+}
+
+.material-impact-table thead th {
+  padding-top: 0;
+  border-top: 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-normal);
+}
+
+.material-impact-table th:first-child {
+  max-width: 11rem;
+  padding-right: var(--space-sm);
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.material-impact-table tbody th {
+  color: var(--fleet-result, var(--color-text-primary));
+  font-size: var(--font-size-sm);
+}
+
+.material-impact-table tbody td {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.population-impact-heading {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.population-select-label {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.sector-population-select {
+  width: auto;
+  min-width: 3.5rem;
+  padding: var(--space-xs) 1.75rem var(--space-xs) var(--space-sm);
+  background-position: right var(--space-xs) center;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.population-attacker-row {
+  padding: var(--space-xs) 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.population-attacker-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fleet-result, var(--color-text-primary));
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.population-destroyed-value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.reputation-impact-row {
+  padding: var(--space-xs) 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.reputation-impact-row:first-child {
+  border-top: 0;
+}
+
+.reputation-impact-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fleet-result, var(--color-text-primary));
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.reputation-impact-row strong {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.detailed-outcomes {
+  border-top: 1px solid var(--color-border);
+}
+
+.detailed-outcomes > summary {
+  padding: var(--results-section-padding-block)
+    var(--results-section-padding-inline);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.detailed-outcomes > summary:hover {
+  color: var(--color-text-primary);
+}
+
+.detailed-outcomes > summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
 .panel-heading {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-section-padding-block)
+    var(--results-section-padding-inline);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -186,58 +354,89 @@ calc-results {
 }
 
 .composition-table-wrap {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .composition-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .composition-table th,
 .composition-table td {
-  padding: var(--results-row-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-row-padding-block)
+    var(--results-section-padding-inline);
   border-top: 1px solid var(--color-border);
+}
+
+.survivor-distribution-section .composition-table th,
+.survivor-distribution-section .composition-table td {
+  padding-inline: var(--space-xs);
 }
 
 .composition-table th {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  text-align: left;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--label-letter-spacing);
+  text-align: right;
   text-transform: uppercase;
 }
 
-.composition-table th:nth-child(2),
-.composition-table td:nth-child(2) {
-  text-align: center;
-  width: 6rem;
+.composition-table th:first-child,
+.composition-table td:first-child {
+  text-align: left;
 }
 
-.composition-table th:last-child,
-.composition-table td:last-child {
+.composition-table th,
+.composition-table td {
+  width: 33.333%;
+}
+
+.composition-table td {
+  font-size: var(--font-size-sm);
+}
+
+.composition-table th:nth-child(n + 2),
+.composition-table td:nth-child(n + 2) {
   text-align: right;
 }
 
-.composition-table tr.defender-result:not(.attacker-result) {
-  background: color-mix(in srgb, var(--color-defender) 10%, transparent);
+.composition-table th:first-child,
+.composition-table td:first-child {
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.composition-table tr.attacker-result:not(.defender-result) {
-  background: color-mix(in srgb, var(--attacker-result) 10%, transparent);
+.composition-fleet-label {
+  min-width: 0;
+  display: flex;
+  color: var(--fleet-result, currentColor);
+  font-weight: var(--font-weight-bold);
 }
 
-.composition-table tr.defender-result.attacker-result,
-.composition-other {
-  background: color-mix(in srgb, var(--color-draw) 8%, transparent);
+.composition-fleet-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composition-fleet-suffix {
+  flex: none;
+  white-space: pre;
 }
 
 .composition-probability {
   color: var(--color-text-primary);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
 }
 
 .survivors-grid {
-  padding: 0 var(--results-section-padding-inline) var(--results-section-padding-block);
+  padding: 0 var(--results-section-padding-inline)
+    var(--results-section-padding-block);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: var(--results-section-gap);
@@ -245,7 +444,11 @@ calc-results {
 
 .survivor-fleet-card {
   padding: var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-primary) 42%, var(--color-bg-secondary));
+  background: color-mix(
+    in srgb,
+    var(--color-bg-primary) 42%,
+    var(--color-bg-secondary)
+  );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
@@ -282,7 +485,8 @@ calc-results {
 }
 
 .results-actions {
-  padding: var(--results-section-padding-block) var(--results-section-padding-inline);
+  padding: var(--results-section-padding-block)
+    var(--results-section-padding-inline);
   border-top: 1px solid var(--color-border);
   display: flex;
   gap: var(--space-sm);
@@ -305,6 +509,10 @@ calc-results {
 }
 
 @media (max-width: 42rem) {
+  .impact-grid {
+    grid-template-columns: 1fr;
+  }
+
   .panel-heading {
     align-items: flex-start;
     flex-direction: column;

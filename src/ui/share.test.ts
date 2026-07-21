@@ -123,6 +123,52 @@ describe('encodeBattleQuery', () => {
     );
     expect(encodeBattleQuery(fleets)).toContain('a2.interceptor=4');
   });
+
+  test('encodes faction and non-default board colors', () => {
+    const fleets = battle();
+    fleets[0].factionId = 'terran';
+    fleets[1].factionId = 'rho-indi';
+    fleets[1].colorId = 'red';
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('d.faction=terran');
+    expect(query).toContain('a.faction=rho-indi');
+    expect(query).toContain('a.color=red');
+  });
+
+  test('persists a manually selected color even when it matches the positional default', () => {
+    const fleets = battle();
+    fleets[1].colorId = 'blue';
+    fleets[1].colorIsManual = true;
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('a.color=blue');
+    expect(parseBattleQuery(query)?.[1].colorIsManual).toBe(true);
+  });
+
+  test('supports six player attackers plus neutrals', () => {
+    const fleets = battle();
+    for (let index = 2; index < 7; index++) {
+      fleets.push(
+        fleet({
+          id: `fleet-${index}`,
+          name: `Attacker ${index}`,
+          shipTypes: [
+            {
+              id: `ship-${index}`,
+              type: ShipType.Interceptor,
+              quantity: 1,
+              config: { initiative: 3 },
+            },
+          ],
+        })
+      );
+    }
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('a6.interceptor=1');
+    expect(parseBattleQuery(query)).toHaveLength(7);
+  });
 });
 
 describe('parseBattleQuery', () => {
@@ -142,6 +188,8 @@ describe('parseBattleQuery', () => {
     );
     expect(decoded[1].antimatterSplitter).toBe(true);
     expect(decoded[1].plannerType).toBe('dps');
+    expect(decoded[0].colorId).toBe('neutral');
+    expect(decoded[1].colorId).toBe('blue');
     expect(decoded.map((f) => f.id)).toEqual(['fleet-0', 'fleet-1']);
     expect(decoded.every((f) => f.name === '')).toBe(true);
   });
@@ -213,6 +261,17 @@ describe('parseBattleQuery', () => {
     expect(decoded[3].shipTypes[0].type).toBe(ShipType.Cruiser);
     expect(decoded[1].shipTypes).toHaveLength(0);
   });
+
+  test('round-trips faction and board color metadata', () => {
+    const decoded = parseBattleQuery(
+      'v=1&d.faction=terran&d.color=green&a.faction=rho-indi&a.color=blue'
+    )!;
+
+    expect(decoded[0].factionId).toBe('terran');
+    expect(decoded[0].colorId).toBe('green');
+    expect(decoded[1].factionId).toBe('rho-indi');
+    expect(decoded[1].colorId).toBe('blue');
+  });
 });
 
 describe('battleLabel', () => {
@@ -222,7 +281,7 @@ describe('battleLabel', () => {
 
   test('short uses single-letter player hulls and named NPCs', () => {
     // battle()'s Guardian is a stock preset; its Cruiser has custom stats.
-    expect(battleLabel(battle(), true)).toBe('Guard vs 2× C');
+    expect(battleLabel(battle(), true)).toBe('Guard vs 2C');
   });
 
   test('tags NPC variants by their preset in both forms', () => {
@@ -239,7 +298,7 @@ describe('battleLabel', () => {
       missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
     };
     expect(battleLabel(fleets)).toBe('Guardian (WA) vs 2× Cruiser');
-    expect(battleLabel(fleets, true)).toBe('Guard (WA) vs 2× C');
+    expect(battleLabel(fleets, true)).toBe('Guard (WA) vs 2C');
   });
 
   test('abbreviates every fleet in a multi-fleet matchup', () => {
@@ -258,7 +317,7 @@ describe('battleLabel', () => {
         ],
       })
     );
-    expect(battleLabel(fleets, true)).toBe('Guard vs 2× C vs 2× D');
+    expect(battleLabel(fleets, true)).toBe('Guard vs 2C vs 2D');
   });
 });
 
@@ -272,9 +331,12 @@ describe('battleUrl', () => {
 
 describe('formatChatReport', () => {
   const results = exactResults({
-    victoryProbability: { Defender: 0.218, Attacker: 0.734 },
+    victoryProbability: { 'fleet-0': 0.218, 'fleet-1': 0.734 },
     drawProbability: 0.048,
-    expectedSurvivors: { Attacker: { Cruiser: 1.4 }, Defender: {} },
+    expectedSurvivors: {
+      'fleet-0': {},
+      'fleet-1': { Cruiser: 1.4 },
+    },
   });
 
   test('includes the matchup, odds rows, and share link', () => {

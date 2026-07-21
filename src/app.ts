@@ -1,11 +1,7 @@
-import { CombatSimulator } from '@calc/combat-simulator';
-import {
-  computeExactCombat,
-  exactDpsPlannerOverrides,
-  EXACT_INTERACTIVE_CAPS,
-} from '@calc/exact-combat';
+import { CombatRunner } from '@calc/combat-runner';
 import { Fleet } from '@calc/fleet';
 import { Ship } from '@calc/ship';
+import { calculatePopulationBombardment } from '@calc/population-bombardment';
 import '@ui/components/fleet';
 import type { FleetElement } from '@ui/components/fleet';
 import '@ui/components/results';
@@ -17,12 +13,17 @@ import {
   replaceFleets,
   setSimulationResults,
 } from '@ui/state';
-import type { PlannerType } from '@ui/state';
+import type { PlannerType, SurvivorDistributionEntry } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
+import { deriveFleetNames, fleetColor, MAX_FLEETS } from '@ui/fleet-metadata';
 import {
   applySteppersPreference,
+  applyThemePreference,
   loadSteppersPreference,
+  loadThemePreference,
   saveSteppersPreference,
+  saveThemePreference,
+  type ThemePreference,
 } from '@ui/preferences';
 import {
   loadRecentBattles,
@@ -30,6 +31,11 @@ import {
   recordRecentBattle,
   saveSetup,
 } from '@ui/storage';
+import { resultClassNameForFleet } from '@ui/result-presentation';
+import {
+  calculateMaterialLosses,
+  calculateReputationDrawDistributions,
+} from '@ui/battle-impact';
 import { DamageType } from 'src/constants';
 
 const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
@@ -46,18 +52,14 @@ function renderFleets() {
   if (!fleetsContainer) return;
   fleetsContainer.innerHTML = '';
 
-  state.fleets.forEach((fleet, index) => {
-    if (index === 0) {
-      fleet.name = 'Defender';
-    } else {
-      const attackerCount = state.fleets.length - 1;
-      if (attackerCount === 1) {
-        fleet.name = 'Attacker';
-      } else {
-        fleet.name = `Attacker ${index}`;
-      }
-    }
-  });
+  const addFleetBtn = document.getElementById(
+    'add-fleet-btn'
+  ) as HTMLButtonElement | null;
+  if (addFleetBtn) {
+    addFleetBtn.disabled = state.fleets.length >= MAX_FLEETS;
+  }
+
+  updateFleetNames();
 
   state.fleets.forEach((fleet, index) => {
     const fleetElement = document.createElement('calc-fleet') as FleetElement;
@@ -72,12 +74,21 @@ function renderFleets() {
     // Only the defender (fleet 0) may contain AI ships.
     fleetElement.setAttribute('is-defender', index === 0 ? 'true' : 'false');
     fleetElement.setAttribute('fleet-index', index.toString());
+    fleetElement.setAttribute('fleet-count', state.fleets.length.toString());
 
     fleetsContainer.appendChild(fleetElement);
   });
 }
 
+function updateFleetNames() {
+  const names = deriveFleetNames(state.fleets);
+  state.fleets.forEach((fleet, index) => {
+    fleet.name = names[index];
+  });
+}
+
 function addFleetHandler() {
+  if (state.fleets.length >= MAX_FLEETS) return;
   addFleet();
   renderFleets();
 }
@@ -124,15 +135,18 @@ function restoreSavedSetup(): boolean {
 
 let autoSimulateTimer: ReturnType<typeof setTimeout> | undefined;
 
+function fleetHasShips(fleet: (typeof state.fleets)[number]): boolean {
+  return fleet.shipTypes.some((shipType) => shipType.quantity > 0);
+}
+
 // There is no Simulate button: every fleet change re-solves the battle after a
-// short pause. Battles with an empty fleet clear the results instead, so stale
-// odds never linger next to a half-edited setup.
+// short pause. Empty fleets sit out, and at least two populated fleets are
+// required so stale odds never linger next to a half-edited setup.
 function scheduleAutoSimulate() {
   clearTimeout(autoSimulateTimer);
   autoSimulateTimer = setTimeout(() => {
-    const ready =
-      state.fleets.length >= 2 &&
-      state.fleets.every((fleet) => fleet.shipTypes.length > 0);
+    updateFleetNames();
+    const ready = state.fleets.filter(fleetHasShips).length >= 2;
     if (ready) {
       simulate();
     } else {
@@ -143,55 +157,63 @@ function scheduleAutoSimulate() {
 }
 
 function simulate() {
+  updateFleetNames();
   const engineFleets = buildEngineFleets();
+  const result = new CombatRunner().run(engineFleets);
+  const participatingFleets = state.fleets.filter(fleetHasShips);
+  const survivorDistribution =
+    result.survivorDistribution as SurvivorDistributionEntry[];
+  const common = {
+    // Engine maps remain keyed by stable fleet IDs. Components translate those
+    // IDs to the current display names only while rendering.
+    victoryProbability: result.lastFleetStanding,
+    drawProbability: result.drawPercentage,
+    expectedSurvivors: result.expectedSurvivors as Record<
+      string,
+      Record<string, number>
+    >,
+    survivorDistribution,
+    materialLosses: calculateMaterialLosses(
+      participatingFleets,
+      survivorDistribution
+    ),
+    populationBombardment: calculatePopulationBombardment(
+      engineFleets,
+      survivorDistribution,
+      {
+        defenderFleetName: state.fleets[0]?.id,
+        automaticWipe: state.fleets[0]?.factionId === 'planta',
+      }
+    ),
+    reputationDraws: calculateReputationDrawDistributions(
+      participatingFleets,
+      survivorDistribution
+    ),
+    timeTaken: result.timeTaken,
+    targeting: result.targeting,
+    tier: result.tier,
+    methodLabel: result.methodLabel,
+    diagnostics: result.diagnostics,
+  };
 
-  // Exact combat propagates every dice outcome through the same adjacent-fleet
-  // battle order as MultiBattle. Battles outside the interactive budget fall
-  // back to Monte Carlo.
-  const exact = computeExactCombat(engineFleets, EXACT_INTERACTIVE_CAPS);
-  if (exact.ok) {
+  if (result.method === 'exact') {
     setSimulationResults({
-      victoryProbability: exact.lastFleetStanding,
-      drawProbability: exact.drawPercentage,
-      expectedSurvivors: exact.expectedSurvivors as Record<
-        string,
-        Record<string, number>
-      >,
-      survivorDistribution: exact.survivorDistribution as {
-        probability: number;
-        survivors: Record<string, Record<string, number>>;
-      }[],
-      timeTaken: exact.timeTaken,
+      ...common,
       method: 'exact',
     });
-    afterSimulate();
-    return;
+  } else {
+    setSimulationResults({
+      ...common,
+      method: 'monte-carlo',
+      iterations: result.iterations ?? 0,
+    });
   }
-
-  const MC_ITERATIONS = 5000;
-  const simulator = new CombatSimulator();
-  const results = simulator.simulate(engineFleets, MC_ITERATIONS);
-
-  setSimulationResults({
-    victoryProbability: results.lastFleetStanding,
-    drawProbability: results.drawPercentage,
-    expectedSurvivors: results.expectedSurvivors,
-    survivorDistribution: results.survivorDistribution as {
-      probability: number;
-      survivors: Record<string, Record<string, number>>;
-    }[],
-    timeTaken: results.timeTaken,
-    method: 'monte-carlo',
-    iterations: MC_ITERATIONS,
-  });
 
   afterSimulate();
 }
 
-function buildEngineFleets(
-  plannerOverrides: readonly (DamageType | undefined)[] = []
-): Fleet[] {
-  return state.fleets.map((fleet, index) => {
+function buildEngineFleets(): Fleet[] {
+  return state.fleets.flatMap((fleet) => {
     const ships: Ship[] = [];
 
     fleet.shipTypes.forEach((shipType) => {
@@ -201,12 +223,16 @@ function buildEngineFleets(
       }
     });
 
-    return new Fleet(
-      fleet.name,
-      ships,
-      fleet.antimatterSplitter,
-      plannerOverrides[index] ?? PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
-    );
+    if (ships.length === 0) return [];
+
+    return [
+      new Fleet(
+        fleet.id,
+        ships,
+        fleet.antimatterSplitter,
+        PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
+      ),
+    ];
   });
 }
 
@@ -230,30 +256,40 @@ function renderResults() {
 }
 
 // The sticky bar: leading outcome plus a mini odds strip, always in reach while
-// editing. Hidden when there are no results.
+// editing. Hidden when there are no results or the About page is open.
 function renderLiveBar() {
   const bar = document.getElementById('live-bar');
   if (!bar) return;
 
   const results = state.simulationResults;
-  if (!results) {
+  if (!results || window.location.pathname === '/about') {
     bar.hidden = true;
     return;
   }
 
-  const outcomes = state.fleets.map((fleet, index) => ({
-    label: fleet.name,
-    probability: results.victoryProbability[fleet.name] ?? 0,
-    className:
-      index === 0
-        ? 'defender-result'
-        : `attacker-result${index > 1 ? ` attacker-result-${Math.min(index, 4)}` : ''}`,
-  }));
+  const outcomes: Array<{
+    label: string;
+    probability: number;
+    className: string;
+    color?: string;
+    lightColor?: string;
+  }> = state.fleets.map((fleet, index) => {
+    const color = fleetColor(fleet.colorId, index);
+    return {
+      label: fleet.name,
+      probability: results.victoryProbability[fleet.id] ?? 0,
+      className: resultClassNameForFleet(index),
+      color: color.color,
+      lightColor: color.lightResult,
+    };
+  });
   if (results.drawProbability > 0) {
     outcomes.push({
       label: 'Draw',
       probability: results.drawProbability,
-      className: 'draw-result',
+      className: resultClassNameForFleet(null, true),
+      color: undefined,
+      lightColor: undefined,
     });
   }
 
@@ -263,6 +299,18 @@ function renderLiveBar() {
   const verdict = bar.querySelector('.live-verdict')!;
   verdict.textContent = `${leader.label} ${(leader.probability * 100).toFixed(1)}%`;
   verdict.className = `live-verdict ${leader.className}`;
+  (verdict as HTMLElement).style.setProperty(
+    '--fleet-result-source',
+    leader.color ?? ''
+  );
+  (verdict as HTMLElement).style.setProperty(
+    '--fleet-result-light-source',
+    leader.lightColor ?? ''
+  );
+  bar.setAttribute(
+    'aria-label',
+    `View full results. ${leader.label} ${(leader.probability * 100).toFixed(1)} percent`
+  );
 
   const odds = bar.querySelector('.live-odds')!;
   odds.innerHTML = '';
@@ -272,6 +320,11 @@ function renderLiveBar() {
       const segment = document.createElement('i');
       segment.className = outcome.className;
       segment.style.width = `${outcome.probability * 100}%`;
+      segment.style.setProperty('--fleet-result-source', outcome.color ?? '');
+      segment.style.setProperty(
+        '--fleet-result-light-source',
+        outcome.lightColor ?? ''
+      );
       odds.appendChild(segment);
     });
 
@@ -284,31 +337,22 @@ function refreshRecentsPicker() {
   const select = document.getElementById(
     'recent-battles'
   ) as HTMLSelectElement | null;
+  const control = document.getElementById('recent-battles-control');
   if (!select) return;
 
   const recents = loadRecentBattles();
-  select.hidden = recents.length === 0;
+  if (control) control.hidden = recents.length === 0;
   select.innerHTML = '';
 
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = 'Recent battles…';
-  select.appendChild(placeholder);
-
-  // A width:auto <select> grows to fit its widest option, so multi-fleet
-  // matchups overflow on phones. Abbreviate ship names on narrow screens to
-  // keep the picker compact.
-  const short =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(max-width: 42rem)').matches;
+  // Keep this compact summary consistent with the surviving-fleet table.
   recents.forEach((recent) => {
     const option = document.createElement('option');
     option.value = recent.query;
     const fleets = parseBattleQuery(recent.query);
-    option.textContent = fleets ? battleLabel(fleets, short) : recent.label;
+    option.textContent = fleets ? battleLabel(fleets, true) : recent.label;
     select.appendChild(option);
   });
-  select.value = '';
+  select.selectedIndex = -1;
 }
 
 function handleRouteChange() {
@@ -339,13 +383,26 @@ function handleRouteChange() {
   navLinks.forEach((link) => {
     link.classList.toggle('active', link.getAttribute('href') === path);
   });
+
+  renderLiveBar();
 }
 
-function init() {
-  document
-    .getElementById('add-fleet-btn')!
-    .addEventListener('click', addFleetHandler);
-  document.getElementById('clear-all-btn')!.addEventListener('click', clearAll);
+let disposeInit: (() => void) | undefined;
+
+function init(): () => void {
+  disposeInit?.();
+  const cleanups: Array<() => void> = [];
+  const listen = (
+    target: EventTarget,
+    event: string,
+    listener: EventListener
+  ) => {
+    target.addEventListener(event, listener);
+    cleanups.push(() => target.removeEventListener(event, listener));
+  };
+
+  listen(document.getElementById('add-fleet-btn')!, 'click', addFleetHandler);
+  listen(document.getElementById('clear-all-btn')!, 'click', clearAll);
 
   const steppersToggle = document.getElementById('steppers-toggle');
   const steppersToggleButtons = Array.from(
@@ -362,37 +419,57 @@ function init() {
   };
   setSteppersEnabled(steppersEnabled);
   steppersToggleButtons.forEach((button) => {
-    button.addEventListener('click', () => {
+    listen(button, 'click', () => {
       const enabled = button.dataset.steppers === 'on';
       saveSteppersPreference(enabled);
       setSteppersEnabled(enabled);
     });
   });
 
+  const themeSelect = document.getElementById(
+    'theme-select'
+  ) as HTMLSelectElement | null;
+  const theme = loadThemePreference();
+  applyThemePreference(theme);
+  if (themeSelect) {
+    themeSelect.value = theme;
+    listen(themeSelect, 'change', () => {
+      const nextTheme = themeSelect.value as ThemePreference;
+      saveThemePreference(nextTheme);
+      applyThemePreference(nextTheme);
+    });
+  }
+
   const recentsSelect = document.getElementById(
     'recent-battles'
   ) as HTMLSelectElement | null;
-  recentsSelect?.addEventListener('change', () => {
-    const fleets = parseBattleQuery(recentsSelect.value);
-    recentsSelect.value = '';
-    if (!fleets) return;
-    replaceFleets(fleets);
-    renderFleets();
-  });
+  if (recentsSelect) {
+    listen(recentsSelect, 'change', () => {
+      const fleets = parseBattleQuery(recentsSelect.value);
+      recentsSelect.selectedIndex = -1;
+      if (!fleets) return;
+      replaceFleets(fleets);
+      renderFleets();
+    });
+  }
 
   // Tapping the live bar jumps to the full report.
-  document.getElementById('live-bar')?.addEventListener('click', () => {
-    document
-      .getElementById('results-container')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  const liveBar = document.getElementById('live-bar');
+  if (liveBar) {
+    listen(liveBar, 'click', () => {
+      document
+        .getElementById('results-container')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
-  document.addEventListener('fleet-removed', () => {
-    renderFleets();
-  });
+  const rerenderFleets = () => renderFleets();
+  listen(document, 'fleet-removed', rerenderFleets);
+  listen(document, 'fleet-order-changed', rerenderFleets);
+  listen(document, 'fleet-metadata-changed', rerenderFleets);
 
   document.querySelectorAll('.nav-link').forEach((link) => {
-    link.addEventListener('click', (e) => {
+    listen(link, 'click', (e) => {
       e.preventDefault();
       const href = (e.currentTarget as HTMLAnchorElement).getAttribute('href');
       if (href && href !== window.location.pathname) {
@@ -403,9 +480,9 @@ function init() {
     });
   });
 
-  onFleetsChanged(syncBattleUrl);
-  onFleetsChanged(() => saveSetup(state.fleets));
-  onFleetsChanged(scheduleAutoSimulate);
+  cleanups.push(onFleetsChanged(syncBattleUrl));
+  cleanups.push(onFleetsChanged(() => saveSetup(state.fleets)));
+  cleanups.push(onFleetsChanged(scheduleAutoSimulate));
 
   // A battle in the URL wins; otherwise pick up where the last session left
   // off. Either path triggers an auto-simulate via the change notification.
@@ -415,7 +492,20 @@ function init() {
 
   refreshRecentsPicker();
   handleRouteChange();
-  window.addEventListener('popstate', handleRouteChange);
+  listen(window, 'popstate', handleRouteChange);
+
+  const dispose = () => {
+    // A disposer may outlive the init that created it (for example during hot
+    // reload). Once superseded it must not clear the active init's shared timer
+    // or listeners.
+    if (disposeInit !== dispose) return;
+    clearTimeout(autoSimulateTimer);
+    autoSimulateTimer = undefined;
+    cleanups.splice(0).forEach((cleanup) => cleanup());
+    disposeInit = undefined;
+  };
+  disposeInit = dispose;
+  return dispose;
 }
 
-export { init, exactDpsPlannerOverrides };
+export { init };

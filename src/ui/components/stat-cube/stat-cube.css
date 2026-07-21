@@ -1,16 +1,30 @@
+calc-stat-cube {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .stat-cube {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 3.25rem;
-  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+  min-width: 0;
+  min-height: 2.75rem;
+  background: color-mix(
+    in srgb,
+    var(--color-bg-secondary) 86%,
+    var(--color-bg-primary)
+  );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 0.375rem 0 0.125rem;
+  padding: 0.25rem 0 0.0625rem;
   box-sizing: border-box;
   cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .stat-cube-controls {
@@ -18,6 +32,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  min-width: 0;
   flex: 1;
 }
 
@@ -37,9 +52,12 @@
   -webkit-user-select: none;
 }
 
-.stat-step:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-tertiary);
+@media (hover: none) {
+  .stat-step:hover,
+  .stat-step:focus-visible {
+    background: transparent;
+    outline: none;
+  }
 }
 
 .stat-step:active {
@@ -53,17 +71,28 @@
   opacity: 0.32;
 }
 
-.stat-step:disabled:hover,
 .stat-step:disabled:active {
   color: var(--color-text-muted);
   background: transparent;
+}
+
+@media (hover: hover) {
+  .stat-step:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+  }
+
+  .stat-step:disabled:hover {
+    color: var(--color-text-muted);
+    background: transparent;
+  }
 }
 
 /* Table mode: on touch screens the steppers are the primary input, so give
    them real tap targets. */
 @media (pointer: coarse) {
   .stat-cube {
-    min-height: 3.25rem;
+    min-height: 2.75rem;
   }
 
   .stat-step {
@@ -76,25 +105,61 @@
 
 @media (max-width: 42rem) {
   .stat-cube {
-    min-height: 3rem;
-    padding-top: 0.25rem;
+    min-height: 2.75rem;
+    padding-top: 0.1875rem;
   }
 
   .stat-step {
-    width: 1.5rem;
-    height: 1.875rem;
+    width: 1.125rem;
+    height: 1.75rem;
   }
 
   .stat-cube input {
-    width: 1.75rem;
+    width: 1.375rem;
     height: 1.25rem;
-    font-size: 0.9375rem;
+    font-size: 1rem;
   }
 }
 
-.stat-cube:hover {
-  border-color: var(--color-border-strong);
-  background: var(--color-bg-tertiary);
+@media (max-width: 27rem) {
+  body:not(.no-steppers) calc-stat-cube:not([disabled]) .stat-step {
+    flex: 0 0 1.5rem;
+    width: 1.5rem;
+    height: 2rem;
+  }
+}
+
+@media (hover: hover) {
+  .stat-cube:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-bg-tertiary);
+  }
+}
+
+calc-stat-cube[modified] .stat-cube {
+  border-color: color-mix(
+    in srgb,
+    var(--color-info) 20%,
+    var(--color-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--color-info) 5%,
+    var(--color-bg-secondary)
+  );
+}
+
+calc-stat-cube[modified] .stat-cube input {
+  color: color-mix(
+    in srgb,
+    var(--color-info) 24%,
+    var(--color-text-primary)
+  );
+}
+
+.stat-cube:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 calc-stat-cube[disabled] .stat-cube {
@@ -102,9 +167,15 @@ calc-stat-cube[disabled] .stat-cube {
   opacity: 0.72;
 }
 
-calc-stat-cube[disabled] .stat-cube:hover {
-  border-color: var(--color-border);
-  background: color-mix(in srgb, var(--color-bg-secondary) 86%, var(--color-bg-primary));
+@media (hover: hover) {
+  calc-stat-cube[disabled] .stat-cube:hover {
+    border-color: var(--color-border);
+    background: color-mix(
+      in srgb,
+      var(--color-bg-secondary) 86%,
+      var(--color-bg-primary)
+    );
+  }
 }
 
 calc-stat-cube[disabled] .stat-step {
@@ -120,7 +191,10 @@ calc-stat-cube[disabled] .stat-step {
 
 .stat-cube input {
   width: 2rem;
+  min-width: 0;
   height: 1.5rem;
+  /* Dense parent layouts can tune spacing without selecting this input. */
+  padding: var(--stat-cube-input-padding, var(--space-xs) 0);
   text-align: center;
   font-size: 1rem;
   font-weight: 600;
@@ -131,6 +205,12 @@ calc-stat-cube[disabled] .stat-step {
   margin: auto 0;
 }
 
+@media (min-width: 74rem) {
+  .stat-cube input {
+    padding: 0;
+  }
+}
+
 .stat-cube input:focus {
   color: var(--color-attacker);
 }
@@ -139,6 +219,13 @@ calc-stat-cube[disabled] .stat-step {
   cursor: default;
   -webkit-text-fill-color: var(--color-text-primary);
   opacity: 1;
+}
+
+/* Signed accuracy stats need a touch more separation between the modifier
+   glyph and its value, especially between the two stepper controls. */
+calc-stat-cube[data-stat='computer'] .stat-cube input,
+calc-stat-cube[data-stat='shield'] .stat-cube input {
+  letter-spacing: 0.16em;
 }
 
 .stat-cube input::-webkit-inner-spin-button,

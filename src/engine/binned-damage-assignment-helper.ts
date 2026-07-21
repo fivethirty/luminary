@@ -6,6 +6,9 @@ import { DpsRemovalDamagePlanner } from './dps-removal-damage-planner';
 import { Phase } from './battle';
 import { OptimalDamagePlanner } from './optimal-damage-planner';
 
+type CanonicalGroup = { key: string; indices: number[] };
+type MemoEntry = { assignmentsAtEntry: number[]; plan: Plan };
+
 export class BinnedDamageAssignmentHelper {
   private readonly npcDamagePlanner: AbstractDamagePlanner =
     new NpcDamagePlanner();
@@ -44,17 +47,75 @@ export class BinnedDamageAssignmentHelper {
   private memoKey(
     shotIdx: number,
     damageAssignments: number[],
-    ships: Ship[]
+    remainingHp: number[],
+    canonicalGroups: CanonicalGroup[]
   ): string {
-    const shipsStr = ships
-      .map(
-        (ship, i) =>
-          ship.type.substring(0, 2) +
-          (ship.remainingHP() - damageAssignments[i])
-      )
-      .sort()
-      .join(',');
-    return `${shotIdx}:${shipsStr}`;
+    // Groups are fixed and config-key sorted for one solve, so only their HP
+    // multisets need to be repeated in hot-path keys. Identical configurations
+    // are interchangeable, while heterogeneous ships remain in separate groups.
+    let key = `${shotIdx}:`;
+    for (let groupIdx = 0; groupIdx < canonicalGroups.length; groupIdx++) {
+      if (groupIdx > 0) key += ';';
+      const hps = canonicalGroups[groupIdx].indices.map((index) =>
+        Math.max(0, remainingHp[index] - damageAssignments[index])
+      );
+      hps.sort((a, b) => a - b);
+      key += hps.join('.');
+    }
+    return key;
+  }
+
+  private buildCanonicalGroups(ships: Ship[]): CanonicalGroup[] {
+    const byKey = new Map<string, number[]>();
+    ships.forEach((ship, index) => {
+      const key = ship.configKey();
+      const indices = byKey.get(key);
+      if (indices) indices.push(index);
+      else byKey.set(key, [index]);
+    });
+    return Array.from(byKey, ([key, indices]) => ({ key, indices })).sort(
+      (a, b) => a.key.localeCompare(b.key)
+    );
+  }
+
+  private remapMemoPlan(
+    entry: MemoEntry,
+    damageAssignments: number[],
+    remainingHp: number[],
+    canonicalGroups: CanonicalGroup[]
+  ): Plan {
+    if (entry.plan.damageAssignments.length === 0) return entry.plan;
+
+    const mappedAssignments = damageAssignments.slice();
+    const effectiveHp = (assignments: number[], index: number) =>
+      Math.max(0, remainingHp[index] - assignments[index]);
+
+    for (const { indices } of canonicalGroups) {
+      // Equal memo keys guarantee equal HP multisets within every group. Match
+      // the concrete indices by current HP, then replay only the cached suffix
+      // of assignments onto the equivalent ships in this branch.
+      const cachedOrder = indices.slice().sort((a, b) => {
+        const hpDiff =
+          effectiveHp(entry.assignmentsAtEntry, a) -
+          effectiveHp(entry.assignmentsAtEntry, b);
+        return hpDiff || a - b;
+      });
+      const currentOrder = indices.slice().sort((a, b) => {
+        const hpDiff =
+          effectiveHp(damageAssignments, a) - effectiveHp(damageAssignments, b);
+        return hpDiff || a - b;
+      });
+
+      for (let i = 0; i < indices.length; i++) {
+        const cachedIndex = cachedOrder[i];
+        const currentIndex = currentOrder[i];
+        mappedAssignments[currentIndex] +=
+          entry.plan.damageAssignments[cachedIndex] -
+          entry.assignmentsAtEntry[cachedIndex];
+      }
+    }
+
+    return { ...entry.plan, damageAssignments: mappedAssignments };
   }
 
   private assignBinnedDamageSolve(
@@ -65,20 +126,42 @@ export class BinnedDamageAssignmentHelper {
     upcomingPhases: Phase[],
     remainingHp: number[],
     maxScore: number,
-    memo: Map<string, Plan>,
+    canonicalGroups: CanonicalGroup[],
+    memo: Map<string, MemoEntry>,
     shotIdx: number
   ): Plan {
+    const key = this.memoKey(
+      shotIdx,
+      damageAssignments,
+      remainingHp,
+      canonicalGroups
+    );
+    const cached = memo.get(key);
+    if (cached) {
+      return this.remapMemoPlan(
+        cached,
+        damageAssignments,
+        remainingHp,
+        canonicalGroups
+      );
+    }
+
     if (shotIdx === canDamage.length) {
-      return damagePlanner.evaluate(
+      const evaluated = damagePlanner.evaluate(
         ships,
         remainingHp,
         damageAssignments,
         upcomingPhases
       );
-    }
-    const key = this.memoKey(shotIdx, damageAssignments, ships);
-    if (memo.has(key)) {
-      return memo.get(key)!;
+      const plan = {
+        ...evaluated,
+        damageAssignments: evaluated.damageAssignments.slice(),
+      };
+      memo.set(key, {
+        assignmentsAtEntry: damageAssignments.slice(),
+        plan,
+      });
+      return plan;
     }
 
     let bestPlan: Plan = {
@@ -87,9 +170,11 @@ export class BinnedDamageAssignmentHelper {
       damageAssignments: [],
     };
 
+    let anyTarget = false;
     for (let shipIdx = 0; shipIdx < canDamage[shotIdx].length; shipIdx++) {
       const shotDmg = canDamage[shotIdx][shipIdx];
       if (shotDmg === 0) continue; // Skip if this shot can't damage this ship
+      anyTarget = true;
       damageAssignments[shipIdx] += shotDmg;
       const newPlan = this.assignBinnedDamageSolve(
         ships,
@@ -99,10 +184,12 @@ export class BinnedDamageAssignmentHelper {
         upcomingPhases,
         remainingHp,
         maxScore,
+        canonicalGroups,
         memo,
         shotIdx + 1
       );
       if (newPlan.allDestroyed || newPlan.score >= maxScore) {
+        damageAssignments[shipIdx] -= shotDmg;
         return newPlan; // early exit if all ships are destroyed
       }
       if (newPlan.score > bestPlan.score) {
@@ -113,7 +200,30 @@ export class BinnedDamageAssignmentHelper {
       }
       damageAssignments[shipIdx] -= shotDmg; // backtrack
     }
-    memo.set(key, bestPlan);
+    // Keep processing later shots if this one cannot hit a surviving target.
+    // Normal weapon generation filters these out, but the helper's public API
+    // and exact-planner callers are safer when the recursion is total.
+    if (!anyTarget) {
+      bestPlan = this.assignBinnedDamageSolve(
+        ships,
+        canDamage,
+        damageAssignments,
+        damagePlanner,
+        upcomingPhases,
+        remainingHp,
+        maxScore,
+        canonicalGroups,
+        memo,
+        shotIdx + 1
+      );
+    }
+    memo.set(key, {
+      assignmentsAtEntry: damageAssignments.slice(),
+      plan: {
+        ...bestPlan,
+        damageAssignments: bestPlan.damageAssignments.slice(),
+      },
+    });
     return bestPlan;
   }
 
@@ -159,7 +269,8 @@ export class BinnedDamageAssignmentHelper {
 
     const damageAssignements = Array(sortedShips.length).fill(0);
 
-    const memo = new Map<string, Plan>();
+    const canonicalGroups = this.buildCanonicalGroups(sortedShips);
+    const memo = new Map<string, MemoEntry>();
 
     const plan = this.assignBinnedDamageSolve(
       sortedShips,
@@ -169,6 +280,7 @@ export class BinnedDamageAssignmentHelper {
       upcomingPhases,
       remainingHp,
       maxScore,
+      canonicalGroups,
       memo,
       0
     );

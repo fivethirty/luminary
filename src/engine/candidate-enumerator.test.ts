@@ -75,6 +75,25 @@ describe('enumerateCandidates', () => {
     expect(candidates).toBeNull();
   });
 
+  test('interrupts a large assignment search when its shared deadline expires', () => {
+    const ships = Array.from(
+      { length: 8 },
+      (_, i) => new Ship(ShipType.Interceptor, { hull: i })
+    );
+    const shots = Array.from({ length: 6 }, () => hit(1));
+    let deadlineChecks = 0;
+
+    const candidates = enumerateCandidates(shots, ships, {
+      shouldAbort: () => {
+        deadlineChecks++;
+        return deadlineChecks >= 2;
+      },
+    });
+
+    expect(candidates).toBeNull();
+    expect(deadlineChecks).toBe(2);
+  });
+
   test('distinct-config ships produce distinct targeted states', () => {
     const cruiser = new Ship(ShipType.Cruiser, { hull: 1 }); // 2 HP
     const interceptor = new Ship(ShipType.Interceptor); // 1 HP

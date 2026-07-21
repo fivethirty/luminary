@@ -3,7 +3,7 @@
  * successor construction; WinProbabilitySolver owns graph values and policy.
  */
 import { DamageType } from 'src/constants';
-import { Ship, Shot } from './ship';
+import { Ship, Shot, WeaponDamage } from './ship';
 import { Fleet } from './fleet';
 import { Phase } from './battle';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
@@ -38,7 +38,7 @@ export type Successor =
 export type Expansion =
   | { kind: 'terminal'; outcome: Terminal }
   | { kind: 'move'; decisionRole: Role | null; edges: MoveEdge[] }
-  | { kind: 'fail' };
+  | { kind: 'fail'; reason: 'expand cap exceeded' | 'time budget exceeded' };
 
 // One dice outcome. For a heuristic slot `options` has length 1 (deterministic
 // assignment); for an optimal-mode player slot it holds the candidate
@@ -48,11 +48,16 @@ export type MoveEdge = { prob: number; options: Successor[] };
 export type ExpandContext = {
   decisionRoles: readonly Role[];
   maxOutcomes: number;
+  // The solver owns the absolute deadline and passes a cheap predicate into
+  // expansion so one expensive state cannot monopolize the remaining budget.
+  deadlineExceeded?: () => boolean;
 };
 
 type AssignmentControl =
   | { kind: 'decision'; role: Role }
   | { kind: 'heuristic'; damageType: DamageType.NPC | DamageType.DPS };
+
+type CanonicalGroup = { key: string; indices: number[] };
 
 export class BattleModel {
   readonly schedule: Slot[];
@@ -63,6 +68,8 @@ export class BattleModel {
   private readonly defenderTemplates: Ship[];
   private readonly attackerInitialHp: number[];
   private readonly defenderInitialHp: number[];
+  private readonly attackerCanonicalGroups: CanonicalGroup[];
+  private readonly defenderCanonicalGroups: CanonicalGroup[];
 
   constructor(
     attackerTemplates: Ship[],
@@ -82,6 +89,12 @@ export class BattleModel {
       template.resetDamage();
       return template;
     });
+    this.attackerCanonicalGroups = this.buildCanonicalGroups(
+      this.attackerTemplates
+    );
+    this.defenderCanonicalGroups = this.buildCanonicalGroups(
+      this.defenderTemplates
+    );
     this.schedule = this.buildSchedule();
     this.numMissileSlots = this.schedule.filter((s) => s.missile).length;
     this.attackerIsNpc = !this.attackerTemplates.some((s) => s.isPlayerShip());
@@ -155,29 +168,31 @@ export class BattleModel {
   // Interchangeable ships (same config) collapse: sort HP within each config
   // group. Slot index captures missile-consumption (missiles are a prefix).
   canonicalKey(state: WorkingState): string {
-    const side = (templates: Ship[], hp: number[]): string => {
-      const groups = new Map<string, number[]>();
-      for (let i = 0; i < templates.length; i++) {
-        const key = templates[i].configKey();
-        const list = groups.get(key);
-        if (list) list.push(hp[i]);
-        else groups.set(key, [hp[i]]);
-      }
-      return Array.from(groups.entries())
-        .map(
-          ([key, hps]) =>
-            `${key}=${hps
-              .slice()
-              .sort((a, b) => a - b)
-              .join('.')}`
-        )
-        .sort()
+    const side = (groups: CanonicalGroup[], hp: number[]): string =>
+      groups
+        .map(({ key, indices }) => {
+          const hps = indices.map((index) => hp[index]);
+          hps.sort((a, b) => a - b);
+          return `${key}=${hps.join('.')}`;
+        })
         .join(';');
-    };
-    return `${state.slot}|A:${side(this.attackerTemplates, state.hpA)}|D:${side(
-      this.defenderTemplates,
-      state.hpB
-    )}`;
+    return `${state.slot}|A:${side(
+      this.attackerCanonicalGroups,
+      state.hpA
+    )}|D:${side(this.defenderCanonicalGroups, state.hpB)}`;
+  }
+
+  private buildCanonicalGroups(templates: Ship[]): CanonicalGroup[] {
+    const byKey = new Map<string, number[]>();
+    templates.forEach((template, index) => {
+      const key = template.configKey();
+      const indices = byKey.get(key);
+      if (indices) indices.push(index);
+      else byKey.set(key, [index]);
+    });
+    return Array.from(byKey, ([key, indices]) => ({ key, indices })).sort(
+      (a, b) => a.key.localeCompare(b.key)
+    );
   }
 
   private anyAlive(hp: number[]): boolean {
@@ -284,9 +299,12 @@ export class BattleModel {
   /**
    * Expands one state into its dice/assignment structure. Successor states are
    * already advanced (slot moved, heal + stalemate applied) and terminals
-   * detected. Returns { kind: 'fail' } if a cap is exceeded.
+   * detected. Returns { kind: 'fail' } if a cap or shared deadline is exceeded.
    */
   expand(state: WorkingState, ctx: ExpandContext): Expansion {
+    if (ctx.deadlineExceeded?.()) {
+      return { kind: 'fail', reason: 'time budget exceeded' };
+    }
     if (!this.anyAlive(state.hpA)) {
       return {
         kind: 'terminal',
@@ -326,6 +344,18 @@ export class BattleModel {
     }
     const shooterShips = livingShooterIdx.map((i) => shooterTemplates[i]);
 
+    const ordinaryDamageCeiling =
+      !shooterIsNpc &&
+      ctx.decisionRoles.length === 2 &&
+      ctx.decisionRoles.includes(slot.role)
+        ? this.usefulOrdinaryDamageCeiling(
+            shooterShips,
+            slot.missile,
+            shooterSplitter,
+            targetHp
+          )
+        : Infinity;
+
     const enemyShields = Array.from(
       new Set(
         targetHp
@@ -334,14 +364,27 @@ export class BattleModel {
       )
     );
 
+    let diceDeadlineExceeded = false;
     const outcomes = enumerateSlotOutcomes(
       shooterShips,
       slot.missile,
       enemyShields,
       slot.missile ? false : shooterSplitter,
-      ctx.maxOutcomes
+      ctx.maxOutcomes,
+      ctx.deadlineExceeded
+        ? () => {
+            diceDeadlineExceeded = ctx.deadlineExceeded!();
+            return diceDeadlineExceeded;
+          }
+        : undefined,
+      ordinaryDamageCeiling
     );
-    if (outcomes === null) return { kind: 'fail' };
+    if (diceDeadlineExceeded || ctx.deadlineExceeded?.()) {
+      return { kind: 'fail', reason: 'time budget exceeded' };
+    }
+    if (outcomes === null) {
+      return { kind: 'fail', reason: 'expand cap exceeded' };
+    }
 
     // No shooters / no dice at all: deterministic advance.
     if (shooterShips.length === 0 || outcomes.length === 0) {
@@ -353,25 +396,73 @@ export class BattleModel {
       };
     }
 
-    const assignmentControl = this.assignmentControl(slot, shooterIsNpc, ctx);
+    const assignmentControl = this.assignmentControl(
+      slot,
+      shooterIsNpc,
+      this.hasOneLivingConfiguration(targetTemplates, targetHp),
+      ctx
+    );
     const decisionRole =
       assignmentControl.kind === 'decision' ? assignmentControl.role : null;
 
     const edges: MoveEdge[] = [];
     for (const outcome of outcomes) {
-      const options = this.resolveOutcome(
+      if (ctx.deadlineExceeded?.()) {
+        return { kind: 'fail', reason: 'time budget exceeded' };
+      }
+      const resolved = this.resolveOutcome(
         state,
         slot,
         outcome,
         shooterIsAttacker,
         shooterTemplates,
         targetTemplates,
-        assignmentControl
+        assignmentControl,
+        ctx
       );
-      if (options === null) return { kind: 'fail' };
-      edges.push({ prob: outcome.prob, options });
+      if (!resolved.ok) return { kind: 'fail', reason: resolved.reason };
+      edges.push({ prob: outcome.prob, options: resolved.options });
+    }
+    if (ctx.deadlineExceeded?.()) {
+      return { kind: 'fail', reason: 'time budget exceeded' };
     }
     return { kind: 'move', decisionRole, edges };
+  }
+
+  // Return a finite ceiling only when it actually changes at least one
+  // ordinary unsplit die. The fast Infinity path avoids scanning target HP in
+  // the common ion-only case.
+  private usefulOrdinaryDamageCeiling(
+    shooters: Ship[],
+    missilePhase: boolean,
+    splitter: boolean,
+    targetHp: number[]
+  ): number {
+    let maximumUnsplitDamage = 1;
+    for (const ship of shooters) {
+      const weapons = missilePhase ? ship.missiles : ship.cannons;
+      if (weapons.plasma > 0) {
+        maximumUnsplitDamage = Math.max(
+          maximumUnsplitDamage,
+          WeaponDamage.plasma
+        );
+      }
+      if (weapons.soliton > 0) {
+        maximumUnsplitDamage = Math.max(
+          maximumUnsplitDamage,
+          WeaponDamage.soliton
+        );
+      }
+      if (weapons.antimatter > 0 && (missilePhase || !splitter)) {
+        maximumUnsplitDamage = WeaponDamage.antimatter;
+        break;
+      }
+    }
+    if (maximumUnsplitDamage === 1) return Infinity;
+
+    let maximumTargetHp = 0;
+    for (const hp of targetHp) maximumTargetHp = Math.max(maximumTargetHp, hp);
+    return maximumTargetHp < maximumUnsplitDamage ? maximumTargetHp : Infinity;
   }
 
   // Applies rift self-damage and target assignment for one dice outcome, then
@@ -384,8 +475,17 @@ export class BattleModel {
     shooterIsAttacker: boolean,
     shooterTemplates: Ship[],
     targetTemplates: Ship[],
-    assignmentControl: AssignmentControl
-  ): Successor[] | null {
+    assignmentControl: AssignmentControl,
+    ctx: ExpandContext
+  ):
+    | { ok: true; options: Successor[] }
+    | {
+        ok: false;
+        reason: 'expand cap exceeded' | 'time budget exceeded';
+      } {
+    if (ctx.deadlineExceeded?.()) {
+      return { ok: false, reason: 'time budget exceeded' };
+    }
     const shooterHp = shooterIsAttacker ? state.hpA : state.hpB;
     const targetHp = shooterIsAttacker ? state.hpB : state.hpA;
     const shooterSplitFlag = shooterIsAttacker
@@ -403,6 +503,9 @@ export class BattleModel {
       targetHp,
       shooterIsAttacker ? this.defenderSplitter : this.attackerSplitter
     );
+    if (ctx.deadlineExceeded?.()) {
+      return { ok: false, reason: 'time budget exceeded' };
+    }
 
     // Apply rift self-damage to the shooter's living rift ships (NPC-assigned).
     if (!slot.missile && outcome.selfDamage > 0) {
@@ -421,6 +524,9 @@ export class BattleModel {
         );
       }
     }
+    if (ctx.deadlineExceeded?.()) {
+      return { ok: false, reason: 'time budget exceeded' };
+    }
     const newShooterHp = this.livingHpVector(shooterMat.ships);
 
     const targetLiving = targetMat.ships.filter((s) => s.isAlive());
@@ -434,14 +540,33 @@ export class BattleModel {
 
     if (outcome.shots.length === 0 || targetLiving.length === 0) {
       // No target damage this outcome.
-      return [buildSuccessor()];
+      return { ok: true, options: [buildSuccessor()] };
     }
 
     if (assignmentControl.kind === 'decision') {
-      const candidates = enumerateCandidates(outcome.shots, targetLiving);
-      if (candidates === null) return null;
-      if (candidates.length === 0) return [buildSuccessor()];
-      return candidates.map((candidate) => {
+      let candidateDeadlineExceeded = false;
+      const candidates = enumerateCandidates(outcome.shots, targetLiving, {
+        shouldAbort: ctx.deadlineExceeded
+          ? () => {
+              candidateDeadlineExceeded = ctx.deadlineExceeded!();
+              return candidateDeadlineExceeded;
+            }
+          : undefined,
+      });
+      if (candidateDeadlineExceeded || ctx.deadlineExceeded?.()) {
+        return { ok: false, reason: 'time budget exceeded' };
+      }
+      if (candidates === null) {
+        return { ok: false, reason: 'expand cap exceeded' };
+      }
+      if (candidates.length === 0) {
+        return { ok: true, options: [buildSuccessor()] };
+      }
+      const options: Successor[] = [];
+      for (const candidate of candidates) {
+        if (ctx.deadlineExceeded?.()) {
+          return { ok: false, reason: 'time budget exceeded' };
+        }
         const newTargetHp = targetMat.ships.map((s) => s.remainingHP());
         for (let i = 0; i < targetLiving.length; i++) {
           const dmg = Math.min(
@@ -453,8 +578,9 @@ export class BattleModel {
         }
         const hpA = shooterIsAttacker ? newShooterHp : newTargetHp;
         const hpB = shooterIsAttacker ? newTargetHp : newShooterHp;
-        return this.finishSlot(hpA, hpB, state.slot, slot);
-      });
+        options.push(this.finishSlot(hpA, hpB, state.slot, slot));
+      }
+      return { ok: true, options };
     }
 
     // Heuristic assignment: DPS for player fleets, NPC otherwise.
@@ -469,21 +595,36 @@ export class BattleModel {
       assignmentControl.damageType,
       phases
     );
-    return [buildSuccessor()];
+    if (ctx.deadlineExceeded?.()) {
+      return { ok: false, reason: 'time budget exceeded' };
+    }
+    return { ok: true, options: [buildSuccessor()] };
   }
 
   private assignmentControl(
     slot: Slot,
     shooterIsNpc: boolean,
+    targetIsHomogeneous: boolean,
     ctx: ExpandContext
   ): AssignmentControl {
     if (shooterIsNpc) {
       return { kind: 'heuristic', damageType: DamageType.NPC };
     }
-    if (ctx.decisionRoles.includes(slot.role)) {
+    if (ctx.decisionRoles.includes(slot.role) && !targetIsHomogeneous) {
       return { kind: 'decision', role: slot.role };
     }
     return { kind: 'heuristic', damageType: DamageType.DPS };
+  }
+
+  private hasOneLivingConfiguration(templates: Ship[], hp: number[]): boolean {
+    let livingConfig: string | null = null;
+    for (let index = 0; index < templates.length; index++) {
+      if (hp[index] <= 0) continue;
+      const key = templates[index].configKey();
+      if (livingConfig === null) livingConfig = key;
+      else if (key !== livingConfig) return false;
+    }
+    return livingConfig !== null;
   }
 
   // Terminal check after a slot's damage (fact 4), else advance.

@@ -61,10 +61,7 @@ describe('WinProbabilitySolver (minimax assignments)', () => {
     expect(optimal.winProbability).toBeLessThanOrEqual(1);
   });
 
-  // A constructed 1v2 focus decision: with two lethal enemy ships and a single
-  // guaranteed hit, optimal must strictly beat a policy forced into a suboptimal
-  // split — proving decision nodes actually change the value.
-  test('optimal strictly exceeds policy when the assignment choice matters', () => {
+  test('homogeneous targeting has the same value without decision nodes', () => {
     // Player: one interceptor with 2 antimatter cannons and high computers, so
     // both dice almost always land (only a natural 1 misses).
     const player = new Ship(ShipType.Interceptor, {
@@ -99,10 +96,70 @@ describe('WinProbabilitySolver (minimax assignments)', () => {
     }).solve();
     expect(policy.ok).toBe(true);
     expect(optimal.ok).toBe(true);
-    // At minimum, optimal never trails; this matchup exercises real candidate
-    // choice (splitting vs focusing the two antimatter dice).
-    expect(optimal.winProbability).toBeGreaterThanOrEqual(
-      policy.winProbability - 1e-9
+    expect(optimal.winProbability).toBeCloseTo(policy.winProbability, 9);
+    const graph = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+    }).getGraphStats();
+    expect(graph.attackerDecisionStates).toBe(0);
+    expect(graph.defenderDecisionStates).toBe(0);
+  });
+
+  test('homogeneous concentration preserves the healing matchup value', () => {
+    const ships = () =>
+      Array.from(
+        { length: 4 },
+        () =>
+          new Ship(ShipType.Cruiser, {
+            initiative: 2,
+            hull: 1,
+            heal: 1,
+            cannons: { ion: 1 },
+          })
+      );
+    const solver = new WinProbabilitySolver(
+      new BattleModel(ships(), ships(), false, false),
+      {
+        perspective: 'A',
+        assignments: 'minimax',
+      }
     );
+
+    const result = solver.solve();
+    expect(result.ok).toBe(true);
+    expect(result.winProbability).toBeCloseTo(0.478558660068, 9);
+    expect(solver.getGraphStats().attackerDecisionStates).toBe(0);
+    expect(solver.getGraphStats().defenderDecisionStates).toBe(0);
+  });
+
+  test('damage saturation preserves value and reduces optimal chance outcomes', () => {
+    const ships = () => [
+      new Ship(ShipType.Interceptor, {
+        initiative: 3,
+        cannons: { ion: 1, plasma: 1, soliton: 1, antimatter: 1 },
+      }),
+    ];
+    const model = new BattleModel(ships(), ships(), false, false);
+    const policy = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    });
+    const oneSidedOptimal = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+      decisionRoles: ['A'],
+    });
+    const fullyOptimal = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'minimax',
+    });
+
+    expect(fullyOptimal.solve().winProbability).toBeCloseTo(
+      policy.solve().winProbability,
+      12
+    );
+    expect(fullyOptimal.getGraphStats().chanceOutcomes).toBe(10);
+    expect(policy.getGraphStats().chanceOutcomes).toBe(32);
+    expect(oneSidedOptimal.getGraphStats().chanceOutcomes).toBe(32);
   });
 });

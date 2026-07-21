@@ -24,9 +24,11 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
 
       - name: Install dependencies
-        run: bun install --production
+        run: bun install --frozen-lockfile --production
 
       - name: Build
         run: bun run build
@@ -36,5 +38,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.47.0"
-
+          wranglerVersion: '4.47.0'

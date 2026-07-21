@@ -1,24 +1,54 @@
 .fleet-component {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
-.fleet {
-  margin-bottom: var(--space-lg);
+.fleet.card {
+  --fleet-accent: var(--fleet-accent-source, var(--color-border-strong));
+  --fleet-accent-soft: var(
+    --fleet-accent-soft-source,
+    var(--color-bg-secondary)
+  );
+
+  width: 100%;
+  min-width: 0;
+  margin-bottom: var(--space-md);
   padding: 0;
   position: relative;
   overflow: hidden;
+  border-left: 0.25rem solid var(--fleet-accent, var(--color-border-strong));
 }
 
-.fleet::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 0.25rem;
-  background: var(--fleet-accent, var(--color-border-strong));
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .fleet.card {
+    --fleet-accent: color-mix(
+      in srgb,
+      var(--fleet-accent-source, var(--color-border-strong)) 72%,
+      var(--color-text-primary)
+    );
+    --fleet-accent-soft: color-mix(
+      in srgb,
+      var(--fleet-accent-source, var(--color-border-strong)) 14%,
+      var(--color-bg-secondary)
+    );
+  }
+}
+
+:root[data-theme='light'] .fleet.card {
+  --fleet-accent: color-mix(
+    in srgb,
+    var(--fleet-accent-source, var(--color-border-strong)) 72%,
+    var(--color-text-primary)
+  );
+  --fleet-accent-soft: color-mix(
+    in srgb,
+    var(--fleet-accent-source, var(--color-border-strong)) 14%,
+    var(--color-bg-secondary)
+  );
 }
 
 .fleet-defender {
   --fleet-accent: var(--color-defender);
+  --fleet-accent-soft: var(--color-defender-soft);
 }
 
 .fleet-attacker {
@@ -41,48 +71,206 @@
   --fleet-accent-soft: var(--color-attacker-4-soft);
 }
 
-.fleet-defender .fleet-header {
-  background: linear-gradient(90deg, var(--color-defender-soft), var(--color-bg-secondary) 45%);
+.fleet-defender.fleet-neutral .fleet-header {
+  background: linear-gradient(
+    90deg,
+    var(--color-defender-soft),
+    var(--color-bg-secondary) 45%
+  );
 }
 
+.fleet-defender:not(.fleet-neutral) .fleet-header,
 .fleet-attacker .fleet-header {
-  background: linear-gradient(90deg, var(--fleet-accent-soft), var(--color-bg-secondary) 45%);
+  background: linear-gradient(
+    90deg,
+    var(--fleet-accent-soft),
+    var(--color-bg-secondary) 45%
+  );
 }
 
+.fleet-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Name and metadata action intentionally share the row's center alignment
+   with the square reorder controls. Per-item baseline alignment makes the
+   text pair appear to float above or below those controls. */
 .fleet-name {
-  padding-right: var(--space-md);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fleet-settings-btn {
+  flex: 0 0 auto;
+  padding: 0 var(--space-xs);
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.fleet-settings-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.fleet-settings-dialog {
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.fleet-settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.fleet-settings-form {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.fleet-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.fleet-settings-field {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.fleet-settings-field > span,
+.fleet-settings-field > legend {
+  color: var(--color-text-muted);
+  font-size: var(--label-font-size);
+  text-transform: uppercase;
+  letter-spacing: var(--label-letter-spacing);
+}
+
+.faction-select {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.color-options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.color-unset-btn {
+  width: 100%;
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.color-unset-btn.selected {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+  color: var(--color-text-primary);
+  cursor: default;
+}
+
+.color-option {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: var(--option-color);
+}
+
+.color-option.selected {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
+.role-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 0 0 auto;
+}
+
+.move-up-btn:disabled,
+.move-down-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .fleet:not(:has(calc-ship-type)) .fleet-tech {
   border-top: none;
 }
 
-.ship-selector {
-  margin-left: auto;
-  margin-right: var(--space-sm);
-  width: auto;
+.ship-selector-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
   font-family: inherit;
   font-size: inherit;
-  padding: var(--space-xs) var(--space-md);
+  padding: calc(var(--space-xs) * 1.5) 1.75rem calc(var(--space-xs) * 1.5)
+    var(--space-sm);
   border: 1px solid var(--color-border-strong);
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-tertiary) var(--select-chevron) right
+    var(--space-sm) center / 0.75rem no-repeat;
   color: var(--color-text-primary);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  min-width: 0;
   text-align: center;
-
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+  font-weight: var(--font-weight-semibold);
 }
 
-.ship-selector:hover {
-  background: var(--color-border);
+.ship-selector-control > span {
+  pointer-events: none;
+  white-space: nowrap;
 }
 
-.ship-selector:focus {
-  outline: 2px solid var(--color-accent);
+.ship-selector {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fleet-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.fleet-add-row .ship-selector-control {
+  min-width: 0;
+}
+
+.ship-selector-control:hover {
+  background-color: var(--color-border);
+}
+
+.ship-selector-control:has(.ship-selector:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -90,9 +278,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  flex-wrap: wrap;
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  flex-wrap: nowrap;
+  padding-left: var(--space-md);
+  border-left: 1px solid
+    color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 /* `display: flex` above would otherwise override the UA's [hidden] rule and
@@ -103,9 +292,9 @@
 
 .preset-chips-label {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--label-font-size);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--label-letter-spacing);
 }
 
 .preset-chip {
@@ -131,7 +320,11 @@
 }
 
 .preset-picker-wrap span {
+  min-width: 0;
+  overflow: hidden;
   pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preset-picker-wrap::after {
@@ -143,7 +336,7 @@
   height: 0.75rem;
   pointer-events: none;
   transform: translateY(-50%);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 0.75rem;
@@ -164,12 +357,12 @@
   cursor: pointer;
 }
 
-.preset-picker:focus {
+.preset-picker:focus-visible {
   outline: none;
 }
 
-.preset-picker-wrap:focus-within {
-  outline: 2px solid var(--color-accent);
+.preset-picker-wrap:has(.preset-picker:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -199,38 +392,97 @@
   margin-left: auto;
 }
 
-.planner-type-select {
-  padding-right: 2.5rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
-  background-position: right 0.875rem center;
-  background-repeat: no-repeat;
-  background-size: 0.75rem;
-
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+/* Ship headers switch to the compact inline inset at tablet width. Keep the
+   containing fleet header on that same column instead of waiting for the
+   narrower phone layout below. */
+@media (max-width: 52rem) {
+  .fleet.card > .fleet-header {
+    padding-inline: var(--space-sm);
+  }
 }
 
 /* On phones the row can't hold both controls plus the planner select, so stack
    them and let the select take the full width. */
 @media (max-width: 42rem) {
+  .fleet.card {
+    margin-bottom: calc(var(--space-sm) * 1.5);
+  }
+
+  .fleet-header {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--space-xs);
+    padding: var(--space-sm);
+  }
+
+  .fleet-title-row {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: var(--space-xs);
+  }
+
+  .fleet-name[data-short-label] {
+    font-size: 0;
+  }
+
+  .fleet-name[data-short-label]::after {
+    content: attr(data-short-label);
+    font-size: var(--font-size-base);
+  }
+
+  .role-controls {
+    margin-left: 0;
+    gap: var(--space-xs);
+  }
+
+  .fleet-add-row .ship-selector-control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .fleet-add-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  /* The final ship editor already supplies its own bottom inset. Avoid
+     stacking a second inset above the add controls, but retain it when an
+     empty fleet begins directly with the add row. */
+  .fleet-ships:has(> calc-ship-type) + .fleet-add-row {
+    padding-top: 0;
+  }
+
   .preset-chips {
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
+    width: 100%;
+    margin-left: 0;
+    padding: 0;
+    gap: var(--space-xs);
+    border-top: 0;
+    border-left: 0;
+  }
+
+  .remove-btn {
+    flex: 0 0 auto;
   }
 
   .preset-chips-label {
-    flex: 0 0 auto;
-    margin-right: auto;
+    grid-column: 1 / -1;
   }
 
   .preset-picker-wrap {
-    flex: 0 0 calc((100% - var(--space-sm)) / 2);
+    width: 100%;
   }
 
   .fleet-tech {
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-sm);
+    padding: var(--space-sm);
   }
 
   .damage-planner-option {

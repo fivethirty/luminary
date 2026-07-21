@@ -39,6 +39,9 @@ export type SolverOptions = {
   // Defaults to both roles in minimax mode, preserving the full two-sided solve.
   decisionRoles?: readonly Role[];
   caps?: SolverCaps;
+  // Injectable for deterministic deadline tests and orchestration. Production
+  // callers use Date.now so the deadline remains wall-clock based.
+  now?: () => number;
 };
 
 // Forward-pass controls: propagate until this little probability mass is still
@@ -46,6 +49,9 @@ export type SolverOptions = {
 // the defender, matching the engine's round cap).
 const FORWARD_RESIDUAL = 1e-12;
 const FORWARD_MAX_STEPS = 20_000;
+// Long loops check elapsed time in proportion to their cheap inner work. More
+// expensive state expansions have their own finer-grained abort callback.
+const DEADLINE_CHECK_INTERVAL = 256;
 
 type TerminalInfo = { outcome: Terminal; hpA: number[]; hpB: number[] };
 type Edge = { prob: number; options: number[] }; // node indices
@@ -54,6 +60,10 @@ type Node = {
   decisionRole: Role | null;
   edges: Edge[];
 };
+
+type TerminalMassResult =
+  | { ok: true; absorbed: Float64Array; residual: number }
+  | { ok: false; reason: 'time budget exceeded' };
 
 export type SolveResult = {
   ok: boolean;
@@ -140,6 +150,7 @@ export class WinProbabilitySolver {
   private readonly ctx: ExpandContext;
   private readonly perspective: Role;
   private readonly caps: SolverCaps;
+  private readonly now: () => number;
   private keyToIndex = new Map<string, number>();
   private nodes: Node[] = [];
   private values: Float64Array = new Float64Array(0);
@@ -156,12 +167,14 @@ export class WinProbabilitySolver {
   ) {
     this.perspective = options.perspective;
     this.caps = options.caps ?? DEFAULT_CAPS;
+    this.now = options.now ?? Date.now;
     this.ctx = {
       decisionRoles:
         options.assignments === 'minimax'
           ? (options.decisionRoles ?? ['A', 'D'])
           : [],
       maxOutcomes: this.caps.maxOutcomesPerSlot,
+      deadlineExceeded: () => this.timeBudgetExceeded(),
     };
   }
 
@@ -178,7 +191,7 @@ export class WinProbabilitySolver {
     this.deadline =
       this.caps.maxMillis === Infinity
         ? Infinity
-        : Date.now() + this.caps.maxMillis;
+        : this.now() + this.caps.maxMillis;
     const built = this.buildGraph();
     if (!built.ok) {
       this.solved = {
@@ -208,18 +221,7 @@ export class WinProbabilitySolver {
     if (this.outcome) return this.outcome;
     const solved = this.solve();
     if (!solved.ok) {
-      this.outcome = {
-        ok: false,
-        reason: solved.reason,
-        pAttacker: NaN,
-        pDefender: NaN,
-        pDraw: NaN,
-        residual: NaN,
-        attackerSurvivors: {},
-        defenderSurvivors: {},
-        survivorDistribution: [],
-        states: this.nodes.length,
-      };
+      this.outcome = this.outcomeFailure(solved.reason ?? 'solve failed');
       return this.outcome;
     }
     this.outcome = this.propagateForward();
@@ -230,18 +232,27 @@ export class WinProbabilitySolver {
     if (this.terminalDistribution) return this.terminalDistribution;
     const solved = this.solve();
     if (!solved.ok) {
-      this.terminalDistribution = {
-        ok: false,
-        reason: solved.reason,
-        entries: [],
-        residual: NaN,
-        states: this.nodes.length,
-      };
+      this.terminalDistribution = this.terminalDistributionFailure(
+        solved.reason ?? 'solve failed'
+      );
       return this.terminalDistribution;
     }
-    const { absorbed, residual } = this.propagateTerminalMass();
+    const propagated = this.propagateTerminalMass();
+    if (!propagated.ok) {
+      this.terminalDistribution = this.terminalDistributionFailure(
+        propagated.reason
+      );
+      return this.terminalDistribution;
+    }
+    const { absorbed, residual } = propagated;
     const entries: TerminalDistributionEntry[] = [];
     for (let i = 0; i < this.nodes.length; i++) {
+      if (i % DEADLINE_CHECK_INTERVAL === 0 && this.timeBudgetExceeded()) {
+        this.terminalDistribution = this.terminalDistributionFailure(
+          'time budget exceeded'
+        );
+        return this.terminalDistribution;
+      }
       const probability = absorbed[i];
       if (probability === 0) continue;
       const terminal = this.nodes[i].terminal;
@@ -324,7 +335,14 @@ export class WinProbabilitySolver {
 
   private buildGraph(): { ok: boolean; reason?: string } {
     const initial = this.model.initialState();
-    const stack: WorkingState[] = [initial];
+    const initialKey = this.model.canonicalKey(initial);
+    const stack: { state: WorkingState; key: string }[] = [
+      { state: initial, key: initialKey },
+    ];
+    // A state can be reached by many dice outcomes before it is expanded. Keep
+    // only one pending stack entry instead of scheduling duplicate work that is
+    // later discarded by `expanded`.
+    const scheduled = new Set<string>([initialKey]);
     // Provisional index reservation so edges can reference successors by index
     // before those successors are expanded.
     const indexOf = (key: string): number => {
@@ -350,27 +368,26 @@ export class WinProbabilitySolver {
     };
     const expanded = new Set<string>();
 
-    this.initialIndex = indexOf(this.model.canonicalKey(initial));
+    this.initialIndex = indexOf(initialKey);
 
-    let processed = 0;
     while (stack.length > 0) {
-      const state = stack.pop()!;
-      const key = this.model.canonicalKey(state);
+      const { state, key } = stack.pop()!;
+      scheduled.delete(key);
       if (expanded.has(key)) continue;
       expanded.add(key);
       if (this.nodes.length > this.caps.maxStates) {
         return { ok: false, reason: 'maxStates exceeded' };
       }
-      // Time check is throttled: Date.now() per node would dominate on small
-      // graphs, and the budget only needs coarse enforcement.
-      if ((++processed & 0x7ff) === 0 && Date.now() > this.deadline) {
+      // Expansion cost varies enormously by state, so check every state and
+      // let BattleModel share this deadline inside its expensive work.
+      if (this.timeBudgetExceeded()) {
         return { ok: false, reason: 'time budget exceeded' };
       }
       const idx = indexOf(key);
 
       const exp = this.model.expand(state, this.ctx);
       if (exp.kind === 'fail') {
-        return { ok: false, reason: 'expand cap exceeded' };
+        return { ok: false, reason: exp.reason };
       }
       if (exp.kind === 'terminal') {
         this.nodes[idx] = {
@@ -381,22 +398,48 @@ export class WinProbabilitySolver {
         continue;
       }
 
-      const edges: Edge[] = exp.edges.map((edge) => ({
-        prob: edge.prob,
-        options: edge.options.map((opt): number => {
-          if ('terminal' in opt) {
-            return terminalIndexOf({
-              outcome: opt.terminal,
-              hpA: opt.hpA,
-              hpB: opt.hpB,
-            });
+      const edges: Edge[] = [];
+      for (let edgeIndex = 0; edgeIndex < exp.edges.length; edgeIndex++) {
+        if (this.timeBudgetExceeded()) {
+          return { ok: false, reason: 'time budget exceeded' };
+        }
+        const edge = exp.edges[edgeIndex];
+        const options: number[] = [];
+        for (
+          let optionIndex = 0;
+          optionIndex < edge.options.length;
+          optionIndex++
+        ) {
+          if (
+            optionIndex % DEADLINE_CHECK_INTERVAL === 0 &&
+            this.timeBudgetExceeded()
+          ) {
+            return { ok: false, reason: 'time budget exceeded' };
           }
-          const okey = this.model.canonicalKey(opt.state);
-          const oidx = indexOf(okey);
-          if (!expanded.has(okey)) stack.push(opt.state);
-          return oidx;
-        }),
-      }));
+          const opt = edge.options[optionIndex];
+          if ('terminal' in opt) {
+            options.push(
+              terminalIndexOf({
+                outcome: opt.terminal,
+                hpA: opt.hpA,
+                hpB: opt.hpB,
+              })
+            );
+          } else {
+            const okey = this.model.canonicalKey(opt.state);
+            const oidx = indexOf(okey);
+            options.push(oidx);
+            if (!expanded.has(okey) && !scheduled.has(okey)) {
+              scheduled.add(okey);
+              stack.push({ state: opt.state, key: okey });
+            }
+          }
+          if (this.nodes.length > this.caps.maxStates) {
+            return { ok: false, reason: 'maxStates exceeded' };
+          }
+        }
+        edges.push({ prob: edge.prob, options });
+      }
       this.nodes[idx] = {
         terminal: null,
         decisionRole: exp.decisionRole,
@@ -410,26 +453,60 @@ export class WinProbabilitySolver {
     const n = this.nodes.length;
     this.values = new Float64Array(n);
     for (let i = 0; i < n; i++) {
+      if (i % DEADLINE_CHECK_INTERVAL === 0 && this.timeBudgetExceeded()) {
+        return { ok: false, sweeps: 0, reason: 'time budget exceeded' };
+      }
       const terminal = this.nodes[i].terminal;
       if (terminal) {
         this.values[i] = this.target(terminal.outcome);
       }
     }
     for (let sweep = 1; sweep <= this.caps.maxSweeps; sweep++) {
-      if (Date.now() > this.deadline) {
+      if (this.timeBudgetExceeded()) {
         return { ok: false, sweeps: sweep - 1, reason: 'time budget exceeded' };
       }
       let maxDelta = 0;
+      let work = 0;
       for (let i = 0; i < n; i++) {
+        if (
+          ++work % DEADLINE_CHECK_INTERVAL === 0 &&
+          this.timeBudgetExceeded()
+        ) {
+          return {
+            ok: false,
+            sweeps: sweep - 1,
+            reason: 'time budget exceeded',
+          };
+        }
         const node = this.nodes[i];
         if (node.terminal) continue; // absorbing
         let v = 0;
         for (const edge of node.edges) {
+          if (
+            ++work % DEADLINE_CHECK_INTERVAL === 0 &&
+            this.timeBudgetExceeded()
+          ) {
+            return {
+              ok: false,
+              sweeps: sweep - 1,
+              reason: 'time budget exceeded',
+            };
+          }
           let edgeVal: number;
           if (node.decisionRole) {
             const isMax = node.decisionRole === 'A';
             edgeVal = isMax ? -Infinity : Infinity;
             for (const opt of edge.options) {
+              if (
+                ++work % DEADLINE_CHECK_INTERVAL === 0 &&
+                this.timeBudgetExceeded()
+              ) {
+                return {
+                  ok: false,
+                  sweeps: sweep - 1,
+                  reason: 'time budget exceeded',
+                };
+              }
               const ov = this.values[opt];
               edgeVal = isMax ? Math.max(edgeVal, ov) : Math.min(edgeVal, ov);
             }
@@ -443,6 +520,13 @@ export class WinProbabilitySolver {
         this.values[i] = v;
       }
       if (maxDelta < this.caps.convergence) {
+        if (this.timeBudgetExceeded()) {
+          return {
+            ok: false,
+            sweeps: sweep,
+            reason: 'time budget exceeded',
+          };
+        }
         return { ok: true, sweeps: sweep };
       }
     }
@@ -475,7 +559,9 @@ export class WinProbabilitySolver {
   // into terminals; whatever is still circulating after the step cap becomes
   // `residual` and is credited to the defender (round-cap semantics).
   private propagateForward(): OutcomeResult {
-    const { absorbed, residual } = this.propagateTerminalMass();
+    const propagated = this.propagateTerminalMass();
+    if (!propagated.ok) return this.outcomeFailure(propagated.reason);
+    const { absorbed, residual } = propagated;
     const n = this.nodes.length;
 
     let pAttacker = 0;
@@ -485,6 +571,9 @@ export class WinProbabilitySolver {
     const defenderSurvivors: Record<string, number> = {};
     const compositionMass = new Map<string, SurvivorComposition>();
     for (let i = 0; i < n; i++) {
+      if (i % DEADLINE_CHECK_INTERVAL === 0 && this.timeBudgetExceeded()) {
+        return this.outcomeFailure('time budget exceeded');
+      }
       const m = absorbed[i];
       if (m === 0) continue;
       const terminal = this.nodes[i].terminal!;
@@ -519,6 +608,9 @@ export class WinProbabilitySolver {
         pDraw += m;
       }
     }
+    if (this.timeBudgetExceeded()) {
+      return this.outcomeFailure('time budget exceeded');
+    }
     // Condition survivor sums on the winning mass (residual carries no
     // survivor information, so it is excluded from the defender average).
     for (const type of Object.keys(attackerSurvivors)) {
@@ -543,13 +635,16 @@ export class WinProbabilitySolver {
     };
   }
 
-  private propagateTerminalMass(): {
-    absorbed: Float64Array;
-    residual: number;
-  } {
+  private propagateTerminalMass(): TerminalMassResult {
+    if (this.timeBudgetExceeded()) {
+      return { ok: false, reason: 'time budget exceeded' };
+    }
     const n = this.nodes.length;
     let mass = new Float64Array(n);
     const absorbed = new Float64Array(n);
+    if (this.timeBudgetExceeded()) {
+      return { ok: false, reason: 'time budget exceeded' };
+    }
     mass[this.initialIndex] = 1;
     let pending = 1;
 
@@ -558,9 +653,22 @@ export class WinProbabilitySolver {
       step < FORWARD_MAX_STEPS && pending > FORWARD_RESIDUAL;
       step++
     ) {
+      if (this.timeBudgetExceeded()) {
+        return { ok: false, reason: 'time budget exceeded' };
+      }
       const next = new Float64Array(n);
+      if (this.timeBudgetExceeded()) {
+        return { ok: false, reason: 'time budget exceeded' };
+      }
       pending = 0;
+      let work = 0;
       for (let i = 0; i < n; i++) {
+        if (
+          ++work % DEADLINE_CHECK_INTERVAL === 0 &&
+          this.timeBudgetExceeded()
+        ) {
+          return { ok: false, reason: 'time budget exceeded' };
+        }
         const m = mass[i];
         if (m === 0) continue;
         const node = this.nodes[i];
@@ -569,6 +677,12 @@ export class WinProbabilitySolver {
           continue;
         }
         for (const edge of node.edges) {
+          if (
+            ++work % DEADLINE_CHECK_INTERVAL === 0 &&
+            this.timeBudgetExceeded()
+          ) {
+            return { ok: false, reason: 'time budget exceeded' };
+          }
           const targetIdx = node.decisionRole
             ? this.chooseOption(edge.options, node.decisionRole)
             : edge.options[0];
@@ -576,6 +690,12 @@ export class WinProbabilitySolver {
         }
       }
       for (let i = 0; i < n; i++) {
+        if (
+          ++work % DEADLINE_CHECK_INTERVAL === 0 &&
+          this.timeBudgetExceeded()
+        ) {
+          return { ok: false, reason: 'time budget exceeded' };
+        }
         if (next[i] > 0 && !this.nodes[i].terminal) pending += next[i];
       }
       // Terminal mass that arrived this step is absorbed on the next pass.
@@ -583,14 +703,58 @@ export class WinProbabilitySolver {
     }
     // Absorb any terminal mass still sitting in `mass` after the loop.
     for (let i = 0; i < n; i++) {
+      if (i % DEADLINE_CHECK_INTERVAL === 0 && this.timeBudgetExceeded()) {
+        return { ok: false, reason: 'time budget exceeded' };
+      }
       if (mass[i] > 0 && this.nodes[i].terminal) absorbed[i] += mass[i];
     }
 
     let terminalMass = 0;
     for (let i = 0; i < n; i++) {
+      if (i % DEADLINE_CHECK_INTERVAL === 0 && this.timeBudgetExceeded()) {
+        return { ok: false, reason: 'time budget exceeded' };
+      }
       terminalMass += absorbed[i];
     }
-    return { absorbed, residual: Math.max(0, 1 - terminalMass) };
+    if (this.timeBudgetExceeded()) {
+      return { ok: false, reason: 'time budget exceeded' };
+    }
+    return {
+      ok: true,
+      absorbed,
+      residual: Math.max(0, 1 - terminalMass),
+    };
+  }
+
+  private timeBudgetExceeded(): boolean {
+    return this.deadline !== Infinity && this.now() >= this.deadline;
+  }
+
+  private outcomeFailure(reason: string): OutcomeResult {
+    return {
+      ok: false,
+      reason,
+      pAttacker: NaN,
+      pDefender: NaN,
+      pDraw: NaN,
+      residual: NaN,
+      attackerSurvivors: {},
+      defenderSurvivors: {},
+      survivorDistribution: [],
+      states: this.nodes.length,
+    };
+  }
+
+  private terminalDistributionFailure(
+    reason: string
+  ): TerminalDistributionResult {
+    return {
+      ok: false,
+      reason,
+      entries: [],
+      residual: NaN,
+      states: this.nodes.length,
+    };
   }
 
   private compositionKey(

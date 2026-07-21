@@ -2,6 +2,36 @@ import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType, Shot } from './ship';
 import { DamageType, DICE_VALUES } from 'src/constants';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
+import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
+
+class CountingDamagePlanner extends AbstractDamagePlanner {
+  evaluations = 0;
+
+  evaluate(
+    ships: Ship[],
+    remainingHp: number[],
+    damageAssignments: number[]
+  ): Plan {
+    this.evaluations++;
+    const score = damageAssignments.reduce(
+      (total, damage, index) => total + Math.min(damage, remainingHp[index]),
+      0
+    );
+    return {
+      score,
+      allDestroyed: false,
+      damageAssignments,
+    };
+  }
+
+  optimallySortShips(ships: Ship[]): Ship[] {
+    return ships.slice();
+  }
+
+  calculateMaxScore(): number {
+    return Number.POSITIVE_INFINITY;
+  }
+}
 
 describe('BinnedDamageAssignment', () => {
   describe('assignDamage', () => {
@@ -239,6 +269,83 @@ describe('BinnedDamageAssignment', () => {
 
       expect(woundedAncient.remainingHP()).toBe(1);
       expect(fullAncient.isAlive()).toBe(false);
+    });
+
+    test('DPS memo keeps differently configured ships of one type distinct', () => {
+      const plasmaCruiser = new Ship(ShipType.Cruiser, {
+        hull: 3,
+        computers: 1,
+        cannons: { plasma: 1 },
+      });
+      const ionCruiser = new Ship(ShipType.Cruiser, {
+        hull: 1,
+        computers: 1,
+        initiative: 3,
+        cannons: { ion: 1 },
+      });
+      const highDpsCruiser = new Ship(ShipType.Cruiser, {
+        hull: 1,
+        computers: 2,
+        initiative: 3,
+        cannons: { ion: 2, plasma: 1 },
+      });
+
+      new BinnedDamageAssignmentHelper().assignDamage(
+        [
+          { roll: DICE_VALUES.HIT, computers: 2, damage: 4 },
+          { roll: 4, computers: 3, damage: 1 },
+          { roll: DICE_VALUES.HIT, computers: 3, damage: 3 },
+        ],
+        [plasmaCruiser, ionCruiser, highDpsCruiser],
+        DamageType.DPS
+      );
+
+      expect(highDpsCruiser.isAlive()).toBe(false);
+      expect(plasmaCruiser.isAlive()).toBe(false);
+      expect(ionCruiser.remainingHP()).toBe(1);
+    });
+
+    test('memo collapses permutation-equivalent identical configurations', () => {
+      const ships = Array.from(
+        { length: 6 },
+        () => new Ship(ShipType.Cruiser, { hull: 1, shields: 1 })
+      );
+      ships[0].takeDamage(1);
+      const shots = Array.from({ length: 6 }, () => ({
+        roll: DICE_VALUES.HIT,
+        computers: 0,
+        damage: 1,
+      }));
+      const planner = new CountingDamagePlanner();
+      const helper = new BinnedDamageAssignmentHelper();
+      (
+        helper as unknown as { npcDamagePlanner: AbstractDamagePlanner }
+      ).npcDamagePlanner = planner;
+
+      helper.assignDamage(shots, ships, DamageType.NPC);
+
+      // The naive indexed tree has 6^6 leaves. HP-multiset memoization visits
+      // only the distinct physical states, leaving ample room for refactors
+      // without turning this into a wall-clock benchmark. Starting one ship
+      // wounded also verifies that cached plans are remapped to concrete
+      // indices instead of merely returning a permuted assignment vector.
+      expect(planner.evaluations).toBeLessThan(100);
+      expect(ships.reduce((hp, ship) => hp + ship.remainingHP(), 0)).toBe(5);
+    });
+
+    test('continues after an unassignable shot', () => {
+      const cruiser = new Ship(ShipType.Cruiser, { shields: 2 });
+
+      new BinnedDamageAssignmentHelper().assignDamage(
+        [
+          { roll: 2, computers: 0, damage: 1 },
+          { roll: DICE_VALUES.HIT, computers: 0, damage: 1 },
+        ],
+        [cruiser],
+        DamageType.DPS
+      );
+
+      expect(cruiser.remainingHP()).toBe(0);
     });
 
     test('spreads damage when unable to kill', () => {
