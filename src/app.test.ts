@@ -609,7 +609,7 @@ describe('App shared battle links', () => {
     const options = Array.from(select.querySelectorAll('option'));
     expect(options).toHaveLength(1);
     expect(options[0].value).not.toBe('');
-    expect(options[0].textContent).toBe('3× Interceptor vs 2× Cruiser');
+    expect(options[0].textContent).toBe('3I vs 2C');
     expect(select.selectedIndex).toBe(-1);
 
     // Picking a recent battle loads it.
@@ -620,7 +620,7 @@ describe('App shared battle links', () => {
     expect(state.fleets[0].shipTypes[0].quantity).toBe(3);
   });
 
-  test('abbreviates recent battle labels on narrow screens', async () => {
+  test('keeps recent battle labels compact on narrow screens', async () => {
     const realMatchMedia = window.matchMedia;
     window.matchMedia = ((query: string) => ({
       matches: /max-width/.test(query),
@@ -636,7 +636,7 @@ describe('App shared battle links', () => {
         'recent-battles'
       ) as HTMLSelectElement;
       const options = Array.from(select.querySelectorAll('option'));
-      expect(options[0].textContent).toBe('3× I vs 2× C');
+      expect(options[0].textContent).toBe('3I vs 2C');
     } finally {
       window.matchMedia = realMatchMedia;
     }

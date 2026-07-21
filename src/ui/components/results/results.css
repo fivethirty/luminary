@@ -152,7 +152,6 @@ calc-results {
   transition: width 0.3s ease;
 }
 
-.survivor-distribution-section,
 .survivors-section {
   border-top: 1px solid var(--color-border);
 }
@@ -161,7 +160,14 @@ calc-results {
   padding: 0 var(--results-section-padding-inline)
     var(--results-section-padding-block);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-sm);
+}
+
+.impact-summary-column {
+  min-width: 0;
+  display: grid;
   gap: var(--space-sm);
 }
 
@@ -354,6 +360,7 @@ calc-results {
 .composition-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .composition-table th,
@@ -363,41 +370,67 @@ calc-results {
   border-top: 1px solid var(--color-border);
 }
 
+.survivor-distribution-section .composition-table th,
+.survivor-distribution-section .composition-table td {
+  padding-inline: var(--space-xs);
+}
+
 .composition-table th {
   color: var(--color-text-muted);
-  font-size: var(--label-font-size);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-normal);
   letter-spacing: var(--label-letter-spacing);
-  text-align: left;
+  text-align: right;
   text-transform: uppercase;
 }
 
-.composition-table th:last-child,
-.composition-table td:last-child {
+.composition-table th:first-child,
+.composition-table td:first-child {
+  text-align: left;
+}
+
+.composition-table th,
+.composition-table td {
+  width: 33.333%;
+}
+
+.composition-table td {
+  font-size: var(--font-size-sm);
+}
+
+.composition-table th:nth-child(n + 2),
+.composition-table td:nth-child(n + 2) {
   text-align: right;
-  width: 6rem;
+}
+
+.composition-table th:first-child,
+.composition-table td:first-child {
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .composition-fleet-label {
+  min-width: 0;
+  display: flex;
   color: var(--fleet-result, currentColor);
   font-weight: var(--font-weight-bold);
 }
 
-.composition-table tr.defender-result,
-.composition-table tr.attacker-result {
-  background: color-mix(
-    in srgb,
-    var(--fleet-result, var(--color-text-muted)) 10%,
-    transparent
-  );
+.composition-fleet-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.composition-table tr.draw-result,
-.composition-other {
-  background: color-mix(in srgb, var(--color-draw) 8%, transparent);
+.composition-fleet-suffix {
+  flex: none;
+  white-space: pre;
 }
 
 .composition-probability {
   color: var(--color-text-primary);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
 }
 
@@ -476,6 +509,10 @@ calc-results {
 }
 
 @media (max-width: 42rem) {
+  .impact-grid {
+    grid-template-columns: 1fr;
+  }
+
   .panel-heading {
     align-items: flex-start;
     flex-direction: column;

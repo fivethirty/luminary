@@ -7,7 +7,7 @@ import {
   type SimulationResults,
 } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
-import { fleetColor } from '@ui/fleet-metadata';
+import { deriveShortFleetNames, fleetColor } from '@ui/fleet-metadata';
 import { resultClassesForFleet } from '@ui/result-presentation';
 import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
 import { isNpcComposition } from '@ui/fleet-rules';
@@ -46,8 +46,7 @@ export class ResultsElement extends HTMLElement {
     const results = state.simulationResults!;
 
     this.renderWinPercentages(results);
-    this.renderBattleImpact(results);
-    this.renderSurvivorDistribution(results);
+    this.renderDetailedOutcomes(results);
     this.renderSurvivors(results);
   }
 
@@ -153,7 +152,7 @@ export class ResultsElement extends HTMLElement {
     }
   }
 
-  private renderSurvivorDistribution(results: SimulationResults) {
+  private renderSurvivorDistribution(results: SimulationResults): boolean {
     const section = this.querySelector(
       '#survivor-distribution-section'
     ) as HTMLElement;
@@ -165,7 +164,7 @@ export class ResultsElement extends HTMLElement {
     ).filter((entry) => entry.probability > 0);
     if (entries.length === 0) {
       section.style.display = 'none';
-      return;
+      return false;
     }
 
     const visibleEntries = entries.slice(0, 8);
@@ -183,6 +182,7 @@ export class ResultsElement extends HTMLElement {
     }
 
     section.style.display = 'block';
+    return true;
   }
 
   private aggregateSurvivorCompositions(
@@ -220,15 +220,20 @@ export class ResultsElement extends HTMLElement {
     );
   }
 
-  private renderBattleImpact(results: SimulationResults) {
+  private renderDetailedOutcomes(results: SimulationResults) {
     const materialVisible = this.renderMaterialImpact(results);
     const populationVisible = this.renderPopulationImpact(results);
     const reputationVisible = this.renderReputationImpact(results);
+    const survivorDistributionVisible =
+      this.renderSurvivorDistribution(results);
     const detailedSection = this.querySelector(
       '#detailed-impact-section'
     ) as HTMLElement;
     detailedSection.style.display =
-      materialVisible || populationVisible || reputationVisible
+      materialVisible ||
+      populationVisible ||
+      reputationVisible ||
+      survivorDistributionVisible
         ? 'block'
         : 'none';
   }
@@ -492,10 +497,11 @@ export class ResultsElement extends HTMLElement {
     survivors: Record<string, Record<string, number>>
   ): HTMLElement {
     const row = document.createElement('tr');
+    const shortFleetNames = deriveShortFleetNames(state.fleets);
     const survivingFleets = state.fleets
-      .map((fleet) => ({
+      .map((fleet, index) => ({
         key: fleet.id,
-        label: fleet.name,
+        label: shortFleetNames[index],
         text: this.formatFleetComposition(
           this.resultForFleet(survivors, fleet)
         ),
@@ -509,23 +515,37 @@ export class ResultsElement extends HTMLElement {
       row.classList.add('draw-result');
     }
 
-    const compositionCell = document.createElement('td');
+    const factionCell = document.createElement('td');
+    const shipsCell = document.createElement('td');
     if (survivingFleets.length === 0) {
-      compositionCell.textContent = 'No surviving ships';
+      factionCell.textContent = '—';
+      shipsCell.textContent = 'No surviving ships';
     } else {
       survivingFleets.forEach((entry, index) => {
         if (index > 0) {
-          compositionCell.appendChild(document.createElement('br'));
+          shipsCell.appendChild(document.createElement('br'));
         }
         const label = document.createElement('span');
         label.className = 'composition-fleet-label';
         label.classList.add(...this.sideClasses(entry.key));
         this.applyFleetResultColor(label, entry.key);
-        label.textContent = `${entry.label}: `;
-        const ships = document.createElement('span');
-        ships.textContent = entry.text;
-        compositionCell.appendChild(label);
-        compositionCell.appendChild(ships);
+        label.title = entry.label;
+
+        const suffixMatch = entry.label.match(/^(.*?)(\s+\d+)$/);
+        const name = document.createElement('span');
+        name.className = 'composition-fleet-name';
+        name.textContent = suffixMatch?.[1] ?? entry.label;
+        label.appendChild(name);
+
+        if (suffixMatch) {
+          const suffix = document.createElement('span');
+          suffix.className = 'composition-fleet-suffix';
+          suffix.textContent = suffixMatch[2];
+          label.appendChild(suffix);
+        }
+
+        factionCell.appendChild(label);
+        shipsCell.appendChild(document.createTextNode(entry.text));
       });
     }
 
@@ -533,7 +553,8 @@ export class ResultsElement extends HTMLElement {
     probabilityCell.className = 'composition-probability';
     probabilityCell.textContent = this.formatPercent(probability);
 
-    row.appendChild(compositionCell);
+    row.appendChild(factionCell);
+    row.appendChild(shipsCell);
     row.appendChild(probabilityCell);
     return row;
   }
@@ -542,14 +563,18 @@ export class ResultsElement extends HTMLElement {
     const row = document.createElement('tr');
     row.className = 'composition-other';
 
-    const labelCell = document.createElement('td');
-    labelCell.textContent = 'Other outcomes';
+    const factionCell = document.createElement('td');
+    factionCell.textContent = '—';
+
+    const shipsCell = document.createElement('td');
+    shipsCell.textContent = 'Other outcomes';
 
     const probabilityCell = document.createElement('td');
     probabilityCell.className = 'composition-probability';
     probabilityCell.textContent = this.formatPercent(probability);
 
-    row.appendChild(labelCell);
+    row.appendChild(factionCell);
+    row.appendChild(shipsCell);
     row.appendChild(probabilityCell);
     return row;
   }
@@ -610,7 +635,7 @@ export class ResultsElement extends HTMLElement {
     return entries
       .map(([type, count]) => {
         const label = SHIP_NAME_ABBREVIATIONS[type] ?? type;
-        return count === 1 ? label : `${count} ${label}`;
+        return count === 1 ? label : `${count}${label}`;
       })
       .join(', ');
   }

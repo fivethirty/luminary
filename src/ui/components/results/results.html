@@ -19,71 +19,75 @@
 
       <div id="detailed-impact-section" class="detailed-impact-section">
         <div class="impact-grid">
-          <section id="material-impact" class="impact-card material-impact">
-            <h4>Material</h4>
-            <table
-              class="material-impact-table"
-              aria-label="Fleet material cost and expected resources lost"
+          <div class="impact-summary-column">
+            <section id="material-impact" class="impact-card material-impact">
+              <h4>Material</h4>
+              <table
+                class="material-impact-table"
+                aria-label="Fleet material cost and expected resources lost"
+              >
+                <thead>
+                  <tr>
+                    <th>Fleet</th>
+                    <th>Cost</th>
+                    <th>Avg. lost</th>
+                  </tr>
+                </thead>
+                <tbody id="material-impact-rows"></tbody>
+              </table>
+            </section>
+
+            <section
+              id="reputation-impact"
+              class="impact-card reputation-impact"
             >
-              <thead>
-                <tr>
-                  <th>Fleet</th>
-                  <th>Cost</th>
-                  <th>Avg. lost</th>
-                </tr>
-              </thead>
-              <tbody id="material-impact-rows"></tbody>
-            </table>
-          </section>
+              <div class="impact-card-heading">
+                <h4>Reputation draws</h4>
+                <span>Expected</span>
+              </div>
+              <div id="reputation-impact-rows"></div>
+            </section>
+
+            <section
+              id="population-impact"
+              class="impact-card population-impact"
+            >
+              <div class="impact-card-heading population-impact-heading">
+                <h4>Sector Wiped (no neutron)</h4>
+                <label class="population-select-label">
+                  <span>Sector population</span>
+                  <select
+                    id="sector-population"
+                    class="standard-select sector-population-select"
+                    aria-label="Sector population"
+                  ></select>
+                </label>
+              </div>
+              <div id="population-impact-rows"></div>
+            </section>
+          </div>
 
           <section
-            id="population-impact"
-            class="impact-card population-impact"
+            id="survivor-distribution-section"
+            class="impact-card survivor-distribution-section"
           >
-            <div class="impact-card-heading population-impact-heading">
-              <h4>Sector Wiped (no neutron)</h4>
-              <label class="population-select-label">
-                <span>Sector population</span>
-                <select
-                  id="sector-population"
-                  class="standard-select sector-population-select"
-                  aria-label="Sector population"
-                ></select>
-              </label>
+            <h4>Surviving fleet</h4>
+            <div class="composition-table-wrap">
+              <table
+                class="composition-table"
+                aria-label="Surviving fleet probabilities"
+              >
+                <thead>
+                  <tr>
+                    <th>Faction</th>
+                    <th>Ship</th>
+                    <th>Odds</th>
+                  </tr>
+                </thead>
+                <tbody id="survivor-distribution-tbody"></tbody>
+              </table>
             </div>
-            <div id="population-impact-rows"></div>
           </section>
-
-          <section id="reputation-impact" class="impact-card reputation-impact">
-            <div class="impact-card-heading">
-              <h4>Reputation draws</h4>
-              <span>Expected</span>
-            </div>
-            <div id="reputation-impact-rows"></div>
-          </section>
-        </div>
-      </div>
-
-      <div
-        id="survivor-distribution-section"
-        class="survivor-distribution-section"
-      >
-        <div class="panel-heading">
-          <h3>Surviving fleet compositions</h3>
-        </div>
-        <div class="composition-table-wrap">
-          <table
-            class="composition-table"
-            aria-label="Surviving fleet composition probabilities"
-          >
-            <thead>
-              <tr>
-                <th>Ships</th>
-                <th>Odds</th>
-              </tr>
-            </thead>
-            <tbody id="survivor-distribution-tbody"></tbody>
-          </table>
         </div>
       </div>
     </details>

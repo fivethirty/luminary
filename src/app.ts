@@ -344,17 +344,12 @@ function refreshRecentsPicker() {
   if (control) control.hidden = recents.length === 0;
   select.innerHTML = '';
 
-  // A width:auto <select> grows to fit its widest option, so multi-fleet
-  // matchups overflow on phones. Abbreviate ship names on narrow screens to
-  // keep the picker compact.
-  const short =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(max-width: 42rem)').matches;
+  // Keep this compact summary consistent with the surviving-fleet table.
   recents.forEach((recent) => {
     const option = document.createElement('option');
     option.value = recent.query;
     const fleets = parseBattleQuery(recent.query);
-    option.textContent = fleets ? battleLabel(fleets, short) : recent.label;
+    option.textContent = fleets ? battleLabel(fleets, true) : recent.label;
     select.appendChild(option);
   });
   select.selectedIndex = -1;

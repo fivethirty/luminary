@@ -3,6 +3,7 @@ import { ShipType } from '@calc/ship';
 import {
   baseFleetName,
   deriveFleetNames,
+  deriveShortFleetNames,
   fleetRoleName,
 } from './fleet-metadata';
 
@@ -35,5 +36,15 @@ describe('fleet naming metadata', () => {
         { factionId: 'terran', shipTypes: [] },
       ])
     ).toEqual(['Defender', 'Terran Directorate 1', 'Terran Directorate 2']);
+  });
+
+  test('derives unique shortened faction names', () => {
+    expect(
+      deriveShortFleetNames([
+        { factionId: '', shipTypes: [] },
+        { factionId: 'terran', shipTypes: [] },
+        { factionId: 'terran', shipTypes: [] },
+      ])
+    ).toEqual(['Defender', 'Terran 1', 'Terran 2']);
   });
 });

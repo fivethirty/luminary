@@ -403,12 +403,19 @@ describe('Results', () => {
 
     const rows = element.querySelectorAll('#survivor-distribution-tbody tr');
     expect(rows.length).toBe(2);
-    expect(rows[0].querySelector('td:first-child')?.textContent).toBe(
-      'Attacker: D, C, 2 I, O, S'
+    expect(rows[0].querySelector('td:nth-child(1)')?.textContent).toBe(
+      'Attacker'
     );
+    expect(rows[0].querySelector('td:nth-child(2)')?.textContent).toBe(
+      'D, C, 2I, O, S'
+    );
+    expect(rows[0].querySelector('td:nth-child(3)')?.textContent).toBe('42.0%');
     expect(
-      element.querySelectorAll('.composition-table thead th')
-    ).toHaveLength(2);
+      Array.from(
+        element.querySelectorAll('.composition-table thead th'),
+        (heading) => heading.textContent
+      )
+    ).toEqual(['Faction', 'Ship', 'Odds']);
     expect(rows[0].textContent).not.toContain('Interceptor');
     expect(rows[0].textContent).not.toContain('Cruiser');
     expect(rows[0].textContent).toContain('42.0%');
@@ -449,6 +456,38 @@ describe('Results', () => {
     const attackerLabel = row.querySelector('.composition-fleet-label')!;
     expect(row.classList.contains('attacker-result-2')).toBe(true);
     expect(attackerLabel.classList.contains('attacker-result-2')).toBe(true);
+    expect(
+      attackerLabel.querySelector('.composition-fleet-name')?.textContent
+    ).toBe('Attacker');
+    expect(
+      attackerLabel.querySelector('.composition-fleet-suffix')?.textContent
+    ).toBe(' 2');
+  });
+
+  test('uses shortened faction names in survivor compositions', () => {
+    const attacker = state.fleets[1];
+    attacker.factionId = 'terran';
+    attacker.name = 'Terran Directorate';
+    setSimulationResults(
+      exactResults({
+        survivorDistribution: [
+          {
+            probability: 1,
+            survivors: {
+              [state.fleets[0].id]: {},
+              [attacker.id]: { Cruiser: 1 },
+            },
+          },
+        ],
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    expect(element.querySelector('.composition-fleet-label')?.textContent).toBe(
+      'Terran'
+    );
   });
 
   test('merges reputation-credit variants into one survivor composition row', () => {
@@ -627,6 +666,27 @@ describe('Results', () => {
     );
     expect(details.contains(element.querySelector('#reputation-impact'))).toBe(
       true
+    );
+    const compositionSection = element.querySelector(
+      '#survivor-distribution-section'
+    )!;
+    const summaryColumn = details.querySelector('.impact-summary-column')!;
+    expect(
+      details.querySelector('.impact-grid')?.contains(compositionSection)
+    ).toBe(true);
+    expect(
+      summaryColumn.contains(element.querySelector('#material-impact'))
+    ).toBe(true);
+    expect(
+      summaryColumn.contains(element.querySelector('#population-impact'))
+    ).toBe(true);
+    expect(
+      summaryColumn.contains(element.querySelector('#reputation-impact'))
+    ).toBe(true);
+    expect(summaryColumn.contains(compositionSection)).toBe(false);
+    expect(compositionSection.classList.contains('impact-card')).toBe(true);
+    expect(compositionSection.querySelector('h4')?.textContent).toBe(
+      'Surviving fleet'
     );
     expect(element.querySelector('.battle-impact-section')).toBeNull();
     expect(element.textContent).not.toContain('Battle impact');

@@ -156,6 +156,25 @@ export function deriveFleetNames(fleets: readonly FleetNameSource[]): string[] {
   const baseNames = fleets.map((fleet, index) =>
     baseFleetName(fleet, index, fleets.length)
   );
+  return makeNamesUnique(baseNames);
+}
+
+/** Derives compact, unique labels for space-constrained fleet summaries. */
+export function deriveShortFleetNames(
+  fleets: readonly FleetNameSource[]
+): string[] {
+  const baseNames = fleets.map((fleet, index) => {
+    if (index === 0 && isNpcComposition(fleet.shipTypes)) {
+      return 'The Ancients';
+    }
+    return (
+      factionShortLabel(fleet.factionId) ?? fleetRoleName(index, fleets.length)
+    );
+  });
+  return makeNamesUnique(baseNames);
+}
+
+function makeNamesUnique(baseNames: readonly string[]): string[] {
   const counts = new Map<string, number>();
   baseNames.forEach((name) => counts.set(name, (counts.get(name) ?? 0) + 1));
   const seen = new Map<string, number>();

@@ -281,7 +281,7 @@ describe('battleLabel', () => {
 
   test('short uses single-letter player hulls and named NPCs', () => {
     // battle()'s Guardian is a stock preset; its Cruiser has custom stats.
-    expect(battleLabel(battle(), true)).toBe('Guard vs 2× C');
+    expect(battleLabel(battle(), true)).toBe('Guard vs 2C');
   });
 
   test('tags NPC variants by their preset in both forms', () => {
@@ -298,7 +298,7 @@ describe('battleLabel', () => {
       missiles: { ion: 0, plasma: 0, soliton: 0, antimatter: 0 },
     };
     expect(battleLabel(fleets)).toBe('Guardian (WA) vs 2× Cruiser');
-    expect(battleLabel(fleets, true)).toBe('Guard (WA) vs 2× C');
+    expect(battleLabel(fleets, true)).toBe('Guard (WA) vs 2C');
   });
 
   test('abbreviates every fleet in a multi-fleet matchup', () => {
@@ -317,7 +317,7 @@ describe('battleLabel', () => {
         ],
       })
     );
-    expect(battleLabel(fleets, true)).toBe('Guard vs 2× C vs 2× D');
+    expect(battleLabel(fleets, true)).toBe('Guard vs 2C vs 2D');
   });
 });
 

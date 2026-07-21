@@ -330,7 +330,10 @@ function fleetLineup(fleet: FleetState, short = false): string {
   return fleet.shipTypes
     .map((shipType) => {
       const name = names[matchShipPreset(shipType.type, shipType.config)];
-      return shipType.quantity > 1 ? `${shipType.quantity}× ${name}` : name;
+      if (shipType.quantity === 1) return name;
+      return short
+        ? `${shipType.quantity}${name}`
+        : `${shipType.quantity}× ${name}`;
     })
     .join(', ');
 }
