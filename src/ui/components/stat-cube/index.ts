@@ -272,6 +272,9 @@ export class StatCubeElement extends HTMLElement {
 
     button.addEventListener('pointerdown', (event) => {
       pointerType = event.pointerType;
+      if (pointerType !== 'mouse' && document.activeElement === this.input) {
+        this.input.blur();
+      }
       repeated = false;
       holdTimer = setTimeout(() => {
         repeated = true;

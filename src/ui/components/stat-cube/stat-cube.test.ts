@@ -253,6 +253,25 @@ describe('StatCubeElement', () => {
     expect(document.activeElement).not.toBe(increment);
   });
 
+  test('touch stepper activation ends an active input edit', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const increment = cube.querySelector('.stat-inc') as HTMLButtonElement;
+
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    increment.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerType: 'touch' })
+    );
+    increment.click();
+
+    expect(cube.value).toBe(1);
+    expect(document.activeElement).not.toBe(input);
+    expect(document.activeElement).not.toBe(increment);
+  });
+
   test('mouse stepper activation does not force focus away', () => {
     const cube = document.createElement('calc-stat-cube') as StatCubeElement;
     document.body.appendChild(cube);
