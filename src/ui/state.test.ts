@@ -15,6 +15,7 @@ import {
   removeShipType,
   replaceFleets,
   resetFleets,
+  setSectorPopulation,
   setSimulationResults,
   onFleetsChanged,
 } from './state';
@@ -43,6 +44,10 @@ describe('State', () => {
 
     test('has no simulation results', () => {
       expect(state.simulationResults).toBeNull();
+    });
+
+    test('defaults sector population to two', () => {
+      expect(state.sectorPopulation).toBe(2);
     });
   });
 
@@ -547,6 +552,21 @@ describe('State', () => {
       setSimulationResults(null);
 
       expect(state.simulationResults).toBeNull();
+    });
+  });
+
+  describe('setSectorPopulation', () => {
+    test('stores a valid sector population', () => {
+      setSectorPopulation(4);
+
+      expect(state.sectorPopulation).toBe(4);
+    });
+
+    test('rejects populations outside the modeled damage range', () => {
+      expect(() => setSectorPopulation(0)).toThrow();
+      expect(() => setSectorPopulation(7)).toThrow();
+      expect(() => setSectorPopulation(2.5)).toThrow();
+      expect(state.sectorPopulation).toBe(2);
     });
   });
 

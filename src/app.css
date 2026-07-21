@@ -495,11 +495,18 @@ select {
   color: var(--color-on-accent);
 }
 
+.ui-section {
+  margin-top: var(--space-xl);
+}
+
+.ui-section h2 {
+  margin-top: 0;
+}
+
 .preferences-row {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
-  margin-top: var(--space-md);
 }
 
 .theme-control {

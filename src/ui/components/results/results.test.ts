@@ -554,21 +554,51 @@ describe('Results', () => {
     expect(materialRows[0].textContent).toBe('Defender138.3');
     expect(materialRows[1].textContent).toBe('Attacker104');
 
-    const population = element.querySelectorAll('.population-threshold');
-    expect(population).toHaveLength(6);
+    const populationSelect = element.querySelector(
+      '#sector-population'
+    ) as HTMLSelectElement;
+    expect(populationSelect.value).toBe('2');
     expect(
       element.querySelector('.population-attacker-label')?.textContent
     ).toBe('Attacker');
-    expect(population[0].textContent).toBe('1+50.0%');
-    expect(population[5].textContent).toBe('6+0.00%');
+    expect(
+      element.querySelector('.population-destroyed-value')?.textContent
+    ).toBe('40.0%');
+    expect(element.querySelector('#population-impact-note')?.textContent).toBe(
+      "Includes the attacker's win chance. Ignores Neutron Bombs because the defender may have Neutron Absorbers, which are not modeled."
+    );
 
-    const reputation = element.querySelectorAll('.reputation-impact-row');
+    populationSelect.value = '4';
+    populationSelect.dispatchEvent(new Event('change'));
+    expect(
+      element.querySelector('.population-destroyed-value')?.textContent
+    ).toBe('20.0%');
+
+    element.remove();
+    const refreshedElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(refreshedElement);
+    expect(
+      (
+        refreshedElement.querySelector(
+          '#sector-population'
+        ) as HTMLSelectElement
+      ).value
+    ).toBe('4');
+    expect(
+      refreshedElement.querySelector('.population-destroyed-value')?.textContent
+    ).toBe('20.0%');
+
+    const reputation = refreshedElement.querySelectorAll(
+      '.reputation-impact-row'
+    );
     expect(reputation).toHaveLength(2);
     expect(reputation[0].textContent).toBe('Defender2.5');
     expect(reputation[1].textContent).toBe('Attacker4');
   });
 
-  test('keeps detailed survivor outcomes collapsed by default', () => {
+  test('keeps lower-priority outcomes collapsed by default', () => {
     setSimulationResults(
       exactResults({
         survivorDistribution: [
@@ -588,9 +618,23 @@ describe('Results', () => {
     expect(details.querySelector('summary')?.textContent).toBe(
       'Detailed outcomes'
     );
+    expect(details.contains(element.querySelector('#material-impact'))).toBe(
+      true
+    );
+    expect(details.contains(element.querySelector('#population-impact'))).toBe(
+      true
+    );
+    expect(details.contains(element.querySelector('#survivors-section'))).toBe(
+      false
+    );
+    expect(details.contains(element.querySelector('#reputation-impact'))).toBe(
+      true
+    );
+    expect(element.querySelector('.battle-impact-section')).toBeNull();
+    expect(element.textContent).not.toContain('Battle impact');
   });
 
-  test('shows separate population breakthrough odds for each attacker', () => {
+  test('shows one selected population-destruction chance per attacker', () => {
     addFleet();
     state.fleets[2].name = 'Attacker 2';
     const [, firstAttackerId, secondAttackerId] = state.fleets.map(
@@ -622,14 +666,45 @@ describe('Results', () => {
     expect(
       rows[0].querySelector('.population-attacker-label')?.textContent
     ).toBe('Attacker');
-    expect(rows[0].querySelector('.population-threshold')?.textContent).toBe(
-      '1+20.0%'
+    expect(
+      rows[0].querySelector('.population-destroyed-value')?.textContent
+    ).toBe('20.0%');
+    expect(rows[0].getAttribute('aria-label')).toBe(
+      'Attacker: 20.0% chance to destroy all 2 population'
     );
     expect(
       rows[1].querySelector('.population-attacker-label')?.textContent
     ).toBe('Attacker 2');
-    expect(rows[1].querySelector('.population-threshold')?.textContent).toBe(
-      '1+35.0%'
+    expect(
+      rows[1].querySelector('.population-destroyed-value')?.textContent
+    ).toBe('35.0%');
+    expect(rows[1].getAttribute('aria-label')).toBe(
+      'Attacker 2: 35.0% chance to destroy all 2 population'
+    );
+  });
+
+  test('explains Planta population loss on defeat', () => {
+    state.fleets[0].factionId = 'planta';
+    const attackerId = state.fleets[1].id;
+    setSimulationResults(
+      exactResults({
+        populationBombardment: {
+          byAttacker: {
+            [attackerId]: Array.from({ length: 7 }, (_, damage) => ({
+              damage,
+              exactProbability: damage === 0 ? 0.6 : 0,
+              atLeastProbability: damage === 0 ? 1 : 0.4,
+            })),
+          },
+        },
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    expect(element.querySelector('#population-impact-note')?.textContent).toBe(
+      'Planta loses all sector population on defeat. Neutron Bombs and Neutron Absorbers are not modeled.'
     );
   });
 

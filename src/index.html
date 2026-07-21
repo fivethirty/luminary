@@ -124,30 +124,33 @@
             ></select>
           </label>
         </div>
-        <div class="preferences-row">
-          <div class="steppers-control">
-            <span id="steppers-toggle-label" class="preference-label"
-              >UI Controls</span
-            >
-            <div
-              class="steppers-toggle"
-              id="steppers-toggle"
-              role="group"
-              aria-labelledby="steppers-toggle-label"
-            >
-              <button type="button" data-steppers="on">Steppers</button>
-              <button type="button" data-steppers="off">Compact</button>
+        <section class="ui-section" aria-labelledby="ui-heading">
+          <h2 id="ui-heading">UI</h2>
+          <div class="preferences-row">
+            <div class="steppers-control">
+              <span id="steppers-toggle-label" class="preference-label"
+                >Controls</span
+              >
+              <div
+                class="steppers-toggle"
+                id="steppers-toggle"
+                role="group"
+                aria-labelledby="steppers-toggle-label"
+              >
+                <button type="button" data-steppers="on">Steppers</button>
+                <button type="button" data-steppers="off">Compact</button>
+              </div>
             </div>
+            <label class="theme-control" for="theme-select">
+              <span class="preference-label">Theme</span>
+              <select id="theme-select" class="standard-select">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
           </div>
-          <label class="theme-control" for="theme-select">
-            <span class="preference-label">Theme</span>
-            <select id="theme-select" class="standard-select">
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-        </div>
+        </section>
       </div>
 
       <div id="about-content" style="display: none">

@@ -92,6 +92,18 @@ describe('App', () => {
     expect(addRow.querySelector('#clear-all-btn')).not.toBeNull();
   });
 
+  test('groups controls and theme under the UI section', () => {
+    const section = document.querySelector('.ui-section')!;
+    const heading = section.querySelector('h2')!;
+    const optionLabels = Array.from(
+      section.querySelectorAll('.preference-label')
+    ).map((label) => label.textContent?.trim());
+
+    expect(heading.textContent).toBe('UI');
+    expect(section.getAttribute('aria-labelledby')).toBe(heading.id);
+    expect(optionLabels).toEqual(['Controls', 'Theme']);
+  });
+
   test('uses selected faction as the fleet name', () => {
     const factionSelect = document.querySelector(
       'calc-fleet .faction-select'

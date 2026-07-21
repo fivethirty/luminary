@@ -1,6 +1,9 @@
 import { ShipType, type ShipConfig } from '@calc/ship';
 import type { CombatRunDiagnostics, CombatTier } from '@calc/combat-runner';
-import type { PopulationBombardmentResult } from '@calc/population-bombardment';
+import {
+  MAX_POPULATION_DAMAGE_BUCKET,
+  type PopulationBombardmentResult,
+} from '@calc/population-bombardment';
 import type {
   FleetMaterialLossSummary,
   ReputationDrawDistributionResult,
@@ -72,6 +75,8 @@ export interface SurvivorDistributionEntry {
 
 export type SimulationMethod = 'exact' | 'monte-carlo';
 
+export const DEFAULT_SECTOR_POPULATION = 2;
+
 interface BaseSimulationResults {
   // All fleet-keyed result maps use FleetState.id. Names are presentation and
   // may change or collide; views resolve IDs to current display labels.
@@ -108,6 +113,7 @@ export type SimulationResults =
 export interface State {
   fleets: FleetState[];
   simulationResults: SimulationResults | null;
+  sectorPopulation: number;
   cachedShipTypes: Record<
     string,
     Partial<Record<ShipType, CachedShipTypeConfig>>
@@ -140,6 +146,7 @@ const DEFAULT_FLEETS: FleetState[] = [
 export const state: State = {
   fleets: DEFAULT_FLEETS.map((f) => ({ ...f, shipTypes: [] })),
   simulationResults: null,
+  sectorPopulation: DEFAULT_SECTOR_POPULATION,
   cachedShipTypes: {},
 };
 
@@ -371,6 +378,7 @@ export function getCachedShipType(
 
 export function resetFleets() {
   state.fleets = DEFAULT_FLEETS.map((f) => ({ ...f, shipTypes: [] }));
+  state.sectorPopulation = DEFAULT_SECTOR_POPULATION;
   state.cachedShipTypes = {};
   clearRememberedFleetColors();
   nextFleetId = 2;
@@ -396,6 +404,17 @@ export function replaceFleets(fleets: FleetState[]) {
 
 export function setSimulationResults(results: SimulationResults | null) {
   state.simulationResults = results;
+}
+
+export function setSectorPopulation(population: number) {
+  if (
+    !Number.isInteger(population) ||
+    population < 1 ||
+    population > MAX_POPULATION_DAMAGE_BUCKET
+  ) {
+    throw new Error(`Invalid sector population: ${population}`);
+  }
+  state.sectorPopulation = population;
 }
 
 export function toggleAntimatterSplitter(fleetId: string) {

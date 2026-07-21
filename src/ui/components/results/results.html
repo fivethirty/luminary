@@ -6,50 +6,64 @@
       <p class="results-time"></p>
     </div>
 
-    <div id="battle-impact-section" class="battle-impact-section">
-      <div class="panel-heading impact-heading">
-        <h3>Battle impact</h3>
-        <span>Expected across all outcomes</span>
+    <div id="survivors-section" class="survivors-section">
+      <div class="panel-heading">
+        <h3>Average survivors</h3>
+        <span>Among wins only</span>
       </div>
-      <div class="impact-grid">
-        <section id="material-impact" class="impact-card material-impact">
-          <h4>Material</h4>
-          <table
-            class="material-impact-table"
-            aria-label="Fleet material cost and expected resources lost"
-          >
-            <thead>
-              <tr>
-                <th>Fleet</th>
-                <th>Cost</th>
-                <th>Avg. lost</th>
-              </tr>
-            </thead>
-            <tbody id="material-impact-rows"></tbody>
-          </table>
-        </section>
-
-        <section id="population-impact" class="impact-card population-impact">
-          <div class="impact-card-heading">
-            <h4>Population destroyed</h4>
-            <span>Cumulative odds</span>
-          </div>
-          <div id="population-impact-rows"></div>
-          <p id="population-impact-note" class="impact-note"></p>
-        </section>
-
-        <section id="reputation-impact" class="impact-card reputation-impact">
-          <div class="impact-card-heading">
-            <h4>Reputation draws</h4>
-            <span>Expected</span>
-          </div>
-          <div id="reputation-impact-rows"></div>
-        </section>
-      </div>
+      <div id="survivors-grid" class="survivors-grid"></div>
     </div>
 
     <details class="detailed-outcomes">
       <summary>Detailed outcomes</summary>
+
+      <div id="detailed-impact-section" class="detailed-impact-section">
+        <div class="impact-grid">
+          <section id="material-impact" class="impact-card material-impact">
+            <h4>Material</h4>
+            <table
+              class="material-impact-table"
+              aria-label="Fleet material cost and expected resources lost"
+            >
+              <thead>
+                <tr>
+                  <th>Fleet</th>
+                  <th>Cost</th>
+                  <th>Avg. lost</th>
+                </tr>
+              </thead>
+              <tbody id="material-impact-rows"></tbody>
+            </table>
+          </section>
+
+          <section
+            id="population-impact"
+            class="impact-card population-impact"
+          >
+            <div class="impact-card-heading population-impact-heading">
+              <h4>Population destroyed</h4>
+              <label class="population-select-label">
+                <span>Sector population</span>
+                <select
+                  id="sector-population"
+                  class="standard-select sector-population-select"
+                  aria-label="Sector population"
+                ></select>
+              </label>
+            </div>
+            <div id="population-impact-rows"></div>
+            <p id="population-impact-note" class="impact-note"></p>
+          </section>
+
+          <section id="reputation-impact" class="impact-card reputation-impact">
+            <div class="impact-card-heading">
+              <h4>Reputation draws</h4>
+              <span>Expected</span>
+            </div>
+            <div id="reputation-impact-rows"></div>
+          </section>
+        </div>
+      </div>
 
       <div
         id="survivor-distribution-section"
@@ -72,14 +86,6 @@
             <tbody id="survivor-distribution-tbody"></tbody>
           </table>
         </div>
-      </div>
-
-      <div id="survivors-section" class="survivors-section">
-        <div class="panel-heading">
-          <h3>Average survivors</h3>
-          <span>Among wins only</span>
-        </div>
-        <div id="survivors-grid" class="survivors-grid"></div>
       </div>
     </details>
 

@@ -1,11 +1,12 @@
 import html from './results.html' with { type: 'text' };
 import './results.css';
-import { state, type SimulationResults } from '@ui/state';
+import { setSectorPopulation, state, type SimulationResults } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
 import { fleetColor } from '@ui/fleet-metadata';
 import { resultClassesForFleet } from '@ui/result-presentation';
 import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
 import { isNpcComposition } from '@ui/fleet-rules';
+import { MAX_POPULATION_DAMAGE_BUCKET } from '@calc/population-bombardment';
 
 const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
   Object.entries(SHIP_NAMES).map(([key, name]) => [
@@ -28,6 +29,7 @@ export class ResultsElement extends HTMLElement {
   connectedCallback() {
     this.innerHTML = html;
     this.bindShareActions();
+    this.bindPopulationControl();
     this.render();
   }
 
@@ -60,6 +62,39 @@ export class ResultsElement extends HTMLElement {
       );
       const copied = await copyToClipboard(report);
       this.flashCopyFeedback(chatBtn, copied);
+    });
+  }
+
+  private bindPopulationControl() {
+    const select = this.querySelector(
+      '#sector-population'
+    ) as HTMLSelectElement;
+
+    for (
+      let population = 1;
+      population <= MAX_POPULATION_DAMAGE_BUCKET;
+      population++
+    ) {
+      const option = document.createElement('option');
+      option.value = population.toString();
+      option.textContent = population.toString();
+      select.appendChild(option);
+    }
+    select.value = state.sectorPopulation.toString();
+
+    select.addEventListener('change', () => {
+      const population = Number(select.value);
+      if (
+        !Number.isInteger(population) ||
+        population < 1 ||
+        population > MAX_POPULATION_DAMAGE_BUCKET
+      ) {
+        select.value = state.sectorPopulation.toString();
+        return;
+      }
+
+      setSectorPopulation(population);
+      this.renderPopulationImpact(state.simulationResults!);
     });
   }
 
@@ -173,8 +208,10 @@ export class ResultsElement extends HTMLElement {
     const materialVisible = this.renderMaterialImpact(results);
     const populationVisible = this.renderPopulationImpact(results);
     const reputationVisible = this.renderReputationImpact(results);
-    const section = this.querySelector('#battle-impact-section') as HTMLElement;
-    section.style.display =
+    const detailedSection = this.querySelector(
+      '#detailed-impact-section'
+    ) as HTMLElement;
+    detailedSection.style.display =
       materialVisible || populationVisible || reputationVisible
         ? 'block'
         : 'none';
@@ -250,38 +287,30 @@ export class ResultsElement extends HTMLElement {
       label.className = 'population-attacker-label';
       label.textContent = fleet.name;
 
-      const grid = document.createElement('div');
-      grid.className = 'population-impact-grid';
+      const selectedBucket = bombardment.find(
+        (bucket) => bucket.damage === state.sectorPopulation
+      );
+      if (!selectedBucket) continue;
 
-      for (const bucket of bombardment) {
-        if (bucket.damage === 0) continue;
-
-        const threshold = document.createElement('div');
-        threshold.className = 'population-threshold';
-        threshold.setAttribute(
-          'aria-label',
-          `${fleet.name}: ${this.formatPercent(bucket.atLeastProbability)} chance to destroy at least ${bucket.damage} population`
-        );
-
-        const damage = document.createElement('span');
-        damage.textContent = bucket.damage === 6 ? '6+' : `${bucket.damage}+`;
-        const probability = document.createElement('strong');
-        probability.textContent = this.formatPercent(bucket.atLeastProbability);
-
-        threshold.appendChild(damage);
-        threshold.appendChild(probability);
-        grid.appendChild(threshold);
-      }
+      const probability = document.createElement('strong');
+      probability.className = 'population-destroyed-value';
+      probability.textContent = this.formatPercent(
+        selectedBucket.atLeastProbability
+      );
+      row.setAttribute(
+        'aria-label',
+        `${fleet.name}: ${probability.textContent} chance to destroy all ${state.sectorPopulation} population`
+      );
 
       row.appendChild(label);
-      row.appendChild(grid);
+      row.appendChild(probability);
       rows.appendChild(row);
     }
 
     const automaticWipe = defender.factionId === 'planta';
     note.textContent = automaticWipe
-      ? "Each row is that fleet's win chance; Planta then loses all population."
-      : "Each row includes that fleet's win chance. Assumes no Neutron Bombs; missiles do not fire against population.";
+      ? 'Planta loses all sector population on defeat. Neutron Bombs and Neutron Absorbers are not modeled.'
+      : "Includes the attacker's win chance. Ignores Neutron Bombs because the defender may have Neutron Absorbers, which are not modeled.";
     note.hidden = false;
     section.style.display = 'block';
     return true;
