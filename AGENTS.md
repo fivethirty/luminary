@@ -39,6 +39,8 @@ caps, fallbacks, or performance-sensitive code.
 
 ## Validation
 
+- After changing source or test files, run `bun run lint:fix` to apply Prettier formatting and
+  other safe ESLint fixes before final validation.
 - Exact solver: `bun run test:solver`; other engine work: `bun run test:engine`.
 - UI work: run the nearest component/state test while iterating.
 - Type and style: `bun run typecheck` and `bun run lint`.

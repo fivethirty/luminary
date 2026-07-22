@@ -237,9 +237,13 @@ Use the narrowest relevant command while iterating:
 bun run test:solver
 bun run test:engine
 bun test src/ui
+bun run lint:fix
 bun run typecheck
 bun run lint
 ```
+
+Run `lint:fix` after changing source or test files so Prettier formatting and other safe ESLint
+fixes are applied before the non-mutating validation commands.
 
 Before completing a cross-module engine change, run:
 
