@@ -400,6 +400,16 @@ calc-ship-blueprint {
   padding-inline: var(--space-xs);
 }
 
+.selected-part-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .recent-parts {
   grid-area: recent;
   display: grid;
@@ -519,7 +529,7 @@ calc-ship-blueprint {
 .part-search-label {
   position: relative;
   z-index: 1;
-  padding: var(--space-sm) var(--space-md) 0;
+  padding: var(--space-md);
   background: var(--color-bg-primary);
 }
 
@@ -705,7 +715,7 @@ calc-ship-blueprint {
   }
 
   .blueprint-workbench {
-    --blueprint-canvas-width: 10rem;
+    --blueprint-canvas-width: 13rem;
   }
 
   .blueprint-controls {
@@ -717,6 +727,23 @@ calc-ship-blueprint {
 
   .external-section {
     flex-wrap: wrap;
+  }
+
+  .selected-part-name {
+    display: none;
+  }
+
+  .slot-actions {
+    flex-wrap: wrap;
+  }
+
+  .slot-action-buttons {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .slot-action-buttons button {
+    flex: 1 1 50%;
   }
 
   .part-dialog {
@@ -749,6 +776,7 @@ calc-ship-blueprint {
 
 @media (max-width: 28rem) {
   .part-dialog-header,
+  .part-search-label,
   .part-buckets {
     padding-inline: var(--space-sm);
   }

@@ -629,10 +629,103 @@ export function calculateBlueprint(
   };
 }
 
+type PartBucketId =
+  | 'energy'
+  | 'movement'
+  | 'initiative'
+  | 'computer'
+  | 'shield'
+  | 'hull'
+  | 'repair'
+  | 'cannon'
+  | 'missile';
+
 export interface PartBucket {
-  id: string;
+  id: PartBucketId;
   label: string;
   parts: readonly ShipPart[];
+}
+
+const DAMAGE_TYPE_ORDER: Record<DieColor, number> = {
+  yellow: 1,
+  orange: 2,
+  blue: 3,
+  red: 4,
+  pink: 5,
+};
+
+function damageTypeOrder(entry: ShipPart): number {
+  const dice = [...(entry.cannons ?? []), ...(entry.missiles ?? [])];
+  return dice.length === 0
+    ? 0
+    : Math.min(...dice.map((color) => DAMAGE_TYPE_ORDER[color]));
+}
+
+function damageDiceCount(entry: ShipPart): number {
+  return (entry.cannons?.length ?? 0) + (entry.missiles?.length ?? 0);
+}
+
+function bucketValue(bucketId: PartBucketId, entry: ShipPart): number {
+  switch (bucketId) {
+    case 'energy':
+      return entry.energySource ?? 0;
+    case 'movement':
+      return entry.movement ?? 0;
+    case 'initiative':
+      return entry.initiative ?? 0;
+    case 'computer':
+      return entry.computer ?? 0;
+    case 'shield':
+      return entry.shield ?? 0;
+    case 'hull':
+      return entry.hull ?? 0;
+    case 'repair':
+      return entry.repair ?? 0;
+    case 'cannon':
+    case 'missile':
+      return damageTypeOrder(entry);
+  }
+}
+
+function comparePartsForBucket(
+  bucketId: PartBucketId,
+  left: ShipPart,
+  right: ShipPart
+): number {
+  const sharedTieBreakers = (entry: ShipPart): number[] => [
+    entry.hull ?? 0,
+    entry.initiative ?? 0,
+    entry.computer ?? 0,
+    entry.shield ?? 0,
+    entry.energySource ?? 0,
+    entry.energyUse ?? 0,
+  ];
+  const isDamageBucket = bucketId === 'cannon' || bucketId === 'missile';
+  const leftValues = isDamageBucket
+    ? [damageTypeOrder(left), damageDiceCount(left), ...sharedTieBreakers(left)]
+    : [
+        bucketValue(bucketId, left),
+        ...sharedTieBreakers(left),
+        damageTypeOrder(left),
+        damageDiceCount(left),
+      ];
+  const rightValues = isDamageBucket
+    ? [
+        damageTypeOrder(right),
+        damageDiceCount(right),
+        ...sharedTieBreakers(right),
+      ]
+    : [
+        bucketValue(bucketId, right),
+        ...sharedTieBreakers(right),
+        damageTypeOrder(right),
+        damageDiceCount(right),
+      ];
+  for (let index = 0; index < leftValues.length; index++) {
+    const difference = leftValues[index] - rightValues[index];
+    if (difference !== 0) return difference;
+  }
+  return 0;
 }
 
 export function partBuckets(type: BlueprintShipType): PartBucket[] {
@@ -643,7 +736,7 @@ export function partBuckets(type: BlueprintShipType): PartBucket[] {
       partAllowedInSlot(type, entry)
   );
   const definitions: Array<{
-    id: string;
+    id: PartBucketId;
     label: string;
     includes: (entry: ShipPart) => boolean;
   }> = [
@@ -696,7 +789,9 @@ export function partBuckets(type: BlueprintShipType): PartBucket[] {
     .map(({ id, label, includes }) => ({
       id,
       label,
-      parts: available.filter(includes),
+      parts: available
+        .filter(includes)
+        .sort((left, right) => comparePartsForBucket(id, left, right)),
     }))
     .filter((bucket) => bucket.parts.length > 0);
 }

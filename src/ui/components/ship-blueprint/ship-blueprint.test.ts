@@ -77,7 +77,7 @@ describe('ShipBlueprint', () => {
       Array.from(controls.querySelector('.slot-actions')!.children).map(
         (child) => child.className
       )
-    ).toEqual(['drive-warning', 'slot-action-buttons']);
+    ).toEqual(['drive-warning', 'slot-action-buttons', 'selected-part-name']);
     const driveWarning = element.querySelector('.drive-warning')!;
     expect(driveWarning.parentElement?.className).toBe('slot-actions');
     expect(driveWarning.closest('.blueprint-canvas-wrap')).toBeNull();
@@ -114,7 +114,7 @@ describe('ShipBlueprint', () => {
       /@media \(min-width: 60\.0625rem\)[\s\S]*grid-template-columns:\s*max-content minmax\(0, 1fr\)/
     );
     expect(blueprintStyles).toMatch(
-      /--blueprint-canvas-height:\s*8rem[\s\S]*grid-template-areas:\s*'actions actions'\s*'recent external'/
+      /\.blueprint-controls\s*{[^}]*grid-template-areas:\s*'actions actions'\s*'recent external'/
     );
     expect(blueprintStyles).toMatch(
       /\.blueprint-controls\s*{[^}]*border:\s*1px solid var\(--color-border\)/
@@ -123,6 +123,12 @@ describe('ShipBlueprint', () => {
       /\.slot-actions\s*{[^}]*display:\s*flex[^}]*gap:\s*var\(--space-xs\)/
     );
     expect(blueprintStyles).not.toMatch(/\.remove-part-btn\s*{[^}]*color:/);
+    expect(blueprintStyles).toMatch(
+      /\.selected-part-name\s*{[^}]*text-align:\s*left/
+    );
+    expect(blueprintStyles).toMatch(
+      /@media \(max-width: 46rem\)\s*{[\s\S]*\.selected-part-name\s*{[^}]*display:\s*none[^}]*}[\s\S]*\.slot-action-buttons\s*{[^}]*width:\s*100%[^}]*}[\s\S]*\.slot-action-buttons button\s*{[^}]*flex:\s*1 1 50%/
+    );
   });
 
   test('keeps external bonuses and Muon Source visible in the workbench', () => {
@@ -226,13 +232,19 @@ describe('ShipBlueprint', () => {
     expect(firstSlot.classList.contains('selected')).toBe(true);
     expect(firstSlot.getAttribute('aria-pressed')).toBe('true');
     expect(replace.disabled).toBe(false);
-    expect(element.querySelector('.selected-part')).toBeNull();
+    const selectedPartName = element.querySelector(
+      '.selected-part-name'
+    ) as HTMLElement;
+    expect(selectedPartName.textContent).toBe('Electron Computer');
+    expect(selectedPartName.hidden).toBe(false);
     expect(replace.getAttribute('aria-label')).toBe('Edit Electron Computer');
 
     (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
     expect(firstSlot.classList.contains('selected')).toBe(false);
     expect(firstSlot.getAttribute('aria-pressed')).toBe('false');
     expect(replace.getAttribute('aria-label')).toBe('Fill empty slot');
+    expect(selectedPartName.textContent).toBe('');
+    expect(selectedPartName.hidden).toBe(true);
     replace.click();
 
     const dialog = element.querySelector('.part-dialog') as HTMLDialogElement;
@@ -317,6 +329,15 @@ describe('ShipBlueprint', () => {
       /\.part-buckets\s*{[^}]*contain:\s*paint[^}]*isolation:\s*isolate/
     );
     expect(blueprintStyles).not.toMatch(/position:\s*sticky/);
+    expect(blueprintStyles).toMatch(
+      /\.part-search-label\s*{[^}]*padding:\s*var\(--space-md\)/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.part-buckets\s*{[^}]*padding:\s*var\(--space-md\)/
+    );
+    expect(blueprintStyles).toMatch(
+      /@media \(max-width: 28rem\)\s*{[\s\S]*\.part-dialog-header,\s*\.part-search-label,\s*\.part-buckets\s*{[^}]*padding-inline:\s*var\(--space-sm\)/
+    );
   });
 
   test('locks background scrolling while the parts picker is open', () => {
@@ -379,7 +400,8 @@ describe('ShipBlueprint', () => {
     const remove = element.querySelector(
       '.remove-part-btn'
     ) as HTMLButtonElement;
-    expect(remove.hidden).toBe(true);
+    expect(remove.hidden).toBe(false);
+    expect(remove.disabled).toBe(true);
 
     (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
     (
@@ -388,6 +410,7 @@ describe('ShipBlueprint', () => {
       ) as HTMLButtonElement
     ).click();
     expect(remove.hidden).toBe(false);
+    expect(remove.disabled).toBe(false);
     expect(
       (element.querySelector('.drive-warning') as HTMLElement).hidden
     ).toBe(false);
@@ -397,10 +420,12 @@ describe('ShipBlueprint', () => {
       (element.querySelector('.drive-warning') as HTMLElement).hidden
     ).toBe(true);
     expect(ship.blueprint?.slots[3]).toBe('nud');
-    expect(remove.hidden).toBe(true);
+    expect(remove.hidden).toBe(false);
+    expect(remove.disabled).toBe(true);
 
     (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
-    expect(remove.hidden).toBe(true);
+    expect(remove.hidden).toBe(false);
+    expect(remove.disabled).toBe(true);
     (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
     (
       element.querySelector(
@@ -408,9 +433,11 @@ describe('ShipBlueprint', () => {
       ) as HTMLButtonElement
     ).click();
     expect(remove.hidden).toBe(false);
+    expect(remove.disabled).toBe(false);
     remove.click();
     expect(ship.blueprint?.slots[2]).toBeNull();
-    expect(remove.hidden).toBe(true);
+    expect(remove.hidden).toBe(false);
+    expect(remove.disabled).toBe(true);
   });
 
   test('offers the three most recently added parts as direct replacements', () => {
@@ -548,6 +575,44 @@ describe('ShipBlueprint', () => {
         attacker.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
       ).map((button) => button.dataset.partId)
     ).toEqual(['plc']);
+  });
+
+  test('updates recent parts across blueprints in the same fleet', () => {
+    const interceptorShip = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const cruiserShip = addOrSwapShipPreset('fleet-0', 'cruiser', {
+      withBlueprint: true,
+    })!;
+    const interceptor = render(interceptorShip.id);
+    const cruiser = render(cruiserShip.id);
+    const recentPartIds = (element: ShipBlueprintElement) =>
+      Array.from(
+        element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
+      ).map((button) => button.dataset.partId);
+    const installFromDialog = (
+      element: ShipBlueprintElement,
+      slot: number,
+      partId: string
+    ) => {
+      (
+        element.querySelector(`[data-slot="${slot}"]`) as HTMLButtonElement
+      ).click();
+      (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+      (
+        element.querySelector(
+          `.part-option[data-part-id="${partId}"]`
+        ) as HTMLButtonElement
+      ).click();
+    };
+
+    installFromDialog(interceptor, 2, 'anc');
+    expect(recentPartIds(interceptor)).toEqual(['anc']);
+    expect(recentPartIds(cruiser)).toEqual(['anc']);
+
+    installFromDialog(cruiser, 2, 'plc');
+    expect(recentPartIds(interceptor)).toEqual(['plc', 'anc']);
+    expect(recentPartIds(cruiser)).toEqual(['plc', 'anc']);
   });
 
   test('keeps drives out of starbase and orbital pickers', () => {

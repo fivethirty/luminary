@@ -240,11 +240,15 @@ export class ShipBlueprintElement extends HTMLElement {
   private renderSelection() {
     const replace = this.querySelector('.edit-part-btn') as HTMLButtonElement;
     const remove = this.querySelector('.remove-part-btn') as HTMLButtonElement;
+    const selectedPartName = this.querySelector(
+      '.selected-part-name'
+    ) as HTMLElement;
     if (this.selectedSlot === null || !this.shipType.blueprint) {
       replace.setAttribute('aria-label', 'Select a ship slot to edit');
       replace.disabled = true;
       remove.disabled = true;
-      remove.hidden = true;
+      selectedPartName.textContent = '';
+      selectedPartName.hidden = true;
       this.renderRecentParts();
       return;
     }
@@ -255,9 +259,10 @@ export class ShipBlueprintElement extends HTMLElement {
       entry ? `Edit ${entry.name}` : 'Fill empty slot'
     );
     replace.disabled = false;
+    selectedPartName.textContent = entry?.name ?? '';
+    selectedPartName.hidden = !entry;
     const canRemove = this.canRemoveSelectedPart();
     remove.disabled = !canRemove;
-    remove.hidden = !canRemove;
     this.renderRecentParts();
   }
 
@@ -480,8 +485,19 @@ export class ShipBlueprintElement extends HTMLElement {
       rememberRecentPart(this.fleetId, partId);
       this.closeDialog();
       this.renderEditor();
+      this.refreshFleetRecentParts();
       this.focusSelectedSlot();
     }
+  }
+
+  private refreshFleetRecentParts() {
+    document
+      .querySelectorAll<ShipBlueprintElement>('calc-ship-blueprint')
+      .forEach((blueprint) => {
+        if (blueprint !== this && blueprint.fleetId === this.fleetId) {
+          blueprint.renderRecentParts();
+        }
+      });
   }
 
   private focusSelectedSlot() {

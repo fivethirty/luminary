@@ -33,10 +33,11 @@
             <button class="edit-part-btn" type="button" disabled>
               Edit
             </button>
-            <button class="remove-part-btn" type="button" disabled hidden>
+            <button class="remove-part-btn" type="button" disabled>
               Remove
             </button>
           </div>
+          <span class="selected-part-name" aria-live="polite" hidden></span>
         </div>
 
         <div class="recent-parts" hidden>
@@ -80,7 +81,7 @@
         <input
           class="part-search"
           type="search"
-          placeholder="Search parts or stats…"
+          placeholder="Search parts…"
           autocomplete="off"
         />
       </label>

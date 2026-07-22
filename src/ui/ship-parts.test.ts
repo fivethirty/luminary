@@ -186,6 +186,63 @@ describe('ship parts', () => {
     expect(buckets.get('cannon')).toContain('ricon');
   });
 
+  test('orders picker buckets by their stat and shared tie breakers', () => {
+    const buckets = new Map(
+      partBuckets(ShipType.Cruiser).map((bucket) => [
+        bucket.id,
+        bucket.parts.map((part) => part.id),
+      ])
+    );
+
+    expect(buckets.get('energy')).toEqual([
+      'nod',
+      'ins',
+      'nus',
+      'abs',
+      'fus',
+      'tas',
+      'hyg',
+      'zes',
+    ]);
+    expect(buckets.get('movement')).toEqual([
+      'jud',
+      'nud',
+      'nod',
+      'fud',
+      'trd',
+      'tad',
+      'cod',
+    ]);
+    expect(buckets.get('computer')).toEqual([
+      'elc',
+      'seh',
+      'poc',
+      'axc',
+      'glc',
+    ]);
+    expect(buckets.get('shield')).toEqual([
+      'gas',
+      'abs',
+      'mos',
+      'phs',
+      'ins',
+      'fls',
+    ]);
+    expect(buckets.get('cannon')).toEqual([
+      'ioc',
+      'iod',
+      'iot',
+      'plc',
+      'plt',
+      'socha',
+      'socan',
+      'anc',
+      'rican',
+      'ricon',
+    ]);
+    expect(buckets.get('missile')).toEqual(['flm', 'iom', 'plm', 'som', 'anm']);
+  });
+
   test('omits drives from stationary structures', () => {
     expect(
       partBuckets(ShipType.Starbase).some((bucket) => bucket.id === 'movement')
