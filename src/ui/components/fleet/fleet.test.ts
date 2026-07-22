@@ -482,7 +482,25 @@ describe('Fleet', () => {
     expect(select.disabled).toBe(false);
     expect(select.value).toBe(state.fleets[0].plannerType);
     expect(select.value).not.toBe('npc');
-    expect(npcPlannerOption(select)).toBeNull();
+    expect(npcPlannerOption(select)).not.toBeNull();
+    expect(Array.from(select.options).map((option) => option.value)).toEqual([
+      'npc',
+      'dps',
+      'optimal',
+    ]);
+  });
+
+  test('selects NPC targeting for a player fleet', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    document.body.appendChild(element);
+
+    const select = plannerSelect(element);
+    select.value = 'npc';
+    select.dispatchEvent(new Event('change'));
+
+    expect(state.fleets[0].plannerType).toBe('npc');
+    expect(select.disabled).toBe(false);
   });
 
   test('locks the planner to NPC when the fleet is all AI ships', () => {
@@ -531,7 +549,7 @@ describe('Fleet', () => {
     addShip(element, 'cruiser');
     expect(plannerSelect(element).disabled).toBe(false);
     expect(plannerSelect(element).value).toBe(state.fleets[0].plannerType);
-    expect(npcPlannerOption(plannerSelect(element))).toBeNull();
+    expect(npcPlannerOption(plannerSelect(element))).not.toBeNull();
   });
 
   const shipOption = (element: FleetElement, value: string) =>
@@ -577,6 +595,37 @@ describe('Fleet', () => {
     ]) {
       expect(shipOption(element, npc)).toBeUndefined();
     }
+  });
+
+  test('offers only the structure available to the selected faction', () => {
+    state.fleets[0].factionId = 'exiles';
+    const exiles = document.createElement('calc-fleet') as FleetElement;
+    exiles.fleet = state.fleets[0];
+    exiles.setAttribute('is-defender', 'true');
+    document.body.appendChild(exiles);
+
+    expect(shipOption(exiles, 'orbital')).toBeDefined();
+    expect(shipOption(exiles, 'starbase')).toBeUndefined();
+
+    state.fleets[0].factionId = 'terran';
+    const terran = document.createElement('calc-fleet') as FleetElement;
+    terran.fleet = state.fleets[0];
+    terran.setAttribute('is-defender', 'true');
+    document.body.appendChild(terran);
+
+    expect(shipOption(terran, 'starbase')).toBeDefined();
+    expect(shipOption(terran, 'orbital')).toBeUndefined();
+  });
+
+  test('does not offer dreadnoughts to Rho Indi', () => {
+    state.fleets[1].factionId = 'rho-indi';
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[1];
+    element.setAttribute('is-defender', 'false');
+    document.body.appendChild(element);
+
+    expect(shipOption(element, 'dreadnought')).toBeUndefined();
+    expect(shipOption(element, 'cruiser')).toBeDefined();
   });
 
   test('adding a player ship evicts NPC ships (no mixing)', () => {

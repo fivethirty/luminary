@@ -164,6 +164,39 @@ describe('computeExactBattle', () => {
     ).toBeGreaterThan(0.2);
   });
 
+  test('a player fleet can use NPC targeting in exact combat', () => {
+    const attacker = () => [
+      new Ship(ShipType.Interceptor, {
+        initiative: 3,
+        hull: 2,
+        computers: 2,
+        cannons: { ion: 3 },
+      }),
+    ];
+    const defender = () => [
+      new Ship(ShipType.Dreadnought, { initiative: 1, hull: 3 }),
+      new Ship(ShipType.Interceptor, {
+        initiative: 1,
+        hull: 1,
+        computers: 2,
+        cannons: { antimatter: 1 },
+      }),
+    ];
+    const solve = (damageType: DamageType) =>
+      computeExactBattle(
+        new Fleet('D', defender(), false, DamageType.DPS),
+        new Fleet('A', attacker(), false, damageType)
+      );
+
+    const dps = solve(DamageType.DPS);
+    const npc = solve(DamageType.NPC);
+
+    expect(dps.ok).toBe(true);
+    expect(npc.ok).toBe(true);
+    expect(npc.lastFleetStanding.A).toBeCloseTo(0.6348942222, 9);
+    expect(npc.lastFleetStanding.A).toBeLessThan(dps.lastFleetStanding.A);
+  });
+
   test('mixed optimal and DPS fleets optimize only the selected fleet', () => {
     const attacker = () => [
       new Ship(ShipType.Cruiser, {

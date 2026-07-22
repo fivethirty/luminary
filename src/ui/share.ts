@@ -17,7 +17,10 @@ import {
   type FactionId,
   type FleetColorId,
 } from '@ui/fleet-metadata';
-import { sanitizeFleetComposition } from '@ui/fleet-rules';
+import {
+  reconcileFactionStructure,
+  sanitizeFleetComposition,
+} from '@ui/fleet-rules';
 import { normalizeShipConfig, shipConfigsEqual } from '@ui/ship-config';
 import type {
   FleetState,
@@ -159,8 +162,8 @@ export function encodeBattleQuery(fleets: FleetState[]): string {
     if (fleet.antimatterSplitter) {
       params.push([`${key}.ams`, '1']);
     }
-    if (fleet.plannerType === 'dps') {
-      params.push([`${key}.planner`, 'dps']);
+    if (fleet.plannerType !== 'optimal') {
+      params.push([`${key}.planner`, fleet.plannerType]);
     }
     if (fleet.factionId) {
       params.push([`${key}.faction`, fleet.factionId]);
@@ -252,7 +255,7 @@ export function parseBattleQuery(search: string): FleetState[] | null {
       continue;
     }
     if (parts.length === 2 && parts[1] === 'planner') {
-      if (value === 'dps' || value === 'optimal') {
+      if (value === 'npc' || value === 'dps' || value === 'optimal') {
         getDraft(fleetIndex).plannerType = value;
         recognized = true;
       }
@@ -303,13 +306,24 @@ export function parseBattleQuery(search: string): FleetState[] | null {
   const fleetCount = Math.max(2, ...[...drafts.keys()].map((i) => i + 1));
   return Array.from({ length: fleetCount }, (_, index) => {
     const draft = drafts.get(index);
+    const isDefender = index === 0;
+    const factionId = draft?.factionId ?? '';
+    const reconciledShips = draft
+      ? reconcileFactionStructure(
+          [...draft.ships.values()],
+          factionId,
+          isDefender
+        )
+      : [];
     return {
       id: `fleet-${index}`,
       name: '',
-      shipTypes: draft
-        ? sanitizeFleetComposition([...draft.ships.values()], index === 0)
-        : [],
-      factionId: draft?.factionId ?? '',
+      shipTypes: sanitizeFleetComposition(
+        reconciledShips,
+        isDefender,
+        factionId
+      ),
+      factionId,
       colorId: draft?.colorId ?? defaultFleetColorId(index),
       colorIsManual: draft?.colorIsManual ?? false,
       antimatterSplitter: draft?.antimatterSplitter ?? false,

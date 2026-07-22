@@ -90,11 +90,19 @@ const DEFAULT_OPTIMAL_ATTEMPT_MILLIS = 300;
 const DEFAULT_MONTE_CARLO_RESERVE_MILLIS = 350;
 const DEFAULT_MONTE_CARLO_ITERATIONS = 5_000;
 
-const METHOD_LABELS: Record<CombatTier, string> = {
-  'exact-optimal': 'Exact · optimal targeting',
-  'exact-dps': 'Exact · DPS targeting',
-  'monte-carlo-dps': 'Monte Carlo · DPS targeting',
-};
+function methodLabel(tier: CombatTier, fleets: readonly Fleet[]): string {
+  if (tier === 'exact-optimal') return 'Exact · optimal targeting';
+
+  const policies = new Set(fleets.map((fleet) => fleet.getDamageType()));
+  const policy =
+    policies.size === 1 && policies.has(DamageType.NPC)
+      ? 'NPC'
+      : policies.has(DamageType.NPC)
+        ? 'DPS/NPC'
+        : 'DPS';
+  const method = tier === 'exact-dps' ? 'Exact' : 'Monte Carlo';
+  return `${method} · ${policy} targeting`;
+}
 
 const DEFAULT_DEPENDENCIES: CombatRunnerDependencies = {
   now: Date.now,
@@ -177,6 +185,7 @@ export class CombatRunner {
         return this.exactResult(
           exact,
           tier,
+          preflightFleets,
           startedAt,
           deadline,
           preflight,
@@ -215,6 +224,7 @@ export class CombatRunner {
         return this.exactResult(
           exactDps,
           'exact-dps',
+          dpsFleets,
           startedAt,
           deadline,
           preflight,
@@ -248,7 +258,7 @@ export class CombatRunner {
         method: 'monte-carlo',
         targeting: 'dps-policy',
         tier: 'monte-carlo-dps',
-        methodLabel: METHOD_LABELS['monte-carlo-dps'],
+        methodLabel: methodLabel('monte-carlo-dps', dpsFleets),
         iterations: simulation.iterations,
       },
       startedAt,
@@ -299,6 +309,7 @@ export class CombatRunner {
   private exactResult(
     exact: ExactBattleResult,
     tier: 'exact-optimal' | 'exact-dps',
+    fleets: readonly Fleet[],
     startedAt: number,
     deadline: number,
     preflight: ExactPlannerPreflight,
@@ -318,7 +329,7 @@ export class CombatRunner {
         method: 'exact',
         targeting: tier === 'exact-optimal' ? 'optimal' : 'dps-policy',
         tier,
-        methodLabel: METHOD_LABELS[tier],
+        methodLabel: methodLabel(tier, fleets),
       },
       startedAt,
       deadline,

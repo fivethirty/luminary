@@ -539,6 +539,22 @@ describe('App shared battle links', () => {
     expect(resultsElement).not.toBeNull();
   });
 
+  test('runs player fleets with NPC targeting from a shared link', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      `/${SHARED_QUERY}&d.planner=npc&a.planner=npc`
+    );
+    init();
+    await settle();
+
+    expect(state.fleets.map((fleet) => fleet.plannerType)).toEqual([
+      'npc',
+      'npc',
+    ]);
+    expect(state.simulationResults?.methodLabel).toBe('Exact · NPC targeting');
+  });
+
   test('renders ship stat configurations from the query string', async () => {
     window.history.replaceState(
       null,

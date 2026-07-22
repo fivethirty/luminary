@@ -136,7 +136,9 @@ export function computeExactBattle(
     attacker.getRoster(),
     defender.getRoster(),
     attacker.antimatterSplitter,
-    defender.antimatterSplitter
+    defender.antimatterSplitter,
+    attackerType,
+    defenderType
   );
   const outcome = new WinProbabilitySolver(model, {
     perspective,
@@ -451,7 +453,9 @@ function solveEngagement(
     exactAttacker.getRoster(),
     exactDefender.getRoster(),
     exactAttacker.antimatterSplitter,
-    exactDefender.antimatterSplitter
+    exactDefender.antimatterSplitter,
+    attackerType,
+    defenderType
   );
   return new WinProbabilitySolver(model, {
     perspective,
@@ -500,8 +504,8 @@ function engagementCacheKey(
   policies: EngagementPolicies
 ): string {
   const initiativeSlots = resolvedInitiativeSlots(defenderState, attackerState);
-  const defenderPolicy = targetingPolicy(defenderState, policies.defender);
-  const attackerPolicy = targetingPolicy(attackerState, policies.attacker);
+  const defenderPolicy = targetingPolicy(policies.defender);
+  const attackerPolicy = targetingPolicy(policies.attacker);
   const defenderDamageCeiling =
     defenderPolicy === 'optimal' && attackerPolicy === 'optimal'
       ? maxReachableHp(attackerState)
@@ -567,11 +571,8 @@ function effectiveEngagementPolicies(
   };
 }
 
-function targetingPolicy(
-  fleet: FleetState,
-  damageType: DamageType
-): TargetingPolicy {
-  if (!fleet.ships.some((ship) => ship.isPlayerShip())) return 'npc';
+function targetingPolicy(damageType: DamageType): TargetingPolicy {
+  if (damageType === DamageType.NPC) return 'npc';
   return damageType === DamageType.OPTIMAL ? 'optimal' : 'dps';
 }
 

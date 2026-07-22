@@ -211,4 +211,32 @@ describe('CombatRunner', () => {
     ]);
     expect(result.iterations).toBe(2_500);
   });
+
+  test('preserves selected NPC targeting through optimal fallback', () => {
+    const exactDamageTypes: DamageType[][] = [];
+    let monteCarloDamageTypes: DamageType[] = [];
+    const result = new CombatRunner(
+      {},
+      {
+        preflight: () => ({
+          overrides: [DamageType.DPS, undefined],
+          reason: 'complexity',
+          estimatedStates: 100_000,
+        }),
+        computeExact: (fleets) => {
+          exactDamageTypes.push(fleets.map((fleet) => fleet.getDamageType()));
+          return exactResult(false, 'policy exact cap exceeded');
+        },
+        simulate: (fleets) => {
+          monteCarloDamageTypes = fleets.map((fleet) => fleet.getDamageType());
+          return simulationResult(1_000);
+        },
+      }
+    ).run([fleet('defender'), fleet('attacker', DamageType.NPC)]);
+
+    expect(exactDamageTypes).toEqual([[DamageType.DPS, DamageType.NPC]]);
+    expect(monteCarloDamageTypes).toEqual([DamageType.DPS, DamageType.NPC]);
+    expect(result.tier).toBe('monte-carlo-dps');
+    expect(result.methodLabel).toBe('Monte Carlo · DPS/NPC targeting');
+  });
 });

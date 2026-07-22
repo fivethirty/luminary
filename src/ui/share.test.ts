@@ -101,6 +101,15 @@ describe('encodeBattleQuery', () => {
     expect(encodeBattleQuery(fleets)).toBe('v=1&d.guardian=1&a.cruiser=2');
   });
 
+  test('round-trips NPC targeting for player fleets', () => {
+    const fleets = battle();
+    fleets[1].plannerType = 'npc';
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('a.planner=npc');
+    expect(parseBattleQuery(query)?.[1].plannerType).toBe('npc');
+  });
+
   test('returns an empty string when there is nothing to share', () => {
     expect(encodeBattleQuery([fleet(), fleet({ id: 'fleet-1' })])).toBe('');
   });
@@ -271,6 +280,41 @@ describe('parseBattleQuery', () => {
     expect(decoded[0].colorId).toBe('green');
     expect(decoded[1].factionId).toBe('rho-indi');
     expect(decoded[1].colorId).toBe('blue');
+  });
+
+  test('drops dreadnoughts from Rho Indi fleets while decoding', () => {
+    const decoded = parseBattleQuery(
+      'v=1&a.dreadnought=2&a.cruiser=1&a.faction=rho-indi'
+    )!;
+
+    expect(decoded[1].shipTypes.map((ship) => ship.type)).toEqual([
+      ShipType.Cruiser,
+    ]);
+  });
+
+  test('reconciles faction-invalid structures while decoding', () => {
+    const exiles = parseBattleQuery('v=1&d.starbase=3&d.faction=exiles')!;
+    expect(exiles[0].shipTypes).toEqual([
+      expect.objectContaining({
+        type: ShipType.Orbital,
+        quantity: 1,
+        config: expect.objectContaining({ initiative: 0 }),
+      }),
+    ]);
+
+    const terran = parseBattleQuery('v=1&d.orbital=1&d.faction=terran')!;
+    expect(terran[0].shipTypes).toEqual([
+      expect.objectContaining({
+        type: ShipType.Starbase,
+        quantity: 1,
+        config: expect.objectContaining({ initiative: 4 }),
+      }),
+    ]);
+  });
+
+  test('keeps the legacy orbital initiative without a faction', () => {
+    const decoded = parseBattleQuery('v=1&d.orbital=1')!;
+    expect(decoded[0].shipTypes[0].config.initiative).toBe(4);
   });
 });
 
