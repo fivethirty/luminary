@@ -284,6 +284,26 @@ describe('battleLabel', () => {
     expect(battleLabel(battle(), true)).toBe('Guard vs 2C');
   });
 
+  test('short uses the surviving-fleet composition format', () => {
+    const fleets = battle();
+    fleets[1].shipTypes.push(
+      {
+        id: 'ship-3',
+        type: ShipType.Interceptor,
+        quantity: 2,
+        config: { initiative: 3 },
+      },
+      {
+        id: 'ship-4',
+        type: ShipType.Dreadnought,
+        quantity: 1,
+        config: { initiative: 1 },
+      }
+    );
+
+    expect(battleLabel(fleets, true)).toBe('Guard vs D,2C,2I');
+  });
+
   test('tags NPC variants by their preset in both forms', () => {
     const fleets = battle();
     // A stock Guardian (WA): matches the guardian-wa preset exactly.

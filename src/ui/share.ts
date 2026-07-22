@@ -1,4 +1,5 @@
 import { type ShipConfig, type WeaponType } from '@calc/ship';
+import { formatCompactFleetComposition } from '@ui/fleet-composition';
 import {
   getDefaultShipConfig,
   isShipPresetKey,
@@ -325,15 +326,24 @@ export function battleUrl(fleets: FleetState[]): string {
 }
 
 function fleetLineup(fleet: FleetState, short = false): string {
-  if (fleet.shipTypes.length === 0) return short ? '—' : 'Empty fleet';
-  const names = short ? SHIP_ABBREVIATIONS : SHIP_NAMES;
+  if (short) {
+    const composition: Record<string, number> = {};
+    const abbreviations: Record<string, string> = {};
+    for (const shipType of fleet.shipTypes) {
+      composition[shipType.type] =
+        (composition[shipType.type] ?? 0) + shipType.quantity;
+      abbreviations[shipType.type] =
+        SHIP_ABBREVIATIONS[matchShipPreset(shipType.type, shipType.config)];
+    }
+    return formatCompactFleetComposition(composition, abbreviations);
+  }
+
+  if (fleet.shipTypes.length === 0) return 'Empty fleet';
   return fleet.shipTypes
     .map((shipType) => {
-      const name = names[matchShipPreset(shipType.type, shipType.config)];
+      const name = SHIP_NAMES[matchShipPreset(shipType.type, shipType.config)];
       if (shipType.quantity === 1) return name;
-      return short
-        ? `${shipType.quantity}${name}`
-        : `${shipType.quantity}× ${name}`;
+      return `${shipType.quantity}× ${name}`;
     })
     .join(', ');
 }

@@ -403,7 +403,7 @@ describe('Results', () => {
       'Attacker'
     );
     expect(rows[0].querySelector('td:nth-child(2)')?.textContent).toBe(
-      'D, C, 2I, O, S'
+      'D,C,2I,O,S'
     );
     expect(rows[0].querySelector('td:nth-child(3)')?.textContent).toBe('42.0%');
     expect(
@@ -417,6 +417,43 @@ describe('Results', () => {
     expect(rows[0].textContent).toContain('42.0%');
     expect(rows[1].textContent).toContain('Anc');
     expect(rows[1].textContent).toContain('24.0%');
+  });
+
+  test('spans faction and ship columns for composition summary rows', () => {
+    setSimulationResults(
+      exactResults({
+        survivorDistribution: [
+          {
+            probability: 0.2,
+            survivors: { Defender: {}, Attacker: {} },
+          },
+          ...Array.from({ length: 9 }, (_, index) => ({
+            probability: 0.19 - index * 0.01,
+            survivors: {
+              Defender: { Interceptor: index + 1 },
+              Attacker: {},
+            },
+          })),
+        ],
+      })
+    );
+
+    const element = document.createElement('calc-results') as ResultsElement;
+    document.body.appendChild(element);
+
+    const noSurvivorsRow = Array.from(
+      element.querySelectorAll('#survivor-distribution-tbody tr')
+    ).find((row) => row.textContent?.includes('No surviving ships'))!;
+    const noSurvivorsCells = noSurvivorsRow.querySelectorAll('td');
+    expect(noSurvivorsCells).toHaveLength(2);
+    expect(noSurvivorsCells[0].colSpan).toBe(2);
+    expect(noSurvivorsCells[0].textContent).toBe('No surviving ships');
+
+    const otherRow = element.querySelector('.composition-other')!;
+    const otherCells = otherRow.querySelectorAll('td');
+    expect(otherCells).toHaveLength(2);
+    expect(otherCells[0].colSpan).toBe(2);
+    expect(otherCells[0].textContent).toBe('Other outcomes');
   });
 
   test('colors survivor composition attackers by fleet', () => {
