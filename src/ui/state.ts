@@ -25,6 +25,18 @@ import {
 } from '@ui/fleet-rules';
 import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
 import {
+  calculateBlueprint,
+  cloneShipBlueprint,
+  createStartingBlueprint,
+  isBlueprintShipType,
+  isDiscoveryPart,
+  normalizeShipBlueprint,
+  PART_BY_ID,
+  partAllowedInSlot,
+  type ShipBlueprint,
+  type BlueprintShipType,
+} from '@ui/ship-parts';
+import {
   getStartingShipConfig,
   presetKeysForType,
   SHIP_QUANTITY_LIMITS,
@@ -39,6 +51,7 @@ export interface ShipTypeConfig {
   type: ShipType;
   quantity: number;
   config: Partial<ShipConfig>;
+  blueprint?: ShipBlueprint;
 }
 
 export type PlannerType = 'npc' | 'dps' | 'optimal';
@@ -62,6 +75,7 @@ export interface FleetState {
 export interface CachedShipTypeConfig {
   quantity: number;
   config: Partial<ShipConfig>;
+  blueprint?: ShipBlueprint;
 }
 
 export interface SurvivorDistributionEntry {
@@ -213,13 +227,15 @@ function getFleetById(fleetId: string): FleetState {
 function createShipTypeConfig(
   type: ShipType,
   config: Partial<ShipConfig>,
-  quantity: number
+  quantity: number,
+  blueprint?: ShipBlueprint
 ): ShipTypeConfig {
   return {
     id: `ship-${Date.now()}-${Math.random()}`,
     type,
     quantity,
     config: cloneShipConfig(config),
+    ...(blueprint ? { blueprint: cloneShipBlueprint(blueprint) } : {}),
   };
 }
 
@@ -243,6 +259,7 @@ export function addShipType(
   if (existing) {
     existing.quantity = quantityWithinLimit;
     existing.config = cloneShipConfig(config);
+    delete existing.blueprint;
     notifyFleetsChanged();
     return existing;
   }
@@ -261,6 +278,9 @@ export interface AddOrSwapShipPresetOptions {
   // NPC pill pickers increment a matching layout; ordinary selectors only add
   // or replace a layout.
   incrementMatching?: boolean;
+  // Ship-tile mode creates a source blueprint in the same transaction as the
+  // row, so URL/storage listeners never observe mismatched parts and stats.
+  withBlueprint?: boolean;
 }
 
 /**
@@ -293,6 +313,18 @@ export function addOrSwapShipPreset(
       existing.quantity += 1;
     } else {
       existing.config = cloneShipConfig(variant.config);
+      delete existing.blueprint;
+      if (options.withBlueprint && isBlueprintShipType(existing.type)) {
+        existing.blueprint = createStartingBlueprint(
+          existing.type,
+          fleet.factionId
+        );
+        existing.config = calculateBlueprint(
+          existing.type,
+          existing.blueprint,
+          fleet.factionId
+        ).config;
+      }
     }
 
     enforceAutomaticFleetColors();
@@ -306,10 +338,21 @@ export function addOrSwapShipPreset(
   const cached = hasVariants
     ? undefined
     : getCachedShipType(fleet.id, variant.type);
+  let blueprint = cached?.blueprint;
+  let config = cached?.config ?? variant.config;
+  if (options.withBlueprint && isBlueprintShipType(variant.type)) {
+    blueprint ??= createStartingBlueprint(variant.type, fleet.factionId);
+    config = calculateBlueprint(
+      variant.type,
+      blueprint,
+      fleet.factionId
+    ).config;
+  }
   const newShip = createShipTypeConfig(
     variant.type,
-    cached?.config ?? variant.config,
-    Math.min(cached?.quantity ?? 1, SHIP_QUANTITY_LIMITS[variant.type])
+    config,
+    Math.min(cached?.quantity ?? 1, SHIP_QUANTITY_LIMITS[variant.type]),
+    blueprint
   );
   fleet.shipTypes.push(newShip);
 
@@ -336,6 +379,8 @@ export function updateShipType(
     }
     if (updates.config !== undefined) {
       ship.config = cloneShipConfig(updates.config);
+      // A free-form stat edit is a one-way conversion out of tile data.
+      delete ship.blueprint;
     }
     enforceAutomaticFleetColors();
     notifyFleetsChanged();
@@ -363,6 +408,9 @@ function cacheShipType(fleetId: string, ship: ShipTypeConfig) {
   state.cachedShipTypes[fleetId][ship.type] = {
     quantity: ship.quantity,
     config: cloneShipConfig(ship.config),
+    ...(ship.blueprint
+      ? { blueprint: cloneShipBlueprint(ship.blueprint) }
+      : {}),
   };
 }
 
@@ -384,7 +432,184 @@ export function getCachedShipType(
   return {
     quantity: cached.quantity,
     config: cloneShipConfig(cached.config),
+    ...(cached.blueprint
+      ? { blueprint: cloneShipBlueprint(cached.blueprint) }
+      : {}),
   };
+}
+
+export interface BlueprintPartUse {
+  shipId: string;
+  shipType: ShipType;
+  slot: number | 'muon';
+}
+
+export function findBlueprintPartUse(
+  fleetId: string,
+  partId: string,
+  except?: { shipId: string; slot: number | 'muon' }
+): BlueprintPartUse | undefined {
+  const fleet = getFleetById(fleetId);
+  for (const ship of fleet.shipTypes) {
+    if (!ship.blueprint) continue;
+    for (let slot = 0; slot < ship.blueprint.slots.length; slot++) {
+      if (ship.blueprint.slots[slot] !== partId) continue;
+      if (except?.shipId === ship.id && except.slot === slot) continue;
+      return { shipId: ship.id, shipType: ship.type, slot };
+    }
+    if (partId === 'mus' && ship.blueprint.muonSource) {
+      if (except?.shipId === ship.id && except.slot === 'muon') continue;
+      return { shipId: ship.id, shipType: ship.type, slot: 'muon' };
+    }
+  }
+  return undefined;
+}
+
+export function replaceBlueprintPart(
+  fleetId: string,
+  shipId: string,
+  slot: number,
+  partId: string | null
+): boolean {
+  const fleet = getFleetById(fleetId);
+  const ship = fleet.shipTypes.find((candidate) => candidate.id === shipId);
+  if (!ship?.blueprint || !isBlueprintShipType(ship.type)) return false;
+  if (slot < 0 || slot >= ship.blueprint.slots.length) return false;
+  if (
+    partId === null &&
+    createStartingBlueprint(ship.type, fleet.factionId).slots[slot] !== null
+  ) {
+    return false;
+  }
+  if (partId !== null) {
+    const entry = PART_BY_ID.get(partId);
+    if (!entry || !partAllowedInSlot(ship.type, entry)) return false;
+    if (
+      isDiscoveryPart(partId) &&
+      findBlueprintPartUse(fleetId, partId, { shipId, slot })
+    ) {
+      return false;
+    }
+  }
+
+  ship.blueprint.slots[slot] = partId;
+  ship.config = calculateBlueprint(
+    ship.type,
+    ship.blueprint,
+    fleet.factionId
+  ).config;
+  notifyFleetsChanged();
+  return true;
+}
+
+export function setBlueprintMuonSource(
+  fleetId: string,
+  shipId: string,
+  enabled: boolean
+): boolean {
+  const fleet = getFleetById(fleetId);
+  const ship = fleet.shipTypes.find((candidate) => candidate.id === shipId);
+  if (!ship?.blueprint || !isBlueprintShipType(ship.type)) return false;
+  if (
+    enabled &&
+    findBlueprintPartUse(fleetId, 'mus', { shipId, slot: 'muon' })
+  ) {
+    return false;
+  }
+  if (ship.blueprint.muonSource === enabled) return true;
+  ship.blueprint.muonSource = enabled;
+  ship.config = calculateBlueprint(
+    ship.type,
+    ship.blueprint,
+    fleet.factionId
+  ).config;
+  notifyFleetsChanged();
+  return true;
+}
+
+export function ensureShipBlueprint(
+  fleetId: string,
+  shipId: string,
+  force = false
+): boolean {
+  const fleet = getFleetById(fleetId);
+  const ship = fleet.shipTypes.find((candidate) => candidate.id === shipId);
+  if (!ship || !isBlueprintShipType(ship.type)) return false;
+  const normalized = normalizeShipBlueprint(ship.type, ship.blueprint);
+  if (normalized) return true;
+
+  const preset = presetKeysForType(ship.type)[0];
+  const previousDefault = preset
+    ? getStartingShipConfig(preset, fleet.factionId).config
+    : undefined;
+  if (
+    !force &&
+    previousDefault &&
+    !shipConfigsEqual(ship.config, previousDefault)
+  ) {
+    return false;
+  }
+  ship.blueprint = createStartingBlueprint(ship.type, fleet.factionId);
+  ship.config = calculateBlueprint(
+    ship.type,
+    ship.blueprint,
+    fleet.factionId
+  ).config;
+  notifyFleetsChanged();
+  return true;
+}
+
+export function initializeDefaultShipBlueprints(): number {
+  let initialized = 0;
+  for (const fleet of state.fleets) {
+    for (const ship of fleet.shipTypes) {
+      if (!isBlueprintShipType(ship.type) || ship.blueprint) continue;
+      const preset = presetKeysForType(ship.type)[0];
+      if (!preset) continue;
+      const oldDefault = getStartingShipConfig(preset, fleet.factionId).config;
+      if (!shipConfigsEqual(ship.config, oldDefault)) continue;
+      ship.blueprint = createStartingBlueprint(ship.type, fleet.factionId);
+      ship.config = calculateBlueprint(
+        ship.type,
+        ship.blueprint,
+        fleet.factionId
+      ).config;
+      initialized++;
+    }
+  }
+  if (initialized > 0) notifyFleetsChanged();
+  return initialized;
+}
+
+export function hasShipBlueprints(): boolean {
+  return (
+    state.fleets.some((fleet) =>
+      fleet.shipTypes.some((ship) => ship.blueprint !== undefined)
+    ) ||
+    Object.values(state.cachedShipTypes).some((cache) =>
+      Object.values(cache).some((ship) => ship?.blueprint !== undefined)
+    )
+  );
+}
+
+export function flattenShipBlueprints(): boolean {
+  let changed = false;
+  state.fleets.forEach((fleet) =>
+    fleet.shipTypes.forEach((ship) => {
+      if (!ship.blueprint) return;
+      delete ship.blueprint;
+      changed = true;
+    })
+  );
+  Object.values(state.cachedShipTypes).forEach((cache) =>
+    Object.values(cache).forEach((ship) => {
+      if (!ship?.blueprint) return;
+      delete ship.blueprint;
+      changed = true;
+    })
+  );
+  if (changed) notifyFleetsChanged();
+  return changed;
 }
 
 export function resetFleets() {
@@ -449,6 +674,21 @@ export function setFleetFaction(fleetId: string, factionId: FactionId) {
   const fleet = getFleetById(fleetId);
   const previousFactionId = fleet.factionId;
   for (const ship of fleet.shipTypes) {
+    if (ship.blueprint && isBlueprintShipType(ship.type)) {
+      const previousDefault = createStartingBlueprint(
+        ship.type,
+        previousFactionId
+      );
+      if (shipBlueprintsEqual(ship.blueprint, previousDefault)) {
+        ship.blueprint = createStartingBlueprint(ship.type, factionId);
+      }
+      ship.config = calculateBlueprint(
+        ship.type,
+        ship.blueprint,
+        factionId
+      ).config;
+      continue;
+    }
     migrateDefaultBlueprint(ship, previousFactionId, factionId);
   }
   for (const [rawType, cached] of Object.entries(
@@ -458,9 +698,29 @@ export function setFleetFaction(fleetId: string, factionId: FactionId) {
     const cachedShip = {
       type: rawType as ShipType,
       config: cached.config,
+      blueprint: cached.blueprint,
     };
-    migrateDefaultBlueprint(cachedShip, previousFactionId, factionId);
+    if (cachedShip.blueprint && isBlueprintShipType(cachedShip.type)) {
+      const previousDefault = createStartingBlueprint(
+        cachedShip.type,
+        previousFactionId
+      );
+      if (shipBlueprintsEqual(cachedShip.blueprint, previousDefault)) {
+        cachedShip.blueprint = createStartingBlueprint(
+          cachedShip.type,
+          factionId
+        );
+      }
+      cachedShip.config = calculateBlueprint(
+        cachedShip.type,
+        cachedShip.blueprint,
+        factionId
+      ).config;
+    } else {
+      migrateDefaultBlueprint(cachedShip, previousFactionId, factionId);
+    }
     cached.config = cachedShip.config;
+    cached.blueprint = cachedShip.blueprint;
   }
   fleet.factionId = factionId;
   fleet.shipTypes = reconcileFactionStructure(
@@ -468,8 +728,31 @@ export function setFleetFaction(fleetId: string, factionId: FactionId) {
     factionId,
     state.fleets.indexOf(fleet) === 0
   );
+  reconcileFleetBlueprints(fleet);
   removeFactionInvalidShipTypes(fleet);
   notifyFleetsChanged();
+}
+
+function shipBlueprintsEqual(a: ShipBlueprint, b: ShipBlueprint): boolean {
+  return (
+    a.muonSource === b.muonSource &&
+    a.slots.length === b.slots.length &&
+    a.slots.every((partId, index) => partId === b.slots[index])
+  );
+}
+
+function reconcileFleetBlueprints(fleet: FleetState) {
+  for (const ship of fleet.shipTypes) {
+    if (!ship.blueprint || !isBlueprintShipType(ship.type)) continue;
+    const normalized = normalizeShipBlueprint(ship.type, ship.blueprint);
+    ship.blueprint =
+      normalized ?? createStartingBlueprint(ship.type, fleet.factionId);
+    ship.config = calculateBlueprint(
+      ship.type,
+      ship.blueprint,
+      fleet.factionId
+    ).config;
+  }
 }
 
 function removeFactionInvalidShipTypes(fleet: FleetState) {
@@ -562,20 +845,36 @@ export function enforceFleetRoleRestrictions(fleets: FleetState[]) {
       index === 0,
       fleet.factionId
     );
+    reconcileFleetBlueprints(fleet);
   });
 }
 
 function normalizeFleetMetadata(fleets: FleetState[]): FleetState[] {
   return fleets.map((fleet, index) => {
     const colorId = fleet.colorId ?? defaultFleetColorId(index);
+    const factionId = fleet.factionId ?? '';
     return {
       ...fleet,
-      shipTypes: fleet.shipTypes.map((ship) => ({
-        ...ship,
-        quantity: clampShipQuantity(ship.type, ship.quantity),
-        config: cloneShipConfig(ship.config),
-      })),
-      factionId: fleet.factionId ?? '',
+      shipTypes: fleet.shipTypes.map((ship) => {
+        const blueprint = isBlueprintShipType(ship.type)
+          ? normalizeShipBlueprint(ship.type, ship.blueprint)
+          : undefined;
+        const normalizedShip: ShipTypeConfig = {
+          ...ship,
+          quantity: clampShipQuantity(ship.type, ship.quantity),
+          config: blueprint
+            ? calculateBlueprint(
+                ship.type as BlueprintShipType,
+                blueprint,
+                factionId
+              ).config
+            : cloneShipConfig(ship.config),
+        };
+        if (blueprint) normalizedShip.blueprint = blueprint;
+        else delete normalizedShip.blueprint;
+        return normalizedShip;
+      }),
+      factionId,
       colorId,
       colorIsManual:
         fleet.colorIsManual ?? colorId !== defaultFleetColorId(index),

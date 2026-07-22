@@ -8,10 +8,12 @@ import {
   resetFleets,
   setSimulationResults,
   setFleetFaction,
+  addOrSwapShipPreset,
 } from '@ui/state';
 import { monteCarloResults } from '@ui/test-helpers';
 import {
   loadSteppersPreference,
+  loadControlMode,
   loadThemePreference,
   saveSteppersPreference,
   saveThemePreference,
@@ -22,6 +24,7 @@ import indexHtml from './index.html' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
 import { Fleet } from '@calc/fleet';
 import { DamageType } from './constants';
+import { getStartingShipConfig } from '@ui/ship-presets';
 
 // Waits out the auto-simulate debounce.
 const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
@@ -483,9 +486,13 @@ describe('App', () => {
   });
 
   test('persists the setup and restores it on the next init', () => {
-    addShipType(state.fleets[1].id, ShipType.Cruiser, { initiative: 2 });
+    addShipType(
+      state.fleets[1].id,
+      ShipType.Cruiser,
+      getStartingShipConfig('cruiser').config
+    );
     const saved = localStorage.getItem('luminary:setup');
-    expect(saved).toBe('v=1&a.cruiser=1');
+    expect(saved).toBe('v=2&a.cruiser=1');
 
     // Simulate a fresh page load with no battle in the URL. Resetting fires
     // the save subscription, so put the snapshot back before re-initializing.
@@ -499,7 +506,7 @@ describe('App', () => {
     expect(state.fleets[1].shipTypes).toHaveLength(1);
     expect(state.fleets[1].shipTypes[0].type).toBe(ShipType.Cruiser);
     // The restored battle also lands back in the URL for sharing.
-    expect(window.location.search).toBe('?v=1&a.cruiser=1');
+    expect(window.location.search).toBe('?v=2&a.cruiser=1');
   });
 });
 
@@ -673,22 +680,27 @@ describe('App shared battle links', () => {
     init();
     expect(window.location.search).toBe('');
 
-    const ship = addShipType(state.fleets[1].id, ShipType.Cruiser, {
-      initiative: 2,
-    });
-    expect(window.location.search).toBe('?v=1&a.cruiser=1');
+    const ship = addShipType(
+      state.fleets[1].id,
+      ShipType.Cruiser,
+      getStartingShipConfig('cruiser').config
+    );
+    expect(window.location.search).toBe('?v=2&a.cruiser=1');
 
     updateShipType(state.fleets[1].id, ship.id, {
       quantity: 2,
-      config: { initiative: 2, hull: 1 },
+      config: {
+        ...getStartingShipConfig('cruiser').config,
+        hull: 2,
+      },
     });
-    expect(window.location.search).toBe('?v=1&a.cruiser=2&a.cruiser.hull=1');
+    expect(window.location.search).toBe('?v=2&a.cruiser=2&a.cruiser.hull=2');
 
     resetFleets();
     expect(window.location.search).toBe('');
   });
 
-  test('serializes UI operating blueprints explicitly for v1 link safety', () => {
+  test('omits UI operating stats that match their defaults', () => {
     init();
     const attackerSelector = document.querySelectorAll<HTMLSelectElement>(
       'calc-fleet .ship-selector'
@@ -697,16 +709,16 @@ describe('App shared battle links', () => {
     attackerSelector.value = 'cruiser';
     attackerSelector.dispatchEvent(new Event('change'));
 
-    expect(window.location.search).toBe(
-      '?v=1&a.cruiser=1&a.cruiser.hull=1&a.cruiser.comp=1&a.cruiser.ion=1'
-    );
+    expect(window.location.search).toBe('?v=2&a.cruiser=1');
   });
 
   test('keeps the URL canonical after loading a shared battle', () => {
     window.history.replaceState(null, '', '/?v=1&a.cruiser.hull=1&junk=x');
     init();
 
-    expect(window.location.search).toBe('?v=1&a.cruiser=1&a.cruiser.hull=1');
+    expect(window.location.search).toBe(
+      '?v=2&a.cruiser=1&a.cruiser.comp=0&a.cruiser.ion=0'
+    );
   });
 });
 
@@ -716,11 +728,13 @@ describe('App steppers preference', () => {
     resetFleets();
     setSimulationResults(null);
     document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
+    document.cookie = 'luminary:controls=; Max-Age=0; Path=/';
     document.documentElement.innerHTML = indexHtml;
   });
 
   afterEach(() => {
     document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
+    document.cookie = 'luminary:controls=; Max-Age=0; Path=/';
   });
 
   test('defaults to steppers on', () => {
@@ -757,6 +771,51 @@ describe('App steppers preference', () => {
         ?.classList.contains('active')
     ).toBe(true);
     expect(document.body.classList.contains('no-steppers')).toBe(true);
+  });
+
+  test('renders tile-backed player ships in Ship tiles mode', () => {
+    addOrSwapShipPreset('fleet-0', 'interceptor');
+    init();
+    const toggle = document.getElementById('steppers-toggle')!;
+
+    (
+      toggle.querySelector('[data-controls="ships"]') as HTMLButtonElement
+    ).click();
+
+    expect(loadControlMode()).toBe('ships');
+    expect(state.fleets[0].shipTypes[0].blueprint?.slots).toEqual([
+      'nus',
+      'ioc',
+      null,
+      'nud',
+    ]);
+    expect(window.location.search).toContain(
+      'd.interceptor.parts=nus-ioc-_-nud'
+    );
+    expect(document.querySelector('calc-ship-blueprint')).not.toBeNull();
+  });
+
+  test('cancels or confirms the destructive switch away from blueprints', () => {
+    addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    });
+    document.cookie = 'luminary:controls=ships; Path=/';
+    init();
+    const compact = document.querySelector(
+      '[data-controls="compact"]'
+    ) as HTMLButtonElement;
+    const originalConfirm = window.confirm;
+    window.confirm = () => false;
+    compact.click();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+    expect(loadControlMode()).toBe('ships');
+
+    window.confirm = () => true;
+    compact.click();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeUndefined();
+    expect(loadControlMode()).toBe('compact');
+    expect(document.querySelector('calc-ship-blueprint')).toBeNull();
+    window.confirm = originalConfirm;
   });
 });
 

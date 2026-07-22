@@ -78,6 +78,9 @@ composition root between those layers.
   fleet-validity rules before calling it.
 - `ui/ship-config.ts`: pure normalization, deep cloning, and behavior-based equality for optional
   ship configurations.
+- `ui/ship-parts.ts`: the official part catalog, slot geometry, faction/chassis bonuses, blueprint
+  validation, and pure part-to-combat-stat derivation. Energy and drive validity are presentation
+  warnings and do not enter the engine configuration.
 - `ui/fleet-rules.ts`: pure defender/attacker legality, player/NPC compatibility, and first-valid
   composition sanitization. State commands, controls, and share-link decoding use the same rules.
 - `ui/ship-presets.ts` and `ui/fleet-metadata.ts`: canonical preset, quantity, faction, label, color,
@@ -110,6 +113,22 @@ same pure sanitization so shared links, restored setups, and direct state comman
 Share decoding must remain backward-compatible for supported versions; storage is not a second
 battle format. Preset add, swap, and repeat-increment behavior goes through the atomic
 `addOrSwapShipPreset` state command so configuration caching and notifications occur once.
+
+Player ship rows may additionally own a slot-ordered `blueprint`. While it exists, the row's
+combat `config` is a derived mirror of its parts, Muon Source checkbox, and faction/chassis
+bonuses. Tile mutations update both values in one state command. A direct aggregate-stat edit
+deletes that ship's blueprint; switching away from the Ship tiles control mode deletes all active
+and cached blueprints only after confirmation while retaining their last derived stats. Aggregate
+configs cannot be reverse-engineered reliably, so custom stat-only ships require an explicit reset
+to the standard layout before tile editing.
+
+Version-1 share links remain backward compatible and continue to decode omitted stats against their
+legacy preset baseline. Version 2 encodes aggregate stats against faction-aware operating defaults,
+including stats retained after a blueprint is flattened. It adds fixed-order `.parts` plus optional
+`.muon` metadata. Decoding accepts tile metadata only when the complete slot list is valid, then
+derives combat stats after faction parsing; malformed metadata falls back to the version's aggregate
+stats. Standard and technology parts are repeatable. Discovery parts, including Muon Source, are
+unique within one fleet's blueprint set.
 
 Engine result maps use `FleetState.id` as identity even though the engine field is historically
 named `Fleet.name`. Visible faction/role names are derived presentation and must not be used as

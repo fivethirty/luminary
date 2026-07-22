@@ -4,6 +4,20 @@ calc-ship-type {
   max-width: 100%;
 }
 
+calc-ship-type.summary-only .ship-type > header {
+  display: none;
+}
+
+calc-ship-type.summary-only .ship-type {
+  margin: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+calc-ship-type.summary-only .ship-type .stats {
+  padding: 0;
+}
+
 .ship-type {
   width: 100%;
   min-width: 0;

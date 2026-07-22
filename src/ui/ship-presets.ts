@@ -182,10 +182,10 @@ const SHIP_PRESETS: Record<ShipDropdownOption, ShipVariantData> = {
   },
 };
 
-// Keep these separate from SHIP_PRESETS. The latter is the v1 share-link
+// Keep these separate from SHIP_PRESETS. The latter remains the v1 share-link
 // baseline, so changing it would silently reinterpret historical links whose
-// omitted stats meant zero. UI-added ships use these operating blueprints and
-// serialize their effective stats explicitly against that legacy baseline.
+// omitted stats meant zero. Version 2 links use these faction-aware operating
+// configs as their baseline instead.
 const GENERIC_STARTING_PLAYER_CONFIGS: Partial<
   Record<ShipType, Required<ShipConfig>>
 > = {

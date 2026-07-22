@@ -12,17 +12,21 @@ import {
   resetFleets,
   replaceFleets,
   setSimulationResults,
+  flattenShipBlueprints,
+  hasShipBlueprints,
+  initializeDefaultShipBlueprints,
 } from '@ui/state';
 import type { PlannerType, SurvivorDistributionEntry } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
 import { deriveFleetNames, fleetColor, MAX_FLEETS } from '@ui/fleet-metadata';
 import {
-  applySteppersPreference,
+  applyControlMode,
   applyThemePreference,
-  loadSteppersPreference,
+  loadControlMode,
   loadThemePreference,
-  saveSteppersPreference,
+  saveControlMode,
   saveThemePreference,
+  type ControlMode,
   type ThemePreference,
 } from '@ui/preferences';
 import {
@@ -47,6 +51,7 @@ const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
 // Results recompute automatically shortly after the last edit; the pause keeps
 // hold-to-repeat steppers from re-solving on every tick.
 const AUTO_SIMULATE_DELAY_MS = 200;
+let activeControlMode: ControlMode = 'steppers';
 
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
@@ -65,6 +70,7 @@ function renderFleets() {
   state.fleets.forEach((fleet, index) => {
     const fleetElement = document.createElement('calc-fleet') as FleetElement;
     fleetElement.fleet = fleet;
+    fleetElement.controlMode = activeControlMode;
 
     if (index >= 2) {
       fleetElement.setAttribute('can-remove', 'true');
@@ -405,25 +411,39 @@ function init(): () => void {
   listen(document.getElementById('add-fleet-btn')!, 'click', addFleetHandler);
   listen(document.getElementById('clear-all-btn')!, 'click', clearAll);
 
-  const steppersToggle = document.getElementById('steppers-toggle');
-  const steppersToggleButtons = Array.from(
-    steppersToggle?.querySelectorAll<HTMLButtonElement>('[data-steppers]') ?? []
+  const controlsToggle = document.getElementById('steppers-toggle');
+  const controlsToggleButtons = Array.from(
+    controlsToggle?.querySelectorAll<HTMLButtonElement>('[data-controls]') ?? []
   );
-  const steppersEnabled = loadSteppersPreference();
-  const setSteppersEnabled = (enabled: boolean) => {
-    applySteppersPreference(enabled);
-    steppersToggleButtons.forEach((button) => {
-      const active = button.dataset.steppers === (enabled ? 'on' : 'off');
+  activeControlMode = loadControlMode();
+  const applyActiveControlMode = () => {
+    applyControlMode(activeControlMode);
+    controlsToggleButtons.forEach((button) => {
+      const active = button.dataset.controls === activeControlMode;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
   };
-  setSteppersEnabled(steppersEnabled);
-  steppersToggleButtons.forEach((button) => {
+  applyActiveControlMode();
+  controlsToggleButtons.forEach((button) => {
     listen(button, 'click', () => {
-      const enabled = button.dataset.steppers === 'on';
-      saveSteppersPreference(enabled);
-      setSteppersEnabled(enabled);
+      const nextMode = button.dataset.controls as ControlMode;
+      if (nextMode === activeControlMode) return;
+      if (
+        activeControlMode === 'ships' &&
+        hasShipBlueprints() &&
+        !window.confirm(
+          'Changing control views converts every ship blueprint to combat stats. Part tiles and slot layouts will be lost. Continue?'
+        )
+      ) {
+        return;
+      }
+      if (activeControlMode === 'ships') flattenShipBlueprints();
+      activeControlMode = nextMode;
+      if (activeControlMode === 'ships') initializeDefaultShipBlueprints();
+      saveControlMode(activeControlMode);
+      applyActiveControlMode();
+      renderFleets();
     });
   });
 
@@ -488,6 +508,10 @@ function init(): () => void {
   // A battle in the URL wins; otherwise pick up where the last session left
   // off. Either path triggers an auto-simulate via the change notification.
   if (!loadSharedBattle() && !restoreSavedSetup()) {
+    renderFleets();
+  }
+  if (activeControlMode === 'ships') {
+    initializeDefaultShipBlueprints();
     renderFleets();
   }
 

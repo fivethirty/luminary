@@ -20,9 +20,12 @@ export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
   fleetId!: string;
   factionId?: FactionId;
+  readOnly = false;
+  summaryOnly = false;
 
   connectedCallback() {
     this.innerHTML = html;
+    this.classList.toggle('summary-only', this.summaryOnly);
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     removeBtn.addEventListener('click', () => {
@@ -41,7 +44,8 @@ export class ShipTypeElement extends HTMLElement {
   }
 
   private bindSelectors(shipName: string) {
-    const statsEditable = isPlayerShipType(this.shipType.type);
+    const statsEditable =
+      isPlayerShipType(this.shipType.type) && !this.readOnly;
     const defaultConfig = getStartingShipConfig(
       matchShipPreset(this.shipType.type, this.shipType.config),
       this.factionId

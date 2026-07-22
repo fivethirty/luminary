@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Ship Builder UI Proposals · Luminary</title>
+    <meta
+      name="description"
+      content="Three interactive UI proposals for building Eclipse ships from physical parts."
+    />
+    <link rel="stylesheet" href="/src/app.css" />
+    <link rel="stylesheet" href="/src/ship-builder-proposals.css" />
+    <script type="module" src="/src/ship-builder-proposals.ts" defer></script>
+  </head>
+  <body class="study-body">
+    <header class="study-header">
+      <a class="study-brand" href="/">
+        <span class="study-brand-mark" aria-hidden="true">L</span>
+        <span>Luminary</span>
+      </a>
+      <span class="study-header-label">Interaction study · July 2026</span>
+    </header>
+
+    <main class="study-shell">
+      <section class="study-intro" aria-labelledby="study-title">
+        <div>
+          <p class="eyebrow">Ship blueprint editor</p>
+          <h1 id="study-title">Build with the parts on your table</h1>
+          <p class="study-lede">
+            Three interaction models for translating Eclipse ship-part tiles
+            into a battle-ready blueprint. Each uses the same live inventory,
+            slot rules, energy check, and faction traits.
+          </p>
+        </div>
+        <div class="inventory-summary" aria-label="Part inventory modeled">
+          <span><strong>5</strong> standard · unlimited</span>
+          <span><strong>20</strong> technology · when researched</span>
+          <span><strong>18</strong> discovery · one each</span>
+        </div>
+      </section>
+
+      <nav class="proposal-tabs" role="tablist" aria-label="UI proposals">
+        <button
+          id="proposal-tab-1"
+          type="button"
+          role="tab"
+          aria-controls="proposal-panel-1"
+          aria-selected="true"
+          data-proposal-tab="1"
+        >
+          <span class="proposal-tab-number">01</span>
+          <span>
+            <strong>Slot first</strong>
+            <small>Tap a square, choose a part</small>
+          </span>
+        </button>
+        <button
+          id="proposal-tab-2"
+          type="button"
+          role="tab"
+          aria-controls="proposal-panel-2"
+          aria-selected="false"
+          tabindex="-1"
+          data-proposal-tab="2"
+        >
+          <span class="proposal-tab-number">02</span>
+          <span>
+            <strong>Part first</strong>
+            <small>Choose a tile, then place it</small>
+          </span>
+        </button>
+        <button
+          id="proposal-tab-3"
+          type="button"
+          role="tab"
+          aria-controls="proposal-panel-3"
+          aria-selected="false"
+          tabindex="-1"
+          data-proposal-tab="3"
+        >
+          <span class="proposal-tab-number">03</span>
+          <span>
+            <strong>Workbench</strong>
+            <small>Pointer-first fleet blueprint desk</small>
+          </span>
+        </button>
+      </nav>
+
+      <section
+        id="proposal-panel-1"
+        class="proposal-panel"
+        role="tabpanel"
+        aria-labelledby="proposal-tab-1"
+        data-proposal-panel="1"
+      >
+        <header class="proposal-heading">
+          <div>
+            <div class="proposal-kicker">
+              <span class="device-badge mobile-ready">Mobile + desktop</span>
+              <span class="recommendation-badge">Recommended foundation</span>
+            </div>
+            <h2>Slot-first sheet</h2>
+            <p>
+              The blueprint is the primary object. Tap the exact square you want
+              to change; a categorized picker appears beside it on wide screens
+              and as a thumb-friendly bottom sheet on phones.
+            </p>
+          </div>
+          <dl class="proposal-notes">
+            <div>
+              <dt>Best at</dt>
+              <dd>Clarity and replacement</dd>
+            </div>
+            <div>
+              <dt>Cost</dt>
+              <dd>Two or three taps per tile</dd>
+            </div>
+          </dl>
+        </header>
+        <div id="slot-first-prototype"></div>
+      </section>
+
+      <section
+        id="proposal-panel-2"
+        class="proposal-panel"
+        role="tabpanel"
+        aria-labelledby="proposal-tab-2"
+        data-proposal-panel="2"
+        hidden
+      >
+        <header class="proposal-heading">
+          <div>
+            <div class="proposal-kicker">
+              <span class="device-badge mobile-ready">Mobile + desktop</span>
+              <span class="enhancement-badge">Fast repeat placement</span>
+            </div>
+            <h2>Part-first palette</h2>
+            <p>
+              Pick up a part, then tap a glowing destination. Standard and
+              technology parts stay in hand for rapid duplicates; discoveries
+              clear after their single placement. Dragging is an optional
+              desktop shortcut.
+            </p>
+          </div>
+          <dl class="proposal-notes">
+            <div>
+              <dt>Best at</dt>
+              <dd>Building and comparing quickly</dd>
+            </div>
+            <div>
+              <dt>Cost</dt>
+              <dd>Requires a clear “placing” mode</dd>
+            </div>
+          </dl>
+        </header>
+        <div id="part-first-prototype"></div>
+      </section>
+
+      <section
+        id="proposal-panel-3"
+        class="proposal-panel"
+        role="tabpanel"
+        aria-labelledby="proposal-tab-3"
+        data-proposal-panel="3"
+        hidden
+      >
+        <header class="proposal-heading">
+          <div>
+            <div class="proposal-kicker">
+              <span class="device-badge desktop-only">Desktop only</span>
+              <span class="expert-badge">Expert workflow</span>
+            </div>
+            <h2>Fleet engineering workbench</h2>
+            <p>
+              All five blueprints, the physical discovery inventory, and a live
+              inspector stay visible together. Drag from the library or
+              right-click a square for a category-first context menu.
+            </p>
+          </div>
+          <dl class="proposal-notes">
+            <div>
+              <dt>Best at</dt>
+              <dd>Whole-faction comparison</dd>
+            </div>
+            <div>
+              <dt>Cost</dt>
+              <dd>Pointer precision and 1,200px+</dd>
+            </div>
+          </dl>
+        </header>
+        <div class="desktop-blocker" role="note">
+          <span aria-hidden="true">↔</span>
+          <strong>This proposal intentionally stops on mobile.</strong>
+          <p>
+            Its simultaneous blueprints, drag targets, inspector, and cascading
+            context menu need a large pointer-driven workspace.
+          </p>
+        </div>
+        <div id="workbench-prototype"></div>
+      </section>
+
+      <aside class="study-decisions" aria-labelledby="shared-rules-title">
+        <div>
+          <p class="eyebrow">Shared contract</p>
+          <h2 id="shared-rules-title">What stays consistent</h2>
+        </div>
+        <ul>
+          <li>
+            Faction traits sit in a locked <strong>Built in</strong> rail and
+            never consume a square.
+          </li>
+          <li>
+            Used discovery tiles remain visible with their current location;
+            they can be moved, not duplicated.
+          </li>
+          <li>
+            <strong>Muon Source</strong> uses a separate external socket and is
+            still part of the one-copy discovery inventory.
+          </li>
+          <li>
+            Every proposal keeps energy, initiative, movement, defenses, and
+            weapons visible while editing.
+          </li>
+        </ul>
+      </aside>
+
+      <p class="source-note">
+        Catalog modeled from
+        <a
+          href="https://github.com/AsyncEclipse/DiscordBot/blob/main/data/parts.json"
+          target="_blank"
+          rel="noreferrer"
+          >AsyncEclipse’s parts data</a
+        >; community mod variants and alias records are outside this study.
+      </p>
+    </main>
+
+    <dialog id="tech-dialog" class="tech-dialog"></dialog>
+    <div id="builder-toast" class="builder-toast" role="status" hidden></div>
+    <div id="slot-context-menu" class="slot-context-menu" hidden></div>
+  </body>
+</html>

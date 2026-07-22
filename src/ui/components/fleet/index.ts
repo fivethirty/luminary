@@ -1,9 +1,12 @@
 import html from './fleet.html' with { type: 'text' };
 import './fleet.css';
 import '../ship-type';
+import '../ship-blueprint';
 import type { ShipTypeElement } from '../ship-type';
+import type { ShipBlueprintElement } from '../ship-blueprint';
 import { isPlayerShipType } from '@calc/ship';
 import type { FleetState } from '@ui/state';
+import type { ControlMode } from '@ui/preferences';
 import {
   addOrSwapShipPreset,
   isNpcFleet,
@@ -33,6 +36,7 @@ import {
 
 export class FleetElement extends HTMLElement {
   fleet!: FleetState;
+  controlMode: ControlMode = 'steppers';
   private fleetIndex = 0;
 
   connectedCallback() {
@@ -322,6 +326,16 @@ export class FleetElement extends HTMLElement {
     shipsContainer.innerHTML = '';
 
     this.fleet.shipTypes.forEach((shipType) => {
+      if (this.controlMode === 'ships' && isPlayerShipType(shipType.type)) {
+        const blueprintElement = document.createElement(
+          'calc-ship-blueprint'
+        ) as ShipBlueprintElement;
+        blueprintElement.shipType = shipType;
+        blueprintElement.fleetId = this.fleet.id;
+        blueprintElement.factionId = this.fleet.factionId;
+        shipsContainer.appendChild(blueprintElement);
+        return;
+      }
       const shipElement = document.createElement(
         'calc-ship-type'
       ) as ShipTypeElement;
@@ -370,7 +384,9 @@ export class FleetElement extends HTMLElement {
   }
 
   private addShip(dropdownOption: ShipDropdownOption) {
-    const ship = addOrSwapShipPreset(this.fleet.id, dropdownOption);
+    const ship = addOrSwapShipPreset(this.fleet.id, dropdownOption, {
+      withBlueprint: this.controlMode === 'ships',
+    });
     if (!ship) return;
     this.refreshAfterShipSelection();
   }

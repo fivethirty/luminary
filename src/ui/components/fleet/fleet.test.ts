@@ -235,6 +235,35 @@ describe('Fleet', () => {
     expect(shipSelector.value).toBe('');
   });
 
+  test('uses blueprint editors for players and stat rows for NPCs in Ship tiles mode', () => {
+    const player = document.createElement('calc-fleet') as FleetElement;
+    player.fleet = state.fleets[0];
+    player.controlMode = 'ships';
+    document.body.appendChild(player);
+    const shipSelect = player.querySelector(
+      '.ship-selector'
+    ) as HTMLSelectElement;
+    shipSelect.value = 'interceptor';
+    shipSelect.dispatchEvent(new Event('change'));
+    expect(player.querySelector('calc-ship-blueprint')).not.toBeNull();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+
+    document.body.innerHTML = '';
+    resetFleets();
+    state.fleets[0].shipTypes.push({
+      id: 'ancient',
+      type: ShipType.Ancient,
+      quantity: 1,
+      config: {},
+    });
+    const npc = document.createElement('calc-fleet') as FleetElement;
+    npc.fleet = state.fleets[0];
+    npc.controlMode = 'ships';
+    document.body.appendChild(npc);
+    expect(npc.querySelector('calc-ship-type')).not.toBeNull();
+    expect(npc.querySelector('calc-ship-blueprint')).toBeNull();
+  });
+
   test('places the ship and NPC add controls together after the ship list', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];

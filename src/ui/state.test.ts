@@ -20,6 +20,11 @@ import {
   setSectorPopulation,
   setSimulationResults,
   onFleetsChanged,
+  ensureShipBlueprint,
+  findBlueprintPartUse,
+  flattenShipBlueprints,
+  replaceBlueprintPart,
+  setBlueprintMuonSource,
 } from './state';
 import { monteCarloResults } from './test-helpers';
 import { ShipType, type ShipConfig } from '@calc/ship';
@@ -286,6 +291,139 @@ describe('State', () => {
       expect(ship.type).toBe(ShipType.Interceptor);
       expect(ship.quantity).toBe(3);
       expect(ship.config).toEqual({ hull: 2, cannons: { ion: 1 } });
+    });
+  });
+
+  describe('ship blueprints', () => {
+    test('adds a tile-backed ship and derives stats in the same transaction', () => {
+      const cruiser = addOrSwapShipPreset('fleet-0', 'cruiser', {
+        withBlueprint: true,
+      })!;
+
+      expect(cruiser.blueprint?.slots).toEqual([
+        'elc',
+        'ioc',
+        null,
+        'nus',
+        'hul',
+        'nud',
+      ]);
+      expect(cruiser.config).toMatchObject({
+        hull: 1,
+        computers: 1,
+        initiative: 2,
+        cannons: { ion: 1 },
+      });
+    });
+
+    test('replacing a tile re-derives config and notifies once', () => {
+      const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+        withBlueprint: true,
+      })!;
+      let changes = 0;
+      const unsubscribe = onFleetsChanged(() => changes++);
+
+      expect(replaceBlueprintPart('fleet-0', ship.id, 1, 'anc')).toBe(true);
+
+      expect(changes).toBe(1);
+      expect(ship.blueprint?.slots[1]).toBe('anc');
+      expect(ship.config.cannons?.ion).toBe(0);
+      expect(ship.config.cannons?.antimatter).toBe(1);
+      unsubscribe();
+    });
+
+    test('does not clear a starting part', () => {
+      const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+        withBlueprint: true,
+      })!;
+
+      expect(replaceBlueprintPart('fleet-0', ship.id, 1, null)).toBe(false);
+      expect(ship.blueprint?.slots[1]).toBe('ioc');
+      expect(replaceBlueprintPart('fleet-0', ship.id, 2, 'anc')).toBe(true);
+      expect(replaceBlueprintPart('fleet-0', ship.id, 2, null)).toBe(true);
+      expect(ship.blueprint?.slots[2]).toBeNull();
+    });
+
+    test('keeps each discovery and Muon Source unique within a fleet', () => {
+      const interceptor = addOrSwapShipPreset('fleet-0', 'interceptor', {
+        withBlueprint: true,
+      })!;
+      const cruiser = addOrSwapShipPreset('fleet-0', 'cruiser', {
+        withBlueprint: true,
+      })!;
+      expect(replaceBlueprintPart('fleet-0', interceptor.id, 2, 'shh')).toBe(
+        true
+      );
+      expect(replaceBlueprintPart('fleet-0', cruiser.id, 2, 'shh')).toBe(false);
+      expect(findBlueprintPartUse('fleet-0', 'shh')?.shipId).toBe(
+        interceptor.id
+      );
+
+      expect(setBlueprintMuonSource('fleet-0', interceptor.id, true)).toBe(
+        true
+      );
+      expect(setBlueprintMuonSource('fleet-0', cruiser.id, true)).toBe(false);
+    });
+
+    test('free-form stats flatten one ship while view conversion flattens all', () => {
+      const interceptor = addOrSwapShipPreset('fleet-0', 'interceptor', {
+        withBlueprint: true,
+      })!;
+      const cruiser = addOrSwapShipPreset('fleet-0', 'cruiser', {
+        withBlueprint: true,
+      })!;
+      updateShipType('fleet-0', interceptor.id, { config: { hull: 9 } });
+      expect(interceptor.blueprint).toBeUndefined();
+      expect(cruiser.blueprint).toBeDefined();
+
+      expect(flattenShipBlueprints()).toBe(true);
+      expect(cruiser.blueprint).toBeUndefined();
+      expect(cruiser.config.computers).toBe(1);
+    });
+
+    test('does not guess parts for custom stats unless reset is explicit', () => {
+      const ship = addShipType('fleet-0', ShipType.Interceptor, { hull: 8 });
+      expect(ensureShipBlueprint('fleet-0', ship.id)).toBe(false);
+      expect(ensureShipBlueprint('fleet-0', ship.id, true)).toBe(true);
+      expect(ship.blueprint?.slots).toHaveLength(4);
+      expect(ship.config.hull).toBe(0);
+    });
+
+    test('migrates untouched faction tiles but preserves customized slots', () => {
+      const untouched = addOrSwapShipPreset('fleet-0', 'interceptor', {
+        withBlueprint: true,
+      })!;
+      setFleetFaction('fleet-0', 'orion');
+      expect(untouched.blueprint?.slots[2]).toBe('gas');
+      expect(untouched.config).toMatchObject({ initiative: 4, shields: 1 });
+
+      setFleetFaction('fleet-1', 'terran');
+      const custom = addOrSwapShipPreset('fleet-1', 'interceptor', {
+        withBlueprint: true,
+      })!;
+      replaceBlueprintPart('fleet-1', custom.id, 2, 'hul');
+      setFleetFaction('fleet-1', 'orion');
+      expect(custom.blueprint?.slots[2]).toBe('hul');
+      expect(custom.config.hull).toBe(1);
+      expect(custom.config.shields).toBe(0);
+    });
+
+    test('resets tile geometry when faction conversion changes structure type', () => {
+      setFleetFaction('fleet-0', 'terran');
+      const structure = addOrSwapShipPreset('fleet-0', 'starbase', {
+        withBlueprint: true,
+      })!;
+
+      setFleetFaction('fleet-0', 'exiles');
+
+      expect(structure.type).toBe(ShipType.Orbital);
+      expect(structure.blueprint?.slots).toEqual(['hul', 'iotexile', 'elc']);
+      expect(structure.config).toMatchObject({
+        hull: 3,
+        computers: 1,
+        initiative: 0,
+        cannons: { ion: 2 },
+      });
     });
   });
 
