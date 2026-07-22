@@ -9,6 +9,7 @@ import type { FleetState } from '@ui/state';
 import type { ControlMode } from '@ui/preferences';
 import {
   addOrSwapShipPreset,
+  ensureShipBlueprint,
   isNpcFleet,
   moveFleet,
   removeFleet,
@@ -86,6 +87,9 @@ export class FleetElement extends HTMLElement {
       this.updateColorControls();
       this.updateShipSelector();
       this.updatePlannerControl();
+    });
+    this.addEventListener('ship-blueprint-created', () => {
+      this.renderShips();
     });
 
     const shipSelector = this.querySelector(
@@ -326,7 +330,12 @@ export class FleetElement extends HTMLElement {
     shipsContainer.innerHTML = '';
 
     this.fleet.shipTypes.forEach((shipType) => {
-      if (this.controlMode === 'ships' && isPlayerShipType(shipType.type)) {
+      const showBlueprint =
+        this.controlMode === 'ships' &&
+        isPlayerShipType(shipType.type) &&
+        (Boolean(shipType.blueprint) ||
+          ensureShipBlueprint(this.fleet.id, shipType.id));
+      if (showBlueprint) {
         const blueprintElement = document.createElement(
           'calc-ship-blueprint'
         ) as ShipBlueprintElement;
@@ -343,6 +352,8 @@ export class FleetElement extends HTMLElement {
       shipElement.fleetId = this.fleet.id;
       shipElement.factionId = this.fleet.factionId;
       shipElement.tileMode = this.controlMode === 'ships';
+      shipElement.offerBlueprintReplacement =
+        this.controlMode === 'ships' && isPlayerShipType(shipType.type);
       shipsContainer.appendChild(shipElement);
     });
   }

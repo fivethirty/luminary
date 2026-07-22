@@ -8,7 +8,6 @@ import {
   resetFleets,
   setSimulationResults,
   setFleetFaction,
-  addOrSwapShipPreset,
 } from '@ui/state';
 import { monteCarloResults } from '@ui/test-helpers';
 import {
@@ -727,12 +726,14 @@ describe('App steppers preference', () => {
     localStorage.clear();
     resetFleets();
     setSimulationResults(null);
+    window.history.replaceState(null, '', '/');
     document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
     document.cookie = 'luminary:controls=; Max-Age=0; Path=/';
     document.documentElement.innerHTML = indexHtml;
   });
 
   afterEach(() => {
+    window.history.replaceState(null, '', '/');
     document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
     document.cookie = 'luminary:controls=; Max-Age=0; Path=/';
   });
@@ -773,14 +774,10 @@ describe('App steppers preference', () => {
     expect(document.body.classList.contains('no-steppers')).toBe(true);
   });
 
-  test('renders tile-backed player ships in Ship tiles mode', () => {
-    addOrSwapShipPreset('fleet-0', 'interceptor');
+  test('rehydrates shared starting stats as a blueprint in Ship tiles mode', () => {
+    window.history.replaceState(null, '', '/?v=2&d.interceptor=1');
+    document.cookie = 'luminary:controls=ships; Path=/';
     init();
-    const toggle = document.getElementById('steppers-toggle')!;
-
-    (
-      toggle.querySelector('[data-controls="ships"]') as HTMLButtonElement
-    ).click();
 
     expect(loadControlMode()).toBe('ships');
     expect(state.fleets[0].shipTypes[0].blueprint?.slots).toEqual([
@@ -793,37 +790,37 @@ describe('App steppers preference', () => {
       'd.interceptor.parts=nus-ioc-_-nud'
     );
     expect(document.querySelector('calc-ship-blueprint')).not.toBeNull();
+    expect(document.querySelector('.ship-representation-notice')).toBeNull();
   });
 
-  test('uses a dialog to cancel or confirm switching away from blueprints', () => {
-    addOrSwapShipPreset('fleet-0', 'interceptor', {
-      withBlueprint: true,
-    });
+  test('preserves blueprint data while switching control modes', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?v=2&d.interceptor=1&d.interceptor.parts=nus-ioc-_-nud'
+    );
     document.cookie = 'luminary:controls=ships; Path=/';
     init();
     const compact = document.querySelector(
       '[data-controls="compact"]'
     ) as HTMLButtonElement;
-    const dialog = document.getElementById(
-      'blueprint-flatten-dialog'
-    ) as HTMLDialogElement;
 
     compact.click();
-    expect(dialog.open).toBe(true);
     expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
-    expect(loadControlMode()).toBe('ships');
-
-    document.getElementById('blueprint-flatten-cancel')?.click();
-    expect(dialog.open).toBe(false);
-    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
-    expect(loadControlMode()).toBe('ships');
-
-    compact.click();
-    document.getElementById('blueprint-flatten-confirm')?.click();
-    expect(dialog.open).toBe(false);
-    expect(state.fleets[0].shipTypes[0].blueprint).toBeUndefined();
     expect(loadControlMode()).toBe('compact');
+    expect(window.location.search).toContain(
+      'd.interceptor.parts=nus-ioc-_-nud'
+    );
     expect(document.querySelector('calc-ship-blueprint')).toBeNull();
+    expect(
+      (document.querySelector('.blueprint-backed-notice') as HTMLElement).hidden
+    ).toBe(false);
+
+    (
+      document.querySelector('[data-controls="ships"]') as HTMLButtonElement
+    ).click();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+    expect(document.querySelector('calc-ship-blueprint')).not.toBeNull();
   });
 });
 

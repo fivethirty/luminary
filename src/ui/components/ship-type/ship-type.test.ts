@@ -3,7 +3,7 @@ import './index';
 import type { ShipTypeElement } from './index';
 import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
-import { state, resetFleets } from '@ui/state';
+import { addOrSwapShipPreset, state, resetFleets } from '@ui/state';
 import { ShipType } from '@calc/ship';
 import { getStartingShipConfig } from '@ui/ship-presets';
 
@@ -339,6 +339,61 @@ describe('ShipType', () => {
     expect(shipTypeConfig.config.missiles?.plasma).toBe(2);
     expect(shipTypeConfig.config.missiles?.soliton).toBe(1);
     expect(shipTypeConfig.config.missiles?.antimatter).toBe(1);
+  });
+
+  test('warns before a stat edit detaches a blueprint-backed ship', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    document.body.appendChild(element);
+
+    const notice = element.querySelector(
+      '.blueprint-backed-notice'
+    ) as HTMLElement;
+    expect(notice.hidden).toBe(false);
+    expect(notice.textContent?.trim()).toBe(
+      '⚠ Blueprint will be lost on edit'
+    );
+
+    const hull = element.querySelector('[data-stat="hull"]') as HTMLElement;
+    (hull.querySelector('.stat-inc') as HTMLButtonElement).click();
+
+    expect(ship.blueprint).toBeUndefined();
+    expect(notice.hidden).toBe(true);
+  });
+
+  test('keeps aggregate stats visible before explicitly replacing them with a blueprint', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor')!;
+    ship.config = { hull: 9 };
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    element.offerBlueprintReplacement = true;
+    document.body.appendChild(element);
+
+    const offer = element.querySelector(
+      '.stats-blueprint-offer'
+    ) as HTMLElement;
+    const hull = element.querySelector('[data-stat="hull"]') as StatCubeElement;
+    expect(offer.hidden).toBe(false);
+    expect(offer.querySelector('strong')?.textContent).toBe(
+      '⚠ Stats only! Parts unknown.'
+    );
+    expect(hull.value).toBe(9);
+    expect(element.querySelector('.stats-blueprint-description')).toBeNull();
+
+    let created = false;
+    element.addEventListener('ship-blueprint-created', () => {
+      created = true;
+    });
+    (offer.querySelector('.start-blueprint-btn') as HTMLButtonElement).click();
+
+    expect(created).toBe(true);
+    expect(ship.blueprint?.slots).toEqual(['nus', 'ioc', null, 'nud']);
+    expect(ship.config.hull).toBe(0);
   });
 
   test('disables NPC ship layout stats', () => {

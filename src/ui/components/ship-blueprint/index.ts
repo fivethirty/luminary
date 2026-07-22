@@ -11,7 +11,6 @@ import orbitalBlueprintImage from '../../../assets/ship-blueprints/blueprint_orb
 import { ShipType } from '@calc/ship';
 import type { FactionId } from '@ui/fleet-metadata';
 import {
-  ensureShipBlueprint,
   findBlueprintPartUse,
   removeShipType,
   replaceBlueprintPart,
@@ -105,7 +104,7 @@ export class ShipBlueprintElement extends HTMLElement {
   fleetId!: string;
   factionId?: FactionId;
 
-  private selectedSlot: number | null = null;
+  private selectedSlot: number | null = 0;
   private shipName = '';
 
   connectedCallback() {
@@ -136,15 +135,6 @@ export class ShipBlueprintElement extends HTMLElement {
       });
     });
 
-    this.querySelector('.start-blueprint-btn')?.addEventListener(
-      'click',
-      () => {
-        if (ensureShipBlueprint(this.fleetId, this.shipType.id, true)) {
-          this.selectedSlot = null;
-          this.renderEditor();
-        }
-      }
-    );
     this.querySelector('.edit-part-btn')?.addEventListener('click', () =>
       this.openPartDialog()
     );
@@ -160,14 +150,11 @@ export class ShipBlueprintElement extends HTMLElement {
   }
 
   private renderEditor() {
-    const reset = this.querySelector('.blueprint-reset') as HTMLElement;
     const editor = this.querySelector('.blueprint-editor') as HTMLElement;
     if (!this.shipType.blueprint) {
-      reset.hidden = false;
       editor.hidden = true;
       return;
     }
-    reset.hidden = true;
     editor.hidden = false;
     this.renderCanvas();
     this.renderExternalSection();
@@ -177,6 +164,10 @@ export class ShipBlueprintElement extends HTMLElement {
   private renderCanvas() {
     const layout = BLUEPRINT_LAYOUTS[this.blueprintType];
     const canvas = this.querySelector('.blueprint-canvas') as HTMLElement;
+    canvas.classList.toggle(
+      'blueprint-canvas-dreadnought',
+      this.blueprintType === ShipType.Dreadnought
+    );
     canvas.style.aspectRatio = String(layout.aspectRatio);
     const background = this.querySelector(
       '.blueprint-background'
@@ -261,7 +252,7 @@ export class ShipBlueprintElement extends HTMLElement {
     }
     const partId = this.shipType.blueprint.slots[this.selectedSlot];
     const entry = PART_BY_ID.get(partId ?? '');
-    selected.textContent = `Slot ${this.selectedSlot + 1} · ${entry?.name ?? 'Empty'}`;
+    selected.textContent = entry?.name ?? 'Empty';
     replace.disabled = false;
     const canRemove = this.canRemoveSelectedPart();
     remove.disabled = !canRemove;
@@ -493,8 +484,10 @@ export class ShipBlueprintElement extends HTMLElement {
 
   private openPartDialog() {
     if (this.selectedSlot === null || !this.shipType.blueprint) return;
-    const slotNumber = this.querySelector('.dialog-slot-number') as HTMLElement;
-    slotNumber.textContent = String(this.selectedSlot + 1);
+    const partId = this.shipType.blueprint.slots[this.selectedSlot];
+    const partName = partId ? PART_BY_ID.get(partId)?.name : undefined;
+    const title = this.querySelector('.part-dialog-title') as HTMLElement;
+    title.textContent = partName ? `Replace ${partName}` : 'Fill empty slot';
     const search = this.querySelector('.part-search') as HTMLInputElement;
     search.value = '';
     this.renderPartBuckets();

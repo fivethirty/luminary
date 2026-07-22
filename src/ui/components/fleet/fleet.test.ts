@@ -3,6 +3,7 @@ import './index';
 import type { FleetElement } from './index';
 import { state, resetFleets, removeShipType } from '@ui/state';
 import { ShipType } from '@calc/ship';
+import { getStartingShipConfig } from '@ui/ship-presets';
 
 describe('Fleet', () => {
   beforeEach(() => {
@@ -270,6 +271,57 @@ describe('Fleet', () => {
       false
     );
     expect((ancient.querySelector('.stats') as HTMLElement).hidden).toBe(true);
+  });
+
+  test('keeps imported aggregate ships as editable stat rows in Ship tiles mode', () => {
+    state.fleets[0].shipTypes.push({
+      id: 'stats-interceptor',
+      type: ShipType.Interceptor,
+      quantity: 1,
+      config: { hull: 9 },
+    });
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.controlMode = 'ships';
+    document.body.appendChild(element);
+
+    const stats = element.querySelector('calc-ship-type') as HTMLElement;
+    expect(stats).not.toBeNull();
+    expect(element.querySelector('calc-ship-blueprint')).toBeNull();
+    expect(
+      (stats.querySelector('.stats-blueprint-offer') as HTMLElement).hidden
+    ).toBe(false);
+
+    (stats.querySelector('.start-blueprint-btn') as HTMLButtonElement).click();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+    expect(element.querySelector('calc-ship-type')).toBeNull();
+    expect(element.querySelector('calc-ship-blueprint')).not.toBeNull();
+  });
+
+  test('shows the starting blueprint for matching aggregate stats without a warning', () => {
+    state.fleets[0].factionId = 'orion';
+    state.fleets[0].shipTypes.push({
+      id: 'starting-interceptor',
+      type: ShipType.Interceptor,
+      quantity: 1,
+      config: getStartingShipConfig('interceptor', 'orion').config,
+    });
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeUndefined();
+
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.controlMode = 'ships';
+    document.body.appendChild(element);
+
+    expect(element.querySelector('calc-ship-type')).toBeNull();
+    expect(element.querySelector('calc-ship-blueprint')).not.toBeNull();
+    expect(element.querySelector('.ship-representation-notice')).toBeNull();
+    expect(state.fleets[0].shipTypes[0].blueprint?.slots).toEqual([
+      'nus',
+      'ioc',
+      'gas',
+      'nud',
+    ]);
   });
 
   test('places the ship and NPC add controls together after the ship list', () => {

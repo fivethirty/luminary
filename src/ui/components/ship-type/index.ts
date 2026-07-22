@@ -17,9 +17,10 @@ import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
 import type { FactionId } from '@ui/fleet-metadata';
-import { removeShipType, updateShipType } from '@ui/state';
+import { ensureShipBlueprint, removeShipType, updateShipType } from '@ui/state';
 import { isPlayerShipType, type ShipConfig, type WeaponType } from '@calc/ship';
 import { cloneShipConfig } from '@ui/ship-config';
+import { isBlueprintShipType } from '@ui/ship-parts';
 import {
   getStartingShipConfig,
   matchShipPreset,
@@ -47,6 +48,7 @@ export class ShipTypeElement extends HTMLElement {
   readOnly = false;
   summaryOnly = false;
   tileMode = false;
+  offerBlueprintReplacement = false;
 
   connectedCallback() {
     this.innerHTML = html;
@@ -67,6 +69,35 @@ export class ShipTypeElement extends HTMLElement {
 
     this.renderShipTile(preset, shipName);
     this.bindSelectors(shipName);
+    this.bindBlueprintReplacement();
+    this.renderRepresentationNotices();
+  }
+
+  private bindBlueprintReplacement() {
+    if (!this.offerBlueprintReplacement) return;
+    this.querySelector('.start-blueprint-btn')?.addEventListener(
+      'click',
+      () => {
+        if (!ensureShipBlueprint(this.fleetId, this.shipType.id, true)) return;
+        this.dispatchEvent(
+          new CustomEvent('ship-blueprint-created', { bubbles: true })
+        );
+      }
+    );
+  }
+
+  private renderRepresentationNotices() {
+    const backed = this.querySelector(
+      '.blueprint-backed-notice'
+    ) as HTMLElement;
+    backed.hidden = !this.shipType.blueprint;
+
+    const offer = this.querySelector('.stats-blueprint-offer') as HTMLElement;
+    offer.hidden = !(
+      this.offerBlueprintReplacement &&
+      !this.shipType.blueprint &&
+      isBlueprintShipType(this.shipType.type)
+    );
   }
 
   private renderShipTile(preset: ShipDropdownOption, shipName: string) {
@@ -237,6 +268,7 @@ export class ShipTypeElement extends HTMLElement {
             const config = cloneShipConfig(this.shipType.config);
             setValue(config, cube.value);
             updateShipType(this.fleetId, this.shipType.id, { config });
+            this.renderRepresentationNotices();
           }
           cube.disabled = !statsEditable;
           cube.addEventListener('change', () => {
@@ -244,6 +276,7 @@ export class ShipTypeElement extends HTMLElement {
             const config = cloneShipConfig(this.shipType.config);
             setValue(config, cube.value);
             updateShipType(this.fleetId, this.shipType.id, { config });
+            this.renderRepresentationNotices();
           });
         }
       }

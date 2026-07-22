@@ -565,59 +565,6 @@ export function ensureShipBlueprint(
   return true;
 }
 
-export function initializeDefaultShipBlueprints(): number {
-  let initialized = 0;
-  for (const fleet of state.fleets) {
-    for (const ship of fleet.shipTypes) {
-      if (!isBlueprintShipType(ship.type) || ship.blueprint) continue;
-      const preset = presetKeysForType(ship.type)[0];
-      if (!preset) continue;
-      const oldDefault = getStartingShipConfig(preset, fleet.factionId).config;
-      if (!shipConfigsEqual(ship.config, oldDefault)) continue;
-      ship.blueprint = createStartingBlueprint(ship.type, fleet.factionId);
-      ship.config = calculateBlueprint(
-        ship.type,
-        ship.blueprint,
-        fleet.factionId
-      ).config;
-      initialized++;
-    }
-  }
-  if (initialized > 0) notifyFleetsChanged();
-  return initialized;
-}
-
-export function hasShipBlueprints(): boolean {
-  return (
-    state.fleets.some((fleet) =>
-      fleet.shipTypes.some((ship) => ship.blueprint !== undefined)
-    ) ||
-    Object.values(state.cachedShipTypes).some((cache) =>
-      Object.values(cache).some((ship) => ship?.blueprint !== undefined)
-    )
-  );
-}
-
-export function flattenShipBlueprints(): boolean {
-  let changed = false;
-  state.fleets.forEach((fleet) =>
-    fleet.shipTypes.forEach((ship) => {
-      if (!ship.blueprint) return;
-      delete ship.blueprint;
-      changed = true;
-    })
-  );
-  Object.values(state.cachedShipTypes).forEach((cache) =>
-    Object.values(cache).forEach((ship) => {
-      if (!ship?.blueprint) return;
-      delete ship.blueprint;
-      changed = true;
-    })
-  );
-  if (changed) notifyFleetsChanged();
-  return changed;
-}
-
 export function resetFleets() {
   state.fleets = DEFAULT_FLEETS.map((f) => ({ ...f, shipTypes: [] }));
   state.sectorPopulation = DEFAULT_SECTOR_POPULATION;

@@ -526,44 +526,6 @@ select {
   width: 7.5rem;
 }
 
-.confirmation-dialog {
-  width: min(28rem, calc(100vw - 2rem));
-  padding: 0;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-}
-
-.confirmation-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.48);
-}
-
-.confirmation-dialog-content {
-  padding: var(--space-lg);
-}
-
-.confirmation-dialog h2 {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--font-size-xl);
-}
-
-.confirmation-dialog p {
-  margin: 0;
-  color: var(--color-text-secondary);
-}
-
-.confirmation-dialog-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-lg);
-}
-
-.confirmation-dialog-actions button {
-  padding: var(--space-sm) var(--space-md);
-}
-
 @media (max-width: 42rem) {
   body {
     padding: var(--space-sm)

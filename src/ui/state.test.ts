@@ -22,7 +22,6 @@ import {
   onFleetsChanged,
   ensureShipBlueprint,
   findBlueprintPartUse,
-  flattenShipBlueprints,
   replaceBlueprintPart,
   setBlueprintMuonSource,
 } from './state';
@@ -376,7 +375,7 @@ describe('State', () => {
       expect(setBlueprintMuonSource('fleet-0', cruiser.id, true)).toBe(false);
     });
 
-    test('free-form stats flatten one ship while view conversion flattens all', () => {
+    test('free-form stats detach only the edited ship from its blueprint', () => {
       const interceptor = addOrSwapShipPreset('fleet-0', 'interceptor', {
         withBlueprint: true,
       })!;
@@ -386,9 +385,6 @@ describe('State', () => {
       updateShipType('fleet-0', interceptor.id, { config: { hull: 9 } });
       expect(interceptor.blueprint).toBeUndefined();
       expect(cruiser.blueprint).toBeDefined();
-
-      expect(flattenShipBlueprints()).toBe(true);
-      expect(cruiser.blueprint).toBeUndefined();
       expect(cruiser.config.computers).toBe(1);
     });
 

@@ -116,20 +116,22 @@ battle format. Preset add, swap, and repeat-increment behavior goes through the 
 
 Player ship rows may additionally own a slot-ordered `blueprint`. While it exists, the row's
 combat `config` is a derived mirror of its parts, Muon Source checkbox, and faction/chassis
-bonuses. Tile mutations update both values in one state command. A direct aggregate-stat edit
-deletes that ship's blueprint; switching away from the Ship tiles control mode deletes all active
-and cached blueprints only after confirmation while retaining their last derived stats. Aggregate
-configs cannot be reverse-engineered reliably, so custom stat-only ships require an explicit reset
-to the standard layout before tile editing. Planta's faction-specific unavailable blueprint slots
-remain empty through rendering, mutation, import normalization, and stat derivation.
+bonuses. Tile mutations update both values in one state command. Control mode is only a local view
+preference except that Ship tiles mode may rehydrate an absent canonical blueprint when the
+aggregate config exactly matches its faction-aware starting stats. A direct aggregate-stat edit
+deletes only that ship's blueprint after the stat UI explains the one-way transition. Other
+aggregate configs cannot be reverse-engineered reliably; in Ship tiles mode those rows retain their
+editable stats and offer an explicit replacement with the canonical starting blueprint. Ships
+added from the Ship tiles picker have known provenance and start with a blueprint immediately.
+Planta's faction-specific unavailable blueprint slots remain empty through rendering, mutation,
+import normalization, and stat derivation.
 
 Version-1 share links remain backward compatible and continue to decode omitted stats against their
 legacy preset baseline. Version 2 encodes aggregate stats against faction-aware operating defaults,
-including stats retained after a blueprint is flattened. It adds fixed-order `.parts` plus optional
-`.muon` metadata. Decoding accepts tile metadata only when the complete slot list is valid, then
-derives combat stats after faction parsing; malformed metadata falls back to the version's aggregate
-stats. Standard and technology parts are repeatable. Discovery parts, including Muon Source, are
-unique within one fleet's blueprint set.
+and adds fixed-order `.parts` plus optional `.muon` metadata. Decoding accepts tile metadata only
+when the complete slot list is valid, then derives combat stats after faction parsing; malformed
+metadata falls back to the version's aggregate stats. Standard and technology parts are repeatable.
+Discovery parts, including Muon Source, are unique within one fleet's blueprint set.
 
 Engine result maps use `FleetState.id` as identity even though the engine field is historically
 named `Fleet.name`. Visible faction/role names are derived presentation and must not be used as

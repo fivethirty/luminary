@@ -43,6 +43,31 @@ calc-ship-type.summary-only .ship-type .stats {
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
+.ship-representation-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 56%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.ship-representation-notice[hidden] {
+  display: none;
+}
+
+.ship-representation-notice strong {
+  color: var(--color-text-primary);
+}
+
+.stats-blueprint-offer .start-blueprint-btn {
+  flex: 0 0 auto;
+}
+
 .ship-tile {
   display: flex;
   justify-content: center;
@@ -135,6 +160,11 @@ calc-ship-type.summary-only .ship-type .stats {
 
   .quantity {
     margin-right: var(--space-xs);
+  }
+
+  .stats-blueprint-offer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

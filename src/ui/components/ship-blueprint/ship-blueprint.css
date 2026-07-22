@@ -32,20 +32,6 @@ calc-ship-blueprint {
   margin-right: var(--space-sm);
 }
 
-.blueprint-reset {
-  margin: var(--space-md);
-  padding: var(--space-md);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
-.blueprint-reset p {
-  max-width: 40rem;
-  margin: var(--space-xs) auto var(--space-md);
-}
-
 .blueprint-editor {
   padding: var(--space-sm) var(--space-md);
 }
@@ -55,19 +41,23 @@ calc-ship-blueprint {
 
   display: grid;
   grid-template-columns:
-    var(--blueprint-canvas-width) minmax(11.5rem, 13rem)
-    minmax(12rem, 1fr);
+    var(--blueprint-canvas-width) minmax(11.5rem, 1fr)
+    minmax(12rem, 13rem);
   grid-template-areas: 'canvas actions external';
   gap: var(--space-md);
   align-items: start;
 }
 
-.blueprint-canvas-wrap {
+.blueprint-visual {
   grid-area: canvas;
   min-width: 0;
   width: min(100%, var(--blueprint-canvas-width));
   max-width: var(--blueprint-canvas-width);
   margin: 0;
+}
+
+.blueprint-canvas-wrap {
+  width: 100%;
   padding: var(--space-xs);
   border: 1px solid
     color-mix(
@@ -119,6 +109,11 @@ calc-ship-blueprint {
   pointer-events: none;
   text-align: center;
   text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
+}
+
+.blueprint-canvas-dreadnought .blueprint-readouts {
+  right: auto;
+  width: 75.092%;
 }
 
 .blueprint-readouts span {
@@ -296,9 +291,11 @@ calc-ship-blueprint {
 }
 
 .drive-warning {
-  margin-top: var(--space-sm);
+  margin-top: var(--space-xs);
   color: var(--color-danger, #ef7a7a);
   font-size: 0.78rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .slot-actions {
@@ -329,10 +326,6 @@ calc-ship-blueprint {
   min-width: 0;
   min-height: 2.75rem;
   padding-inline: var(--space-xs);
-}
-
-.remove-part-btn {
-  color: var(--color-text-secondary);
 }
 
 .recent-parts {
@@ -443,6 +436,10 @@ calc-ship-blueprint {
   min-height: 2.75rem;
 }
 
+.part-search:focus-visible {
+  outline: none;
+}
+
 .part-buckets {
   flex: 1;
   min-height: 0;
@@ -537,11 +534,22 @@ calc-ship-blueprint {
   text-align: center;
 }
 
+@media (min-width: 60.0625rem) {
+  .slot-action-buttons {
+    display: flex;
+    gap: var(--space-sm);
+  }
+
+  .recent-parts-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 60rem) {
   .blueprint-workbench {
     grid-template-columns:
-      var(--blueprint-canvas-width) minmax(11.5rem, 13rem)
-      minmax(0, 1fr);
+      var(--blueprint-canvas-width) minmax(11.5rem, 1fr)
+      minmax(0, 13rem);
     grid-template-areas: 'canvas actions external';
   }
 }
@@ -580,11 +588,6 @@ calc-ship-blueprint {
     grid-row: 1 / span 2;
   }
 
-  .drive-warning {
-    grid-column: 1 / -1;
-    margin-top: 0;
-  }
-
   .part-dialog {
     width: 100vw;
     height: 100dvh;
@@ -619,8 +622,7 @@ calc-ship-blueprint {
 
   .external-title,
   .external-bonuses,
-  .muon-control,
-  .drive-warning {
+  .muon-control {
     grid-column: 1;
     grid-row: auto;
   }
@@ -639,7 +641,7 @@ calc-ship-blueprint {
       'external';
   }
 
-  .blueprint-canvas-wrap {
+  .blueprint-visual {
     margin-inline: auto;
   }
 
@@ -647,8 +649,7 @@ calc-ship-blueprint {
     display: block;
   }
 
-  .muon-control,
-  .drive-warning {
+  .muon-control {
     margin-top: var(--space-xs);
   }
 

@@ -5,31 +5,25 @@
     <button class="remove-btn btn-icon" type="button">×</button>
   </header>
 
-  <div class="blueprint-reset" hidden>
-    <strong>This ship only has combat stats.</strong>
-    <p>
-      Its original parts cannot be reconstructed. Start with the standard
-      blueprint to edit individual tiles.
-    </p>
-    <button class="start-blueprint-btn" type="button">
-      Start from standard layout
-    </button>
-  </div>
-
   <div class="blueprint-editor" hidden>
     <div class="blueprint-workbench">
-      <div class="blueprint-canvas-wrap">
-        <div class="blueprint-canvas">
-          <img class="blueprint-background" alt="" />
-          <div class="blueprint-slots"></div>
-          <div class="blueprint-readouts" role="group">
-            <span data-blueprint-stat="initiative"></span>
-            <span data-blueprint-stat="energy"></span>
-            <span data-blueprint-stat="movement"></span>
-            <span data-blueprint-stat="computer"></span>
-            <span data-blueprint-stat="hull"></span>
-            <span data-blueprint-stat="shield"></span>
+      <div class="blueprint-visual">
+        <div class="blueprint-canvas-wrap">
+          <div class="blueprint-canvas">
+            <img class="blueprint-background" alt="" />
+            <div class="blueprint-slots"></div>
+            <div class="blueprint-readouts" role="group">
+              <span data-blueprint-stat="initiative"></span>
+              <span data-blueprint-stat="energy"></span>
+              <span data-blueprint-stat="movement"></span>
+              <span data-blueprint-stat="computer"></span>
+              <span data-blueprint-stat="hull"></span>
+              <span data-blueprint-stat="shield"></span>
+            </div>
           </div>
+        </div>
+        <div class="drive-warning" aria-live="polite" hidden>
+          ⚠ No drive installed
         </div>
       </div>
 
@@ -63,9 +57,6 @@
               <small>+2 energy · +1 init</small>
             </span>
           </label>
-          <div class="drive-warning" aria-live="polite" hidden>
-            ⚠ No drive installed
-          </div>
         </aside>
       </div>
     </div>
@@ -75,8 +66,8 @@
     <div class="part-dialog-shell">
       <header class="part-dialog-header">
         <div>
-          <div class="dialog-kicker">Ship workbench</div>
-          <h3>Replace slot <span class="dialog-slot-number"></span></h3>
+          <div class="dialog-kicker">Parts Finder</div>
+          <h3 class="part-dialog-title"></h3>
         </div>
         <button class="dialog-close btn-icon" type="button" aria-label="Close">
           ×
