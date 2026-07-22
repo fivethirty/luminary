@@ -150,6 +150,100 @@ describe('ShipType', () => {
     expect(element.querySelector('[data-stat][modified]')).toBeNull();
   });
 
+  test.each([
+    {
+      preset: 'ancient' as const,
+      assetName: 'ai-anc',
+      accessibleName: 'Ancient ship tile',
+    },
+    {
+      preset: 'ancient-adv' as const,
+      assetName: 'ai-ancadv',
+      accessibleName: 'Ancient (A) ship tile',
+    },
+    {
+      preset: 'ancient-wa' as const,
+      assetName: 'ai-ancwa',
+      accessibleName: 'Ancient (WA) ship tile',
+    },
+    {
+      preset: 'guardian' as const,
+      assetName: 'ai-grd',
+      accessibleName: 'Guardian ship tile',
+    },
+    {
+      preset: 'guardian-adv' as const,
+      assetName: 'ai-grdadv',
+      accessibleName: 'Guardian (A) ship tile',
+    },
+    {
+      preset: 'guardian-wa' as const,
+      assetName: 'ai-grdwa',
+      accessibleName: 'Guardian (WA) ship tile',
+    },
+    {
+      preset: 'gcds' as const,
+      assetName: 'ai-gcds',
+      accessibleName: 'GCDS ship tile',
+    },
+    {
+      preset: 'gcds-adv' as const,
+      assetName: 'ai-gcdsadv',
+      accessibleName: 'GCDS (A) ship tile',
+    },
+    {
+      preset: 'gcds-wa' as const,
+      assetName: 'ai-gcdswa',
+      accessibleName: 'GCDS (WA) ship tile',
+    },
+  ])(
+    'displays the $preset artwork in Ship tiles mode',
+    ({ preset, assetName, accessibleName }) => {
+      const shipTypeConfig = {
+        id: `test-${preset}-tile`,
+        type: getStartingShipConfig(preset).type,
+        quantity: 1,
+        config: getStartingShipConfig(preset).config,
+      };
+      const element = document.createElement(
+        'calc-ship-type'
+      ) as ShipTypeElement;
+      element.shipType = shipTypeConfig;
+      element.fleetId = 'fleet-0';
+      element.tileMode = true;
+
+      document.body.appendChild(element);
+
+      const tile = element.querySelector('.ship-tile') as HTMLElement;
+      const image = tile.querySelector('img') as HTMLImageElement;
+      expect(tile.hidden).toBe(false);
+      expect(image.src).toContain(assetName);
+      expect(image.alt).toBe(accessibleName);
+      expect((element.querySelector('.stats') as HTMLElement).hidden).toBe(
+        true
+      );
+    }
+  );
+
+  test('keeps stat rows for NPCs outside Ship tiles mode', () => {
+    const shipTypeConfig = {
+      id: 'test-guardian-tile-fallback',
+      type: ShipType.Guardian,
+      quantity: 1,
+      config: getStartingShipConfig('guardian').config,
+    };
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    expect((element.querySelector('.ship-tile') as HTMLElement).hidden).toBe(
+      true
+    );
+    expect((element.querySelector('.stats') as HTMLElement).hidden).toBe(false);
+  });
+
   test('updates state on change', async () => {
     const shipTypeConfig = {
       id: 'test-ship-2',

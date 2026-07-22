@@ -5,6 +5,7 @@ import {
   calculateBlueprint,
   createStartingBlueprint,
   externalBonusLabels,
+  isBlueprintSlotBlocked,
   partBuckets,
   SHIP_PARTS,
 } from './ship-parts';
@@ -82,6 +83,42 @@ describe('ship parts', () => {
     ).toEqual([3, 2, 1]);
   });
 
+  test('blocks the printed unavailable slots on Planta blueprints', () => {
+    expect(
+      createStartingBlueprint(ShipType.Interceptor, 'planta').slots
+    ).toEqual(['nus', 'ioc', 'nud', null]);
+    expect(createStartingBlueprint(ShipType.Cruiser, 'planta').slots).toEqual([
+      'nus',
+      'ioc',
+      null,
+      null,
+      'hul',
+      'nud',
+    ]);
+    expect(
+      createStartingBlueprint(ShipType.Dreadnought, 'planta').slots
+    ).toEqual(['nus', 'ioc', 'ioc', null, null, 'hul', 'hul', 'nud']);
+    expect(createStartingBlueprint(ShipType.Starbase, 'planta').slots).toEqual([
+      'elc',
+      'hul',
+      'ioc',
+      null,
+      'hul',
+    ]);
+    expect(
+      [
+        ShipType.Interceptor,
+        ShipType.Cruiser,
+        ShipType.Dreadnought,
+        ShipType.Starbase,
+      ].map((type) =>
+        BLUEPRINT_LAYOUTS[type].positions.findIndex((_, slot) =>
+          isBlueprintSlotBlocked(type, slot, 'planta')
+        )
+      )
+    ).toEqual([3, 3, 4, 3]);
+  });
+
   test('derives combat, energy, and drive readouts without enforcing warnings', () => {
     const interceptor = calculateBlueprint(
       ShipType.Interceptor,
@@ -99,6 +136,13 @@ describe('ship parts', () => {
     expect(invalid.energyBalance).toBe(-4);
     expect(invalid.hasDrive).toBe(false);
     expect(invalid.config.cannons.antimatter).toBe(1);
+
+    const plantaBlockedPart = calculateBlueprint(
+      ShipType.Interceptor,
+      { slots: ['nus', 'ioc', 'nud', 'hul'], muonSource: false },
+      'planta'
+    );
+    expect(plantaBlockedPart.config.hull).toBe(0);
   });
 
   test('derives the orbital chassis and replaceable starting tiles', () => {

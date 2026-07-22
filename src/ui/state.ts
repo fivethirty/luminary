@@ -29,6 +29,7 @@ import {
   cloneShipBlueprint,
   createStartingBlueprint,
   isBlueprintShipType,
+  isBlueprintSlotBlocked,
   isDiscoveryPart,
   normalizeShipBlueprint,
   PART_BY_ID,
@@ -475,6 +476,7 @@ export function replaceBlueprintPart(
   const ship = fleet.shipTypes.find((candidate) => candidate.id === shipId);
   if (!ship?.blueprint || !isBlueprintShipType(ship.type)) return false;
   if (slot < 0 || slot >= ship.blueprint.slots.length) return false;
+  if (isBlueprintSlotBlocked(ship.type, slot, fleet.factionId)) return false;
   if (
     partId === null &&
     createStartingBlueprint(ship.type, fleet.factionId).slots[slot] !== null
@@ -535,7 +537,11 @@ export function ensureShipBlueprint(
   const fleet = getFleetById(fleetId);
   const ship = fleet.shipTypes.find((candidate) => candidate.id === shipId);
   if (!ship || !isBlueprintShipType(ship.type)) return false;
-  const normalized = normalizeShipBlueprint(ship.type, ship.blueprint);
+  const normalized = normalizeShipBlueprint(
+    ship.type,
+    ship.blueprint,
+    fleet.factionId
+  );
   if (normalized) return true;
 
   const preset = presetKeysForType(ship.type)[0];
@@ -744,7 +750,11 @@ function shipBlueprintsEqual(a: ShipBlueprint, b: ShipBlueprint): boolean {
 function reconcileFleetBlueprints(fleet: FleetState) {
   for (const ship of fleet.shipTypes) {
     if (!ship.blueprint || !isBlueprintShipType(ship.type)) continue;
-    const normalized = normalizeShipBlueprint(ship.type, ship.blueprint);
+    const normalized = normalizeShipBlueprint(
+      ship.type,
+      ship.blueprint,
+      fleet.factionId
+    );
     ship.blueprint =
       normalized ?? createStartingBlueprint(ship.type, fleet.factionId);
     ship.config = calculateBlueprint(
@@ -857,7 +867,7 @@ function normalizeFleetMetadata(fleets: FleetState[]): FleetState[] {
       ...fleet,
       shipTypes: fleet.shipTypes.map((ship) => {
         const blueprint = isBlueprintShipType(ship.type)
-          ? normalizeShipBlueprint(ship.type, ship.blueprint)
+          ? normalizeShipBlueprint(ship.type, ship.blueprint, factionId)
           : undefined;
         const normalizedShip: ShipTypeConfig = {
           ...ship,

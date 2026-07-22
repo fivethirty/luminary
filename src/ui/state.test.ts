@@ -344,6 +344,17 @@ describe('State', () => {
       expect(ship.blueprint?.slots[2]).toBeNull();
     });
 
+    test('does not install parts in Planta blocked slots', () => {
+      setFleetFaction('fleet-0', 'planta');
+      const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+        withBlueprint: true,
+      })!;
+
+      expect(ship.blueprint?.slots).toEqual(['nus', 'ioc', 'nud', null]);
+      expect(replaceBlueprintPart('fleet-0', ship.id, 3, 'hul')).toBe(false);
+      expect(ship.blueprint?.slots[3]).toBeNull();
+    });
+
     test('keeps each discovery and Muon Source unique within a fleet', () => {
       const interceptor = addOrSwapShipPreset('fleet-0', 'interceptor', {
         withBlueprint: true,

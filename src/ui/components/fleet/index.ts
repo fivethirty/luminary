@@ -342,6 +342,7 @@ export class FleetElement extends HTMLElement {
       shipElement.shipType = shipType;
       shipElement.fleetId = this.fleet.id;
       shipElement.factionId = this.fleet.factionId;
+      shipElement.tileMode = this.controlMode === 'ships';
       shipsContainer.appendChild(shipElement);
     });
   }

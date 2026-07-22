@@ -25,6 +25,7 @@ import {
   createStartingBlueprint,
   describePart,
   externalBonusLabels,
+  isBlueprintSlotBlocked,
   isBlueprintShipType,
   isDiscoveryPart,
   PART_BY_ID,
@@ -49,7 +50,7 @@ const BLUEPRINT_IMAGES: Record<BlueprintShipType, string> = {
 };
 
 const RECENT_PARTS_STORAGE_KEY = 'luminary:recent-ship-parts';
-const RECENT_PARTS_LIMIT = 2;
+const RECENT_PARTS_LIMIT = 3;
 
 function formatSignedStat(value: number, sign: '+' | '−'): string {
   return value === 0 ? '0' : `${sign}${value}`;
@@ -188,7 +189,24 @@ export class ShipBlueprintElement extends HTMLElement {
     slots.innerHTML = '';
     this.shipType.blueprint!.slots.forEach((partId, index) => {
       const position = layout.positions[index];
+      const blocked = isBlueprintSlotBlocked(
+        this.blueprintType,
+        index,
+        this.factionId
+      );
       const entry = partId ? PART_BY_ID.get(partId) : undefined;
+      if (blocked) {
+        const cover = document.createElement('span');
+        cover.className = 'blueprint-slot blueprint-slot-blocked';
+        cover.dataset.slot = String(index);
+        cover.style.left = `${position.left}%`;
+        cover.style.top = `${position.top}%`;
+        cover.style.width = `${position.width}%`;
+        cover.style.height = `${position.height}%`;
+        cover.setAttribute('aria-hidden', 'true');
+        slots.appendChild(cover);
+        return;
+      }
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'blueprint-slot';
@@ -205,10 +223,6 @@ export class ShipBlueprintElement extends HTMLElement {
         `Slot ${index + 1}: ${entry?.name ?? 'empty'}`
       );
 
-      const number = document.createElement('span');
-      number.className = 'slot-number';
-      number.textContent = String(index + 1);
-      button.appendChild(number);
       if (entry) {
         const image = document.createElement('img');
         image.src = entry.image;
@@ -396,7 +410,7 @@ export class ShipBlueprintElement extends HTMLElement {
       },
       hull: {
         label: 'Hull',
-        value: formatSignedStat(readout.config.hull, '+'),
+        value: String(readout.config.hull),
       },
       shield: {
         label: 'Shield',
@@ -405,10 +419,19 @@ export class ShipBlueprintElement extends HTMLElement {
     };
     const target = this.querySelector('.blueprint-readouts') as HTMLElement;
     target.setAttribute('aria-label', `${this.shipName} blueprint stats`);
+    const stationary =
+      this.blueprintType === ShipType.Starbase ||
+      this.blueprintType === ShipType.Orbital;
     Object.entries(stats).forEach(([key, stat]) => {
       const element = target.querySelector(
         `[data-blueprint-stat="${key}"]`
       ) as HTMLElement;
+      element.hidden = stationary && key === 'movement';
+      if (element.hidden) {
+        element.textContent = '';
+        element.removeAttribute('aria-label');
+        return;
+      }
       element.textContent = stat.value;
       element.setAttribute('aria-label', `${stat.label}: ${stat.value}`);
     });
@@ -530,11 +553,9 @@ export class ShipBlueprintElement extends HTMLElement {
     copy.className = 'part-option-copy';
     const name = document.createElement('strong');
     name.textContent = entry.name;
-    const stats = document.createElement('small');
-    stats.textContent = use ? 'Already installed' : describePart(entry);
     const tier = document.createElement('em');
     tier.textContent = entry.tier === 'technology' ? 'Tech' : entry.tier;
-    copy.append(name, stats, tier);
+    copy.append(name, tier);
     button.append(image, copy);
     button.addEventListener('click', () => this.installSelectedPart(entry.id));
     return button;
@@ -550,6 +571,7 @@ export class ShipBlueprintElement extends HTMLElement {
         .forEach((option) => {
           const visible = !query || option.dataset.search?.includes(query);
           option.hidden = !visible;
+          option.style.display = visible ? '' : 'none';
           if (visible) sectionVisible++;
         });
       section.hidden = sectionVisible === 0;

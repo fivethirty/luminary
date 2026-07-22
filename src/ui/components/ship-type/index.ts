@@ -2,6 +2,17 @@ import html from './ship-type.html' with { type: 'text' };
 import './ship-type.css';
 import '../selector';
 import '../stat-cube';
+
+import ancientTileImage from '../../../assets/ship-tiles/ai-anc.png';
+import advancedAncientTileImage from '../../../assets/ship-tiles/ai-ancadv.png';
+import worldsAfarAncientTileImage from '../../../assets/ship-tiles/ai-ancwa.png';
+import guardianTileImage from '../../../assets/ship-tiles/ai-grd.png';
+import advancedGuardianTileImage from '../../../assets/ship-tiles/ai-grdadv.png';
+import worldsAfarGuardianTileImage from '../../../assets/ship-tiles/ai-grdwa.png';
+import gcdsTileImage from '../../../assets/ship-tiles/ai-gcds.png';
+import advancedGcdsTileImage from '../../../assets/ship-tiles/ai-gcdsadv.png';
+import worldsAfarGcdsTileImage from '../../../assets/ship-tiles/ai-gcdswa.png';
+
 import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
@@ -14,7 +25,20 @@ import {
   matchShipPreset,
   SHIP_NAMES,
   SHIP_QUANTITY_LIMITS,
+  type ShipDropdownOption,
 } from '@ui/ship-presets';
+
+const SHIP_TILE_IMAGES: Partial<Record<ShipDropdownOption, string>> = {
+  ancient: ancientTileImage,
+  'ancient-adv': advancedAncientTileImage,
+  'ancient-wa': worldsAfarAncientTileImage,
+  guardian: guardianTileImage,
+  'guardian-adv': advancedGuardianTileImage,
+  'guardian-wa': worldsAfarGuardianTileImage,
+  gcds: gcdsTileImage,
+  'gcds-adv': advancedGcdsTileImage,
+  'gcds-wa': worldsAfarGcdsTileImage,
+};
 
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
@@ -22,6 +46,7 @@ export class ShipTypeElement extends HTMLElement {
   factionId?: FactionId;
   readOnly = false;
   summaryOnly = false;
+  tileMode = false;
 
   connectedCallback() {
     this.innerHTML = html;
@@ -35,12 +60,26 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     const nameSpan = this.querySelector('.ship-type-name') as HTMLSpanElement;
-    const shipName =
-      SHIP_NAMES[matchShipPreset(this.shipType.type, this.shipType.config)];
+    const preset = matchShipPreset(this.shipType.type, this.shipType.config);
+    const shipName = SHIP_NAMES[preset];
     nameSpan.textContent = shipName;
     removeBtn.setAttribute('aria-label', `Remove ${shipName}`);
 
+    this.renderShipTile(preset, shipName);
     this.bindSelectors(shipName);
+  }
+
+  private renderShipTile(preset: ShipDropdownOption, shipName: string) {
+    const imageUrl = this.tileMode ? SHIP_TILE_IMAGES[preset] : undefined;
+    const tile = this.querySelector('.ship-tile') as HTMLElement;
+    const stats = this.querySelector('.stats') as HTMLElement;
+    tile.hidden = !imageUrl;
+    stats.hidden = Boolean(imageUrl);
+    if (!imageUrl) return;
+
+    const image = tile.querySelector('img') as HTMLImageElement;
+    image.src = imageUrl;
+    image.alt = `${shipName} ship tile`;
   }
 
   private bindSelectors(shipName: string) {

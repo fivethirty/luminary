@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import blueprintStyles from './ship-blueprint.css' with { type: 'text' };
 import './index';
 import type { ShipBlueprintElement } from './index';
 import {
@@ -8,6 +7,10 @@ import {
   setFleetFaction,
   state,
 } from '@ui/state';
+
+const blueprintStyles = await Bun.file(
+  new URL('./ship-blueprint.css', import.meta.url)
+).text();
 
 function render(shipId: string, fleetId = 'fleet-0'): ShipBlueprintElement {
   const fleet = state.fleets.find((candidate) => candidate.id === fleetId)!;
@@ -29,18 +32,14 @@ describe('ShipBlueprint', () => {
     resetFleets();
   });
 
-  test('renders numbered artwork slots and stats on the blueprint image', () => {
+  test('renders artwork slots and stats without slot-number overlays', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
     const element = render(ship.id);
 
     expect(element.querySelectorAll('.blueprint-slot')).toHaveLength(4);
-    expect(
-      Array.from(element.querySelectorAll('.slot-number')).map(
-        (number) => number.textContent
-      )
-    ).toEqual(['1', '2', '3', '4']);
+    expect(element.querySelector('.slot-number')).toBeNull();
     expect(
       (element.querySelector('.blueprint-background') as HTMLImageElement).src
     ).toContain('blueprint_interceptor');
@@ -62,6 +61,32 @@ describe('ShipBlueprint', () => {
         (child) => child.className
       )
     ).toEqual(['blueprint-canvas-wrap', 'blueprint-controls']);
+  });
+
+  test('positions hull and computer values over their matching header symbols', () => {
+    expect(blueprintStyles).toMatch(
+      /\[data-blueprint-stat='hull'\]\s*{[^}]*left:\s*54%/
+    );
+    expect(blueprintStyles).toMatch(
+      /\[data-blueprint-stat='computer'\]\s*{[^}]*left:\s*68\.5%/
+    );
+  });
+
+  test('renders hull without a plus sign', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'cruiser', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+    const hull = element.querySelector(
+      '[data-blueprint-stat="hull"]'
+    ) as HTMLElement;
+    const computer = element.querySelector(
+      '[data-blueprint-stat="computer"]'
+    ) as HTMLElement;
+
+    expect(hull.textContent).toBe('1');
+    expect(hull.getAttribute('aria-label')).toBe('Hull: 1');
+    expect(computer.textContent).toBe('+1');
   });
 
   test('selects a slot before opening the searchable bucketed dialog', () => {
@@ -108,6 +133,7 @@ describe('ShipBlueprint', () => {
         (option) => !option.hidden
       )
     ).toHaveLength(2);
+    expect(element.querySelector('.part-option-copy small')).toBeNull();
   });
 
   test('does not display part options that do not match the search', () => {
@@ -198,7 +224,7 @@ describe('ShipBlueprint', () => {
     expect(remove.hidden).toBe(true);
   });
 
-  test('offers the two most recently added parts as direct replacements', () => {
+  test('offers the three most recently added parts as direct replacements', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
@@ -218,11 +244,12 @@ describe('ShipBlueprint', () => {
 
     installFromDialog(2, 'anc');
     installFromDialog(1, 'plc');
+    installFromDialog(0, 'fus');
     expect(
       Array.from(
         element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
       ).map((button) => button.dataset.partId)
-    ).toEqual(['plc', 'anc']);
+    ).toEqual(['fus', 'plc', 'anc']);
 
     (element.querySelector('[data-slot="3"]') as HTMLButtonElement).click();
     (
@@ -235,14 +262,64 @@ describe('ShipBlueprint', () => {
       Array.from(
         element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
       ).map((button) => button.dataset.partId)
-    ).toEqual(['anc', 'plc']);
+    ).toEqual(['anc', 'fus', 'plc']);
 
     installFromDialog(0, 'axc');
     expect(
       Array.from(
         element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
       ).map((button) => button.dataset.partId)
-    ).toEqual(['anc', 'plc']);
+    ).toEqual(['anc', 'fus', 'plc']);
+  });
+
+  test('covers Planta-only unavailable slots and does not make them selectable', () => {
+    setFleetFaction('fleet-0', 'planta');
+    const ships = [
+      'interceptor',
+      'cruiser',
+      'dreadnought',
+      'starbase',
+    ] as const;
+    const blockedSlots = [3, 3, 4, 3];
+
+    ships.forEach((preset, index) => {
+      const ship = addOrSwapShipPreset('fleet-0', preset, {
+        withBlueprint: true,
+      })!;
+      const element = render(ship.id);
+      const blocked = element.querySelector(
+        `.blueprint-slot-blocked[data-slot="${blockedSlots[index]}"]`
+      );
+      expect(blocked).not.toBeNull();
+      expect(blocked?.tagName).toBe('SPAN');
+    });
+  });
+
+  test('hides movement readouts for stationary blueprints', () => {
+    setFleetFaction('fleet-0', 'terran');
+    const starbase = addOrSwapShipPreset('fleet-0', 'starbase', {
+      withBlueprint: true,
+    })!;
+    const starbaseElement = render(starbase.id);
+    const starbaseMovement = starbaseElement.querySelector(
+      '[data-blueprint-stat="movement"]'
+    ) as HTMLElement;
+
+    expect(starbaseMovement.hidden).toBe(true);
+    expect(starbaseMovement.textContent).toBe('');
+
+    resetFleets();
+    setFleetFaction('fleet-0', 'exiles');
+    const orbital = addOrSwapShipPreset('fleet-0', 'orbital', {
+      withBlueprint: true,
+    })!;
+    const orbitalElement = render(orbital.id);
+    const orbitalMovement = orbitalElement.querySelector(
+      '[data-blueprint-stat="movement"]'
+    ) as HTMLElement;
+
+    expect(orbitalMovement.hidden).toBe(true);
+    expect(orbitalMovement.textContent).toBe('');
   });
 
   test('keeps recently added parts specific to each fleet', () => {

@@ -43,6 +43,23 @@ calc-ship-type.summary-only .ship-type .stats {
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
+.ship-tile {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.ship-tile[hidden],
+.ship-type > .stats[hidden] {
+  display: none;
+}
+
+.ship-tile-image {
+  display: block;
+  width: min(100%, 10rem);
+  height: auto;
+}
+
 .ship-type-name {
   flex: 1;
   min-width: 0;

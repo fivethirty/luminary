@@ -795,7 +795,7 @@ describe('App steppers preference', () => {
     expect(document.querySelector('calc-ship-blueprint')).not.toBeNull();
   });
 
-  test('cancels or confirms the destructive switch away from blueprints', () => {
+  test('uses a dialog to cancel or confirm switching away from blueprints', () => {
     addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     });
@@ -804,18 +804,26 @@ describe('App steppers preference', () => {
     const compact = document.querySelector(
       '[data-controls="compact"]'
     ) as HTMLButtonElement;
-    const originalConfirm = window.confirm;
-    window.confirm = () => false;
+    const dialog = document.getElementById(
+      'blueprint-flatten-dialog'
+    ) as HTMLDialogElement;
+
     compact.click();
+    expect(dialog.open).toBe(true);
     expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
     expect(loadControlMode()).toBe('ships');
 
-    window.confirm = () => true;
+    document.getElementById('blueprint-flatten-cancel')?.click();
+    expect(dialog.open).toBe(false);
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+    expect(loadControlMode()).toBe('ships');
+
     compact.click();
+    document.getElementById('blueprint-flatten-confirm')?.click();
+    expect(dialog.open).toBe(false);
     expect(state.fleets[0].shipTypes[0].blueprint).toBeUndefined();
     expect(loadControlMode()).toBe('compact');
     expect(document.querySelector('calc-ship-blueprint')).toBeNull();
-    window.confirm = originalConfirm;
   });
 });
 

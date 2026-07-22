@@ -415,6 +415,16 @@ function init(): () => void {
   const controlsToggleButtons = Array.from(
     controlsToggle?.querySelectorAll<HTMLButtonElement>('[data-controls]') ?? []
   );
+  const blueprintFlattenDialog = document.getElementById(
+    'blueprint-flatten-dialog'
+  ) as HTMLDialogElement | null;
+  const blueprintFlattenCancel = document.getElementById(
+    'blueprint-flatten-cancel'
+  );
+  const blueprintFlattenConfirm = document.getElementById(
+    'blueprint-flatten-confirm'
+  );
+  let pendingControlMode: ControlMode | undefined;
   activeControlMode = loadControlMode();
   const applyActiveControlMode = () => {
     applyControlMode(activeControlMode);
@@ -424,28 +434,67 @@ function init(): () => void {
       button.setAttribute('aria-pressed', String(active));
     });
   };
+  const closeBlueprintFlattenDialog = () => {
+    if (!blueprintFlattenDialog) return;
+    if (
+      typeof blueprintFlattenDialog.close === 'function' &&
+      blueprintFlattenDialog.open
+    ) {
+      blueprintFlattenDialog.close();
+    } else {
+      blueprintFlattenDialog.removeAttribute('open');
+    }
+  };
+  const cancelControlModeChange = () => {
+    pendingControlMode = undefined;
+    closeBlueprintFlattenDialog();
+  };
+  const changeControlMode = (nextMode: ControlMode) => {
+    if (activeControlMode === 'ships') flattenShipBlueprints();
+    activeControlMode = nextMode;
+    if (activeControlMode === 'ships') initializeDefaultShipBlueprints();
+    saveControlMode(activeControlMode);
+    applyActiveControlMode();
+    renderFleets();
+  };
   applyActiveControlMode();
   controlsToggleButtons.forEach((button) => {
     listen(button, 'click', () => {
       const nextMode = button.dataset.controls as ControlMode;
       if (nextMode === activeControlMode) return;
-      if (
-        activeControlMode === 'ships' &&
-        hasShipBlueprints() &&
-        !window.confirm(
-          'Changing control views converts every ship blueprint to combat stats. Part tiles and slot layouts will be lost. Continue?'
-        )
-      ) {
+      if (activeControlMode === 'ships' && hasShipBlueprints()) {
+        pendingControlMode = nextMode;
+        if (!blueprintFlattenDialog) return;
+        if (typeof blueprintFlattenDialog.showModal === 'function') {
+          blueprintFlattenDialog.showModal();
+        } else {
+          blueprintFlattenDialog.setAttribute('open', '');
+        }
         return;
       }
-      if (activeControlMode === 'ships') flattenShipBlueprints();
-      activeControlMode = nextMode;
-      if (activeControlMode === 'ships') initializeDefaultShipBlueprints();
-      saveControlMode(activeControlMode);
-      applyActiveControlMode();
-      renderFleets();
+      changeControlMode(nextMode);
     });
   });
+  if (blueprintFlattenDialog) {
+    listen(blueprintFlattenDialog, 'cancel', () => {
+      pendingControlMode = undefined;
+    });
+    listen(blueprintFlattenDialog, 'click', (event) => {
+      if (event.target === blueprintFlattenDialog) cancelControlModeChange();
+    });
+  }
+  if (blueprintFlattenCancel) {
+    listen(blueprintFlattenCancel, 'click', cancelControlModeChange);
+  }
+  if (blueprintFlattenConfirm) {
+    listen(blueprintFlattenConfirm, 'click', () => {
+      const nextMode = pendingControlMode;
+      pendingControlMode = undefined;
+      closeBlueprintFlattenDialog();
+      if (nextMode) changeControlMode(nextMode);
+    });
+  }
+  cleanups.push(cancelControlModeChange);
 
   const themeSelect = document.getElementById(
     'theme-select'

@@ -235,7 +235,7 @@ describe('Fleet', () => {
     expect(shipSelector.value).toBe('');
   });
 
-  test('uses blueprint editors for players and stat rows for NPCs in Ship tiles mode', () => {
+  test('uses blueprint editors for players and tile artwork for NPCs in Ship tiles mode', () => {
     const player = document.createElement('calc-fleet') as FleetElement;
     player.fleet = state.fleets[0];
     player.controlMode = 'ships';
@@ -260,8 +260,16 @@ describe('Fleet', () => {
     npc.fleet = state.fleets[0];
     npc.controlMode = 'ships';
     document.body.appendChild(npc);
-    expect(npc.querySelector('calc-ship-type')).not.toBeNull();
+    const ancient = npc.querySelector('calc-ship-type') as HTMLElement;
+    expect(ancient).not.toBeNull();
     expect(npc.querySelector('calc-ship-blueprint')).toBeNull();
+    expect(
+      (ancient.querySelector('.ship-tile-image') as HTMLImageElement).src
+    ).toContain('ai-anc');
+    expect((ancient.querySelector('.ship-tile') as HTMLElement).hidden).toBe(
+      false
+    );
+    expect((ancient.querySelector('.stats') as HTMLElement).hidden).toBe(true);
   });
 
   test('places the ship and NPC add controls together after the ship list', () => {

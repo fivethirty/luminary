@@ -389,14 +389,35 @@ function factionStartingSlots(
     const empty = slots.indexOf(null);
     if (empty >= 0) slots[empty] = 'elc';
   } else if (factionId === 'planta') {
+    if (type === ShipType.Interceptor) {
+      return ['nus', 'ioc', 'nud', null];
+    }
     if (type === ShipType.Cruiser) {
-      return ['nus', 'ioc', null, 'hul', 'nud', null];
+      return ['nus', 'ioc', null, null, 'hul', 'nud'];
     }
     if (type === ShipType.Dreadnought) {
-      return ['nus', 'ioc', 'ioc', null, 'hul', 'hul', 'nud', null];
+      return ['nus', 'ioc', 'ioc', null, null, 'hul', 'hul', 'nud'];
+    }
+    if (type === ShipType.Starbase) {
+      return ['elc', 'hul', 'ioc', null, 'hul'];
     }
   }
   return slots;
+}
+
+const PLANTA_BLOCKED_SLOTS: Partial<Record<BlueprintShipType, number>> = {
+  [ShipType.Interceptor]: 3,
+  [ShipType.Cruiser]: 3,
+  [ShipType.Dreadnought]: 4,
+  [ShipType.Starbase]: 3,
+};
+
+export function isBlueprintSlotBlocked(
+  type: BlueprintShipType,
+  slot: number,
+  factionId: FactionId | undefined = ''
+): boolean {
+  return factionId === 'planta' && PLANTA_BLOCKED_SLOTS[type] === slot;
 }
 
 export function createStartingBlueprint(
@@ -427,7 +448,8 @@ export function partAllowedInSlot(
 
 export function normalizeShipBlueprint(
   type: BlueprintShipType,
-  value: unknown
+  value: unknown,
+  factionId: FactionId | undefined = ''
 ): ShipBlueprint | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const candidate = value as Partial<ShipBlueprint>;
@@ -436,7 +458,11 @@ export function normalizeShipBlueprint(
     return undefined;
 
   const slots: Array<ShipPartId | null> = [];
-  for (const partId of candidate.slots) {
+  for (const [slot, partId] of candidate.slots.entries()) {
+    if (isBlueprintSlotBlocked(type, slot, factionId)) {
+      slots.push(null);
+      continue;
+    }
     if (partId === null) {
       slots.push(null);
       continue;
@@ -558,7 +584,12 @@ export function calculateBlueprint(
   let energyUse = 0;
   let movement = 0;
   let hasDrive = false;
-  const ids = [...blueprint.slots, blueprint.muonSource ? 'mus' : null];
+  const ids = [
+    ...blueprint.slots.map((id, slot) =>
+      isBlueprintSlotBlocked(type, slot, factionId) ? null : id
+    ),
+    blueprint.muonSource ? 'mus' : null,
+  ];
 
   for (const id of ids) {
     if (!id) continue;

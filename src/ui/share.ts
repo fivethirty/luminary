@@ -163,7 +163,11 @@ function encodeShip(
   }
 
   if (isBlueprintShipType(shipType.type)) {
-    const blueprint = normalizeShipBlueprint(shipType.type, shipType.blueprint);
+    const blueprint = normalizeShipBlueprint(
+      shipType.type,
+      shipType.blueprint,
+      factionId
+    );
     if (
       blueprint &&
       shipConfigsEqual(
@@ -401,7 +405,11 @@ export function parseBattleQuery(search: string): FleetState[] | null {
         delete ship.blueprint;
         return;
       }
-      const blueprint = normalizeShipBlueprint(ship.type, ship.blueprint);
+      const blueprint = normalizeShipBlueprint(
+        ship.type,
+        ship.blueprint,
+        factionId
+      );
       if (!blueprint) {
         delete ship.blueprint;
         return;
@@ -431,10 +439,14 @@ function finalizeBlueprintDrafts(drafts: Map<number, FleetDraft>) {
       const slots = encoded
         .split('-')
         .map((partId) => (partId === '_' ? null : partId));
-      const blueprint = normalizeShipBlueprint(ship.type, {
-        slots,
-        muonSource: draft.blueprintMuons.has(preset),
-      });
+      const blueprint = normalizeShipBlueprint(
+        ship.type,
+        {
+          slots,
+          muonSource: draft.blueprintMuons.has(preset),
+        },
+        draft.factionId
+      );
       if (!blueprint) continue;
 
       const discoveries = blueprint.slots.filter((partId): partId is string =>

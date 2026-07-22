@@ -120,7 +120,8 @@ bonuses. Tile mutations update both values in one state command. A direct aggreg
 deletes that ship's blueprint; switching away from the Ship tiles control mode deletes all active
 and cached blueprints only after confirmation while retaining their last derived stats. Aggregate
 configs cannot be reverse-engineered reliably, so custom stat-only ships require an explicit reset
-to the standard layout before tile editing.
+to the standard layout before tile editing. Planta's faction-specific unavailable blueprint slots
+remain empty through rendering, mutation, import normalization, and stat derivation.
 
 Version-1 share links remain backward compatible and continue to decode omitted stats against their
 legacy preset baseline. Version 2 encodes aggregate stats against faction-aware operating defaults,
