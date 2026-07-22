@@ -8,23 +8,10 @@ import {
 } from '@ui/state';
 import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
 import { deriveShortFleetNames, fleetColor } from '@ui/fleet-metadata';
+import { formatCompactFleetComposition } from '@ui/fleet-composition';
 import { resultClassesForFleet } from '@ui/result-presentation';
-import { SHIP_ABBREVIATIONS, SHIP_NAMES } from '@ui/ship-presets';
 import { isNpcComposition } from '@ui/fleet-rules';
 import { MAX_POPULATION_DAMAGE_BUCKET } from '@calc/population-bombardment';
-
-const SHIP_NAME_ABBREVIATIONS = Object.fromEntries(
-  Object.entries(SHIP_NAMES).map(([key, name]) => [
-    name,
-    SHIP_ABBREVIATIONS[key as keyof typeof SHIP_ABBREVIATIONS],
-  ])
-) as Record<string, string>;
-
-const PLAYER_COMPOSITION_ORDER = new Map(
-  ['Dreadnought', 'Cruiser', 'Interceptor', 'Orbital', 'Starbase'].map(
-    (name, index) => [name, index]
-  )
-);
 
 const ODDS_PERCENT_ONLY_THRESHOLD = 0.2;
 const ODDS_SLIVER_THRESHOLD = 0.035;
@@ -502,7 +489,7 @@ export class ResultsElement extends HTMLElement {
       .map((fleet, index) => ({
         key: fleet.id,
         label: shortFleetNames[index],
-        text: this.formatFleetComposition(
+        text: formatCompactFleetComposition(
           this.resultForFleet(survivors, fleet)
         ),
       }))
@@ -518,8 +505,8 @@ export class ResultsElement extends HTMLElement {
     const factionCell = document.createElement('td');
     const shipsCell = document.createElement('td');
     if (survivingFleets.length === 0) {
-      factionCell.textContent = '—';
-      shipsCell.textContent = 'No surviving ships';
+      factionCell.colSpan = 2;
+      factionCell.textContent = 'No surviving ships';
     } else {
       survivingFleets.forEach((entry, index) => {
         if (index > 0) {
@@ -554,7 +541,9 @@ export class ResultsElement extends HTMLElement {
     probabilityCell.textContent = this.formatPercent(probability);
 
     row.appendChild(factionCell);
-    row.appendChild(shipsCell);
+    if (survivingFleets.length > 0) {
+      row.appendChild(shipsCell);
+    }
     row.appendChild(probabilityCell);
     return row;
   }
@@ -563,18 +552,15 @@ export class ResultsElement extends HTMLElement {
     const row = document.createElement('tr');
     row.className = 'composition-other';
 
-    const factionCell = document.createElement('td');
-    factionCell.textContent = '—';
-
-    const shipsCell = document.createElement('td');
-    shipsCell.textContent = 'Other outcomes';
+    const outcomesCell = document.createElement('td');
+    outcomesCell.colSpan = 2;
+    outcomesCell.textContent = 'Other outcomes';
 
     const probabilityCell = document.createElement('td');
     probabilityCell.className = 'composition-probability';
     probabilityCell.textContent = this.formatPercent(probability);
 
-    row.appendChild(factionCell);
-    row.appendChild(shipsCell);
+    row.appendChild(outcomesCell);
     row.appendChild(probabilityCell);
     return row;
   }
@@ -618,30 +604,6 @@ export class ResultsElement extends HTMLElement {
     card.appendChild(table);
 
     return card;
-  }
-
-  private formatFleetComposition(
-    survivors: Record<string, number> | undefined
-  ): string {
-    if (!survivors) return '—';
-    const entries = Object.entries(survivors)
-      .filter(([, count]) => count > 0)
-      .sort(([a], [b]) => {
-        const orderDelta =
-          this.compositionShipOrder(a) - this.compositionShipOrder(b);
-        return orderDelta || a.localeCompare(b);
-      });
-    if (entries.length === 0) return '—';
-    return entries
-      .map(([type, count]) => {
-        const label = SHIP_NAME_ABBREVIATIONS[type] ?? type;
-        return count === 1 ? label : `${count}${label}`;
-      })
-      .join(', ');
-  }
-
-  private compositionShipOrder(type: string): number {
-    return PLAYER_COMPOSITION_ORDER.get(type) ?? Number.MAX_SAFE_INTEGER;
   }
 
   private formatPercent(value: number): string {
