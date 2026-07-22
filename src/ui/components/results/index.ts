@@ -532,7 +532,12 @@ export class ResultsElement extends HTMLElement {
         }
 
         factionCell.appendChild(label);
-        shipsCell.appendChild(document.createTextNode(entry.text));
+        const ships = document.createElement('span');
+        ships.className = 'composition-ship-label';
+        ships.classList.add(...this.sideClasses(entry.key));
+        this.applyFleetResultColor(ships, entry.key);
+        ships.textContent = entry.text;
+        shipsCell.appendChild(ships);
       });
     }
 

@@ -416,6 +416,10 @@ calc-results {
   font-weight: var(--font-weight-bold);
 }
 
+.composition-ship-label {
+  color: var(--fleet-result, currentColor);
+}
+
 .composition-fleet-name {
   min-width: 0;
   overflow: hidden;
