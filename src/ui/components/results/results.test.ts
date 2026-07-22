@@ -4,6 +4,10 @@ import type { ResultsElement } from './index';
 import { addFleet, resetFleets, setSimulationResults, state } from '@ui/state';
 import { exactResults, monteCarloResults } from '@ui/test-helpers';
 
+const appStyles = await Bun.file(
+  new URL('../../../app.css', import.meta.url)
+).text();
+
 describe('Results', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -687,8 +691,14 @@ describe('Results', () => {
 
     const details = element.querySelector('.detailed-outcomes')!;
     expect(details.hasAttribute('open')).toBe(false);
-    expect(details.querySelector('summary')?.textContent).toBe(
-      'Detailed outcomes'
+    const summary = details.querySelector('summary')!;
+    expect(summary.textContent).toBe('Detailed outcomes');
+    expect(summary.classList.contains('disclosure-summary')).toBe(true);
+    expect(appStyles).toMatch(
+      /\.disclosure-summary::after\s*{[^}]*margin-left:\s*auto/
+    );
+    expect(appStyles).toMatch(
+      /details\[open\] > \.disclosure-summary::after\s*{[^}]*transform:\s*rotate\(90deg\)/
     );
     expect(details.contains(element.querySelector('#material-impact'))).toBe(
       true

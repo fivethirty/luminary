@@ -22,7 +22,6 @@ import {
   BLUEPRINT_LAYOUTS,
   calculateBlueprint,
   createStartingBlueprint,
-  describePart,
   externalBonusLabels,
   isBlueprintSlotBlocked,
   isBlueprintShipType,
@@ -515,6 +514,7 @@ export class ShipBlueprintElement extends HTMLElement {
       section.className = 'part-bucket';
       section.dataset.bucket = bucket.id;
       const summary = document.createElement('summary');
+      summary.className = 'disclosure-summary';
       const heading = document.createElement('h4');
       heading.textContent = bucket.label;
       summary.appendChild(heading);
@@ -533,8 +533,7 @@ export class ShipBlueprintElement extends HTMLElement {
     button.type = 'button';
     button.className = 'part-option';
     button.dataset.partId = entry.id;
-    button.dataset.search =
-      `${entry.name} ${entry.tier} ${describePart(entry)}`.toLowerCase();
+    button.dataset.search = entry.name.toLowerCase();
     const use =
       this.selectedSlot !== null && isDiscoveryPart(entry.id)
         ? findBlueprintPartUse(this.fleetId, entry.id, {

@@ -649,33 +649,33 @@ export function partBuckets(type: BlueprintShipType): PartBucket[] {
   }> = [
     {
       id: 'energy',
-      label: '+ Energy',
+      label: 'Energy',
       includes: (entry) => (entry.energySource ?? 0) > 0,
     },
     {
       id: 'movement',
-      label: '+ Movement',
+      label: 'Movement',
       includes: (entry) => (entry.movement ?? 0) > 0,
     },
     {
       id: 'initiative',
-      label: '+ Initiative',
+      label: 'Initiative',
       includes: (entry) => (entry.initiative ?? 0) > 0,
     },
     {
       id: 'computer',
-      label: '+ Computer',
+      label: 'Computer',
       includes: (entry) => (entry.computer ?? 0) > 0,
     },
     {
       id: 'shield',
-      label: '+ Shield',
+      label: 'Shield',
       includes: (entry) => (entry.shield ?? 0) > 0,
     },
-    { id: 'hull', label: '+ Hull', includes: (entry) => (entry.hull ?? 0) > 0 },
+    { id: 'hull', label: 'Hull', includes: (entry) => (entry.hull ?? 0) > 0 },
     {
       id: 'repair',
-      label: '+ Repair',
+      label: 'Repair',
       includes: (entry) => (entry.repair ?? 0) > 0,
     },
     {

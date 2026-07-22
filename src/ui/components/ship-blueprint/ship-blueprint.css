@@ -226,32 +226,15 @@ calc-ship-blueprint {
 }
 
 .external-summary {
-  display: flex;
-  align-items: center;
   gap: var(--space-xs);
   min-height: 2.75rem;
   padding: var(--space-xs) var(--space-sm);
   cursor: pointer;
-  list-style: none;
   touch-action: manipulation;
 }
 
-.external-summary::-webkit-details-marker {
-  display: none;
-}
-
 .external-summary::after {
-  content: '›';
-  margin-left: auto;
-  color: var(--color-text-muted);
   font-size: 1.1rem;
-  line-height: 1;
-  transform: rotate(0deg);
-  transition: transform 120ms ease;
-}
-
-.external-section[open] .external-summary::after {
-  transform: rotate(90deg);
 }
 
 .external-summary:hover,
@@ -431,6 +414,10 @@ calc-ship-blueprint {
   opacity: 0.45;
 }
 
+:is(html, body):has(.part-dialog[open]) {
+  overflow: hidden;
+}
+
 .part-dialog {
   width: min(58rem, calc(100vw - 2rem));
   max-width: none;
@@ -456,6 +443,8 @@ calc-ship-blueprint {
 }
 
 .part-dialog-header {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -470,7 +459,10 @@ calc-ship-blueprint {
 }
 
 .part-search-label {
+  position: relative;
+  z-index: 1;
   padding: var(--space-sm) var(--space-md) 0;
+  background: var(--color-bg-primary);
 }
 
 .part-search-label .sr-only {
@@ -494,6 +486,10 @@ calc-ship-blueprint {
 }
 
 .part-buckets {
+  position: relative;
+  z-index: 0;
+  contain: paint;
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   padding: var(--space-md);
@@ -501,22 +497,40 @@ calc-ship-blueprint {
   overscroll-behavior: contain;
 }
 
+.part-bucket {
+  overflow: clip;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
 .part-bucket + .part-bucket {
-  margin-top: var(--space-lg);
+  margin-top: var(--space-sm);
 }
 
 .part-bucket summary {
-  position: sticky;
-  z-index: 2;
-  top: calc(-1 * var(--space-md));
-  padding: var(--space-xs);
-  background: var(--color-bg-primary);
-  color: var(--color-text-secondary);
+  min-height: 2.75rem;
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(
+    in srgb,
+    var(--color-bg-tertiary) 72%,
+    var(--color-bg-secondary)
+  );
+  color: var(--color-text-primary);
   cursor: pointer;
 }
 
 .part-bucket[open] summary {
-  margin-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.part-bucket summary:hover,
+.part-bucket summary:focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--color-info) 12%,
+    var(--color-bg-tertiary)
+  );
 }
 
 .part-bucket h4 {
@@ -531,6 +545,7 @@ calc-ship-blueprint {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: var(--space-xs);
+  padding: var(--space-sm);
 }
 
 .part-option {

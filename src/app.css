@@ -186,6 +186,35 @@ calc-results {
   display: block;
 }
 
+.disclosure-summary {
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+
+.disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure-summary::marker {
+  content: '';
+}
+
+.disclosure-summary::after {
+  content: '›';
+  flex: none;
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  font-size: 1.2rem;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform var(--transition-fast);
+}
+
+details[open] > .disclosure-summary::after {
+  transform: rotate(90deg);
+}
+
 .main-header {
   display: flex;
   justify-content: space-between;

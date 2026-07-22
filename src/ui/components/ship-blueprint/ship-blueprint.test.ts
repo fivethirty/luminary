@@ -194,19 +194,26 @@ describe('ShipBlueprint', () => {
         (heading) => heading.textContent
       )
     ).toEqual([
-      '+ Energy',
-      '+ Movement',
-      '+ Initiative',
-      '+ Computer',
-      '+ Shield',
-      '+ Hull',
-      '+ Repair',
+      'Energy',
+      'Movement',
+      'Initiative',
+      'Computer',
+      'Shield',
+      'Hull',
+      'Repair',
       'Cannon',
       'Missile',
     ]);
     const buckets = Array.from(
       element.querySelectorAll<HTMLDetailsElement>('.part-bucket')
     );
+    expect(
+      buckets.every((section) =>
+        section
+          .querySelector('summary')
+          ?.classList.contains('disclosure-summary')
+      )
+    ).toBe(true);
     expect(buckets.every((section) => !section.open)).toBe(true);
     (buckets[0].querySelector('summary') as HTMLElement).click();
     expect(buckets[0].open).toBe(true);
@@ -222,6 +229,48 @@ describe('ShipBlueprint', () => {
       )
     ).toHaveLength(2);
     expect(element.querySelector('.part-option-copy small')).toBeNull();
+  });
+
+  test('searches only tile names, not headings or stats', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+
+    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    const search = element.querySelector('.part-search') as HTMLInputElement;
+    search.value = 'initiative';
+    search.dispatchEvent(new Event('input'));
+
+    expect(
+      Array.from(element.querySelectorAll<HTMLElement>('.part-option')).filter(
+        (option) => !option.hidden
+      )
+    ).toHaveLength(0);
+    expect(
+      (element.querySelector('.part-search-empty') as HTMLElement).hidden
+    ).toBe(false);
+
+    search.value = 'nuclear source';
+    search.dispatchEvent(new Event('input'));
+    const visibleOptions = Array.from(
+      element.querySelectorAll<HTMLElement>('.part-option')
+    ).filter((option) => !option.hidden);
+    expect(visibleOptions).toHaveLength(1);
+    expect(visibleOptions[0].dataset.partId).toBe('nus');
+  });
+
+  test('keeps the scrolling picker content in its own paint layer', () => {
+    expect(blueprintStyles).toMatch(
+      /\.part-buckets\s*{[^}]*contain:\s*paint[^}]*isolation:\s*isolate/
+    );
+    expect(blueprintStyles).not.toMatch(/position:\s*sticky/);
+  });
+
+  test('locks background scrolling while the parts picker is open', () => {
+    expect(blueprintStyles).toMatch(
+      /:is\(html, body\):has\(\.part-dialog\[open\]\)\s*{[^}]*overflow:\s*hidden/
+    );
   });
 
   test('does not display part options that do not match the search', () => {
