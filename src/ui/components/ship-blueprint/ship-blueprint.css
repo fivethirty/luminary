@@ -42,7 +42,7 @@ calc-ship-blueprint {
   display: grid;
   grid-template-columns:
     var(--blueprint-canvas-width) minmax(11.5rem, 1fr)
-    minmax(12rem, 13rem);
+    minmax(4.5rem, max-content);
   grid-template-areas: 'canvas actions external';
   gap: var(--space-md);
   align-items: start;
@@ -218,10 +218,63 @@ calc-ship-blueprint {
 
 .external-section {
   grid-area: external;
-  padding: var(--space-sm);
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-bg-tertiary) 74%, transparent);
+}
+
+.external-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 2.75rem;
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+.external-summary::-webkit-details-marker {
+  display: none;
+}
+
+.external-summary::after {
+  content: '›';
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+}
+
+.external-section[open] .external-summary::after {
+  transform: rotate(90deg);
+}
+
+.external-summary:hover,
+.external-summary:focus-visible {
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
+}
+
+.external-summary-status {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.external-summary-status[hidden] {
+  display: none;
+}
+
+.external-content {
+  padding: 0 var(--space-sm) var(--space-sm);
+  border-top: 1px solid var(--color-border);
 }
 
 .external-title,
@@ -241,7 +294,7 @@ calc-ship-blueprint {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
-  margin: var(--space-xs) 0 var(--space-sm);
+  margin: var(--space-sm) 0;
 }
 
 .external-bonuses span {
@@ -452,14 +505,23 @@ calc-ship-blueprint {
   margin-top: var(--space-lg);
 }
 
-.part-bucket h4 {
+.part-bucket summary {
   position: sticky;
   z-index: 2;
   top: calc(-1 * var(--space-md));
-  margin: 0 0 var(--space-xs);
-  padding: var(--space-xs) 0;
+  padding: var(--space-xs);
   background: var(--color-bg-primary);
   color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.part-bucket[open] summary {
+  margin-bottom: var(--space-xs);
+}
+
+.part-bucket h4 {
+  display: inline;
+  margin: 0;
   font-size: 0.78rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -549,7 +611,7 @@ calc-ship-blueprint {
   .blueprint-workbench {
     grid-template-columns:
       var(--blueprint-canvas-width) minmax(11.5rem, 1fr)
-      minmax(0, 13rem);
+      minmax(4.5rem, max-content);
     grid-template-areas: 'canvas actions external';
   }
 }
@@ -565,27 +627,27 @@ calc-ship-blueprint {
     grid-template-columns: var(--blueprint-canvas-width) minmax(0, 1fr);
     grid-template-areas:
       'canvas actions'
-      'external external';
+      'canvas external';
   }
 
   .blueprint-canvas-wrap {
     margin: 0;
   }
 
-  .external-section {
+  .external-section[open] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .external-section[open] .external-content {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(10rem, 1fr);
-    gap: var(--space-xs) var(--space-sm);
+    gap: var(--space-sm);
+    align-items: center;
   }
 
-  .external-title,
-  .external-bonuses {
-    grid-column: 1;
-  }
-
-  .muon-control {
-    grid-column: 2;
-    grid-row: 1 / span 2;
+  .external-section[open] .external-bonuses {
+    margin-bottom: var(--space-sm);
   }
 
   .part-dialog {
@@ -616,15 +678,8 @@ calc-ship-blueprint {
 }
 
 @media (max-width: 24rem) {
-  .external-section {
+  .external-section[open] .external-content {
     grid-template-columns: 1fr;
-  }
-
-  .external-title,
-  .external-bonuses,
-  .muon-control {
-    grid-column: 1;
-    grid-row: auto;
   }
 
   .slot-action-buttons {
@@ -643,14 +698,6 @@ calc-ship-blueprint {
 
   .blueprint-visual {
     margin-inline: auto;
-  }
-
-  .external-section {
-    display: block;
-  }
-
-  .muon-control {
-    margin-top: var(--space-xs);
   }
 
   .slot-action-buttons {

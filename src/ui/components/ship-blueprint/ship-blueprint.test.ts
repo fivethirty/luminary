@@ -94,12 +94,39 @@ describe('ShipBlueprint', () => {
 
   test('expands the part controls into the spare desktop width', () => {
     expect(blueprintStyles).toMatch(
-      /var\(--blueprint-canvas-width\)\s+minmax\(11\.5rem, 1fr\)\s+minmax\(12rem, 13rem\)/
+      /var\(--blueprint-canvas-width\)\s+minmax\(11\.5rem, 1fr\)\s+minmax\(4\.5rem, max-content\)/
     );
     expect(blueprintStyles).toMatch(
       /@media \(min-width: 60\.0625rem\)[\s\S]*\.slot-action-buttons\s*{[^}]*display:\s*flex[^}]*gap:\s*var\(--space-sm\)[^}]*}[\s\S]*\.recent-parts-list\s*{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/
     );
     expect(blueprintStyles).not.toMatch(/\.remove-part-btn\s*{[^}]*color:/);
+  });
+
+  test('keeps external bonuses collapsed until requested', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+    const external = element.querySelector(
+      '.external-section'
+    ) as HTMLDetailsElement;
+    const status = element.querySelector(
+      '.external-summary-status'
+    ) as HTMLElement;
+
+    expect(external.open).toBe(false);
+    expect(status.hidden).toBe(true);
+
+    (element.querySelector('.external-summary') as HTMLElement).click();
+    expect(external.open).toBe(true);
+
+    const muon = element.querySelector('.muon-checkbox') as HTMLInputElement;
+    muon.checked = true;
+    muon.dispatchEvent(new Event('change'));
+
+    expect(ship.blueprint?.muonSource).toBe(true);
+    expect(status.hidden).toBe(false);
+    expect(status.textContent).toBe('Muon installed');
   });
 
   test('renders hull without a plus sign', () => {
@@ -132,7 +159,7 @@ describe('ShipBlueprint', () => {
     );
   });
 
-  test('selects slot 1 by default before opening the searchable bucketed dialog', () => {
+  test('opens a searchable bucketed dialog with sections collapsed by default', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'cruiser', {
       withBlueprint: true,
     })!;
@@ -177,10 +204,18 @@ describe('ShipBlueprint', () => {
       'Cannon',
       'Missile',
     ]);
+    const buckets = Array.from(
+      element.querySelectorAll<HTMLDetailsElement>('.part-bucket')
+    );
+    expect(buckets.every((section) => !section.open)).toBe(true);
+    (buckets[0].querySelector('summary') as HTMLElement).click();
+    expect(buckets[0].open).toBe(true);
+    buckets[0].open = false;
 
     const search = element.querySelector('.part-search') as HTMLInputElement;
     search.value = 'sentient hull';
     search.dispatchEvent(new Event('input'));
+    expect(buckets.every((section) => section.open)).toBe(true);
     expect(
       Array.from(element.querySelectorAll<HTMLElement>('.part-option')).filter(
         (option) => !option.hidden

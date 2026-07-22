@@ -356,6 +356,10 @@ export class ShipBlueprintElement extends HTMLElement {
     muon.checked = blueprint.muonSource;
     muon.disabled = Boolean(muonUse && !blueprint.muonSource);
     muon.title = muonUse ? 'Muon Source is installed on another ship' : '';
+    const externalStatus = this.querySelector(
+      '.external-summary-status'
+    ) as HTMLElement;
+    externalStatus.hidden = !blueprint.muonSource;
     muon.onchange = () => {
       if (
         !setBlueprintMuonSource(this.fleetId, this.shipType.id, muon.checked)
@@ -507,12 +511,14 @@ export class ShipBlueprintElement extends HTMLElement {
     const target = this.querySelector('.part-buckets') as HTMLElement;
     target.innerHTML = '';
     partBuckets(this.blueprintType).forEach((bucket) => {
-      const section = document.createElement('section');
+      const section = document.createElement('details');
       section.className = 'part-bucket';
       section.dataset.bucket = bucket.id;
+      const summary = document.createElement('summary');
       const heading = document.createElement('h4');
       heading.textContent = bucket.label;
-      section.appendChild(heading);
+      summary.appendChild(heading);
+      section.appendChild(summary);
       const grid = document.createElement('div');
       grid.className = 'part-grid';
       bucket.parts.forEach((entry) => grid.appendChild(this.partButton(entry)));
@@ -557,19 +563,22 @@ export class ShipBlueprintElement extends HTMLElement {
   private filterParts(rawQuery: string) {
     const query = rawQuery.trim().toLowerCase();
     let totalVisible = 0;
-    this.querySelectorAll<HTMLElement>('.part-bucket').forEach((section) => {
-      let sectionVisible = 0;
-      section
-        .querySelectorAll<HTMLElement>('.part-option')
-        .forEach((option) => {
-          const visible = !query || option.dataset.search?.includes(query);
-          option.hidden = !visible;
-          option.style.display = visible ? '' : 'none';
-          if (visible) sectionVisible++;
-        });
-      section.hidden = sectionVisible === 0;
-      totalVisible += sectionVisible;
-    });
+    this.querySelectorAll<HTMLDetailsElement>('.part-bucket').forEach(
+      (section) => {
+        if (query) section.open = true;
+        let sectionVisible = 0;
+        section
+          .querySelectorAll<HTMLElement>('.part-option')
+          .forEach((option) => {
+            const visible = !query || option.dataset.search?.includes(query);
+            option.hidden = !visible;
+            option.style.display = visible ? '' : 'none';
+            if (visible) sectionVisible++;
+          });
+        section.hidden = sectionVisible === 0;
+        totalVisible += sectionVisible;
+      }
+    );
     const empty = this.querySelector('.part-search-empty') as HTMLElement;
     empty.hidden = totalVisible > 0;
   }
