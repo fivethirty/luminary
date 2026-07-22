@@ -238,11 +238,10 @@ export class ShipBlueprintElement extends HTMLElement {
   }
 
   private renderSelection() {
-    const selected = this.querySelector('.selected-part') as HTMLElement;
     const replace = this.querySelector('.edit-part-btn') as HTMLButtonElement;
     const remove = this.querySelector('.remove-part-btn') as HTMLButtonElement;
     if (this.selectedSlot === null || !this.shipType.blueprint) {
-      selected.textContent = 'Select a ship slot';
+      replace.setAttribute('aria-label', 'Select a ship slot to edit');
       replace.disabled = true;
       remove.disabled = true;
       remove.hidden = true;
@@ -251,7 +250,10 @@ export class ShipBlueprintElement extends HTMLElement {
     }
     const partId = this.shipType.blueprint.slots[this.selectedSlot];
     const entry = PART_BY_ID.get(partId ?? '');
-    selected.textContent = entry?.name ?? 'Empty';
+    replace.setAttribute(
+      'aria-label',
+      entry ? `Edit ${entry.name}` : 'Fill empty slot'
+    );
     replace.disabled = false;
     const canRemove = this.canRemoveSelectedPart();
     remove.disabled = !canRemove;
@@ -340,11 +342,14 @@ export class ShipBlueprintElement extends HTMLElement {
     );
     const bonuses = this.querySelector('.external-bonuses') as HTMLElement;
     bonuses.innerHTML = '';
-    externalBonusLabels(this.blueprintType, this.factionId).forEach((label) => {
+    const bonusLabels = externalBonusLabels(this.blueprintType, this.factionId);
+    bonusLabels.forEach((label) => {
       const chip = document.createElement('span');
       chip.textContent = label;
       bonuses.appendChild(chip);
     });
+    const heading = this.querySelector('.external-heading') as HTMLElement;
+    heading.hidden = bonusLabels.length === 0;
 
     const muon = this.querySelector('.muon-checkbox') as HTMLInputElement;
     const muonPart = PART_BY_ID.get('mus')!;
@@ -354,11 +359,12 @@ export class ShipBlueprintElement extends HTMLElement {
     });
     muon.checked = blueprint.muonSource;
     muon.disabled = Boolean(muonUse && !blueprint.muonSource);
-    muon.title = muonUse ? 'Muon Source is installed on another ship' : '';
-    const externalStatus = this.querySelector(
-      '.external-summary-status'
-    ) as HTMLElement;
-    externalStatus.hidden = !blueprint.muonSource;
+    const unavailableReason = muonUse
+      ? 'Muon Source is installed on another ship'
+      : '';
+    muon.title = unavailableReason;
+    const muonControl = this.querySelector('.muon-control') as HTMLElement;
+    muonControl.title = unavailableReason;
     muon.onchange = () => {
       if (
         !setBlueprintMuonSource(this.fleetId, this.shipType.id, muon.checked)

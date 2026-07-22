@@ -22,15 +22,12 @@
             </div>
           </div>
         </div>
-        <div class="drive-warning" aria-live="polite" hidden>
-          ⚠ No drive installed
-        </div>
       </div>
 
       <div class="blueprint-controls">
         <div class="slot-actions">
-          <div class="selected-part" role="status" aria-live="polite">
-            Select a ship slot
+          <div class="drive-warning" aria-live="polite" hidden>
+            ⚠ No drive installed
           </div>
           <div class="slot-action-buttons">
             <button class="edit-part-btn" type="button" disabled>
@@ -40,29 +37,29 @@
               Remove
             </button>
           </div>
-          <div class="recent-parts" hidden>
-            <div class="recent-parts-label">Recent Common Parts</div>
-            <div class="recent-parts-list"></div>
-          </div>
         </div>
 
-        <details class="external-section">
-          <summary class="external-summary disclosure-summary">
+        <div class="recent-parts" hidden>
+          <div class="recent-parts-label">Recent</div>
+          <div class="recent-parts-list"></div>
+        </div>
+
+        <section
+          class="external-section"
+          aria-label="External bonuses and Muon Source"
+        >
+          <label class="muon-control">
+            <input class="muon-checkbox" type="checkbox" />
+            <img class="muon-image" alt="" />
+            <span>
+              <strong>Muon Source</strong>
+            </span>
+          </label>
+          <div class="external-heading">
             <span class="external-title">EXT</span>
-            <span class="external-summary-status" hidden>Muon installed</span>
-          </summary>
-          <div class="external-content">
             <div class="external-bonuses"></div>
-            <label class="muon-control">
-              <input class="muon-checkbox" type="checkbox" />
-              <img class="muon-image" alt="" />
-              <span>
-                <strong>Muon Source</strong>
-                <small>+2 energy · +1 init</small>
-              </span>
-            </label>
           </div>
-        </details>
+        </section>
       </div>
     </div>
   </div>

@@ -203,9 +203,9 @@ describe('ship parts', () => {
       '+1 Energy',
     ]);
     expect(externalBonusLabels(ShipType.Orbital, 'exiles')).toEqual([
-      '+0 Init',
       '+4 Energy',
       '+2 Hull',
     ]);
+    expect(externalBonusLabels(ShipType.Dreadnought)).toEqual([]);
   });
 });

@@ -40,16 +40,15 @@ calc-ship-blueprint {
   --blueprint-canvas-width: 10rem;
 
   display: grid;
-  grid-template-columns:
-    var(--blueprint-canvas-width) minmax(11.5rem, 1fr)
-    minmax(4.5rem, max-content);
-  grid-template-areas: 'canvas actions external';
-  gap: var(--space-md);
-  align-items: start;
+  grid-template-columns: var(--blueprint-canvas-width) minmax(0, 1fr);
+  grid-template-areas: 'canvas controls';
+  gap: var(--space-sm);
+  align-items: stretch;
 }
 
 .blueprint-visual {
   grid-area: canvas;
+  align-self: start;
   min-width: 0;
   width: min(100%, var(--blueprint-canvas-width));
   max-width: var(--blueprint-canvas-width);
@@ -216,50 +215,6 @@ calc-ship-blueprint {
   text-transform: uppercase;
 }
 
-.external-section {
-  grid-area: external;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 74%, transparent);
-}
-
-.external-summary {
-  gap: var(--space-xs);
-  min-height: 2.75rem;
-  padding: var(--space-xs) var(--space-sm);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.external-summary::after {
-  font-size: 1.1rem;
-}
-
-.external-summary:hover,
-.external-summary:focus-visible {
-  background: color-mix(in srgb, var(--color-info) 10%, transparent);
-}
-
-.external-summary-status {
-  overflow: hidden;
-  color: var(--color-text-secondary);
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.external-summary-status[hidden] {
-  display: none;
-}
-
-.external-content {
-  padding: 0 var(--space-sm) var(--space-sm);
-  border-top: 1px solid var(--color-border);
-}
-
 .external-title,
 .dialog-kicker {
   color: var(--color-text-muted);
@@ -270,14 +225,51 @@ calc-ship-blueprint {
 }
 
 .blueprint-controls {
-  display: contents;
+  container: blueprint-controls / inline-size;
+  grid-area: controls;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'actions actions'
+    'recent recent'
+    'external external';
+  gap: var(--space-sm);
+  align-content: start;
+  min-width: 0;
+  min-height: 100%;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 55%, transparent);
+}
+
+.external-section {
+  grid-area: external;
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  min-width: 0;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.external-heading {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.external-heading[hidden] {
+  display: none;
 }
 
 .external-bonuses {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
-  margin: var(--space-sm) 0;
+  margin: 0;
 }
 
 .external-bonuses span {
@@ -290,14 +282,67 @@ calc-ship-blueprint {
 }
 
 .muon-control {
+  position: relative;
   display: grid;
-  grid-template-columns: auto 2.5rem minmax(0, 1fr);
+  grid-template-columns: 2rem minmax(0, 1fr);
   gap: var(--space-xs);
   align-items: center;
-  padding: var(--space-xs);
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+  padding: 0.2rem 1.7rem 0.2rem 0.2rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
   cursor: pointer;
+}
+
+.muon-control::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--color-on-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.muon-control:has(.muon-checkbox:checked) {
+  border-color: var(--color-info);
+  background: color-mix(
+    in srgb,
+    var(--color-info) 18%,
+    var(--color-bg-secondary)
+  );
+}
+
+.muon-control:has(.muon-checkbox:checked)::after {
+  border-color: var(--color-info);
+  background: var(--color-info);
+  opacity: 1;
+}
+
+.muon-control:has(.muon-checkbox:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.muon-control .muon-checkbox {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
 }
 
 .muon-control:has(input:disabled) {
@@ -306,8 +351,8 @@ calc-ship-blueprint {
 }
 
 .muon-control img {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 0.2rem;
   object-fit: cover;
 }
@@ -316,68 +361,74 @@ calc-ship-blueprint {
   min-width: 0;
 }
 
-.muon-control strong,
-.muon-control small {
+.muon-control strong {
   display: block;
-}
-
-.muon-control small {
-  color: var(--color-text-muted);
+  min-width: 0;
+  overflow: hidden;
   font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .drive-warning {
-  margin-top: var(--space-xs);
+  flex: 0 0 auto;
   color: var(--color-danger, #ef7a7a);
-  font-size: 0.78rem;
-  line-height: 1.2;
-  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .slot-actions {
   grid-area: actions;
-  display: grid;
+  display: flex;
   gap: var(--space-xs);
-  padding: var(--space-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 55%, transparent);
-}
-
-.selected-part {
+  align-items: center;
   min-width: 0;
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
 }
 
-.slot-action-buttons,
-.recent-parts-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.slot-action-buttons {
+  display: flex;
   gap: var(--space-xs);
 }
 
 .slot-action-buttons button {
   min-width: 0;
-  min-height: 2.75rem;
+  min-height: 2.25rem;
   padding-inline: var(--space-xs);
 }
 
 .recent-parts {
+  grid-area: recent;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-xs);
+  align-items: center;
   min-width: 0;
-  margin-top: 0.15rem;
-  padding-top: var(--space-xs);
+  padding-top: var(--space-sm);
   border-top: 1px solid var(--color-border);
 }
 
+.recent-parts[hidden] {
+  display: none;
+}
+
 .recent-parts-label {
-  margin-bottom: 0.3rem;
+  margin: 0;
   color: var(--color-text-muted);
   font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.recent-parts-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
+  min-width: 0;
 }
 
 .quick-part-btn {
@@ -408,6 +459,13 @@ calc-ship-blueprint {
   font-weight: 600;
   line-height: 1.15;
   text-overflow: ellipsis;
+}
+
+@container blueprint-controls (max-width: 52rem) {
+  .external-bonuses {
+    flex-direction: column;
+    align-items: flex-end;
+  }
 }
 
 .quick-part-btn:disabled {
@@ -612,22 +670,32 @@ calc-ship-blueprint {
 }
 
 @media (min-width: 60.0625rem) {
-  .slot-action-buttons {
-    display: flex;
-    gap: var(--space-sm);
-  }
-
-  .recent-parts-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 60rem) {
   .blueprint-workbench {
-    grid-template-columns:
-      var(--blueprint-canvas-width) minmax(11.5rem, 1fr)
-      minmax(4.5rem, max-content);
-    grid-template-areas: 'canvas actions external';
+    --blueprint-canvas-height: 10rem;
+
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+
+  .blueprint-visual,
+  .blueprint-canvas-wrap {
+    width: max-content;
+    max-width: none;
+  }
+
+  .blueprint-canvas {
+    width: auto;
+    height: var(--blueprint-canvas-height);
+  }
+
+  .blueprint-controls {
+    grid-template-areas:
+      'actions actions'
+      'recent external';
+  }
+
+  .blueprint-controls:has(.recent-parts[hidden]) .external-section {
+    grid-column: 1 / -1;
+    justify-self: end;
   }
 }
 
@@ -637,32 +705,18 @@ calc-ship-blueprint {
   }
 
   .blueprint-workbench {
-    --blueprint-canvas-width: 12rem;
+    --blueprint-canvas-width: 10rem;
+  }
 
-    grid-template-columns: var(--blueprint-canvas-width) minmax(0, 1fr);
+  .blueprint-controls {
     grid-template-areas:
-      'canvas actions'
-      'canvas external';
+      'actions actions'
+      'recent recent'
+      'external external';
   }
 
-  .blueprint-canvas-wrap {
-    margin: 0;
-  }
-
-  .external-section[open] {
-    grid-column: 1 / -1;
-    grid-row: 3;
-  }
-
-  .external-section[open] .external-content {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(10rem, 1fr);
-    gap: var(--space-sm);
-    align-items: center;
-  }
-
-  .external-section[open] .external-bonuses {
-    margin-bottom: var(--space-sm);
+  .external-section {
+    flex-wrap: wrap;
   }
 
   .part-dialog {
@@ -678,44 +732,40 @@ calc-ship-blueprint {
     grid-template-columns: 1fr;
   }
 
-  .recent-parts-list {
-    grid-template-columns: 1fr;
-  }
 }
 
-@media (max-width: 28rem) {
-  .blueprint-header,
-  .part-dialog-header,
-  .part-buckets {
-    padding-inline: var(--space-sm);
-  }
-
-}
-
-@media (max-width: 24rem) {
-  .external-section[open] .external-content {
-    grid-template-columns: 1fr;
-  }
-
-  .slot-action-buttons {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 22rem) {
+@media (max-width: 34rem) {
   .blueprint-workbench {
     grid-template-columns: 1fr;
     grid-template-areas:
       'canvas'
-      'actions'
-      'external';
+      'controls';
   }
 
   .blueprint-visual {
     margin-inline: auto;
   }
+}
 
-  .slot-action-buttons {
+@media (max-width: 28rem) {
+  .part-dialog-header,
+  .part-buckets {
+    padding-inline: var(--space-sm);
+  }
+
+  .blueprint-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'actions actions'
+      'recent recent'
+      'external external';
+  }
+
+  .recent-parts {
+    grid-template-columns: 1fr;
+  }
+
+  .recent-parts-list {
     grid-template-columns: 1fr;
   }
 }

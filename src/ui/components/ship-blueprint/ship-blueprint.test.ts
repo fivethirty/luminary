@@ -56,13 +56,30 @@ describe('ShipBlueprint', () => {
     ).toBe('1');
     expect(element.querySelector('.blueprint-summary')).toBeNull();
     expect(element.querySelector('calc-ship-type')).toBeNull();
+    expect(element.querySelector('.ship-type-name')?.textContent).toBe(
+      'Interceptor'
+    );
     expect(
       Array.from(element.querySelector('.blueprint-workbench')!.children).map(
         (child) => child.className
       )
     ).toEqual(['blueprint-visual', 'blueprint-controls']);
+    const controls = element.querySelector('.blueprint-controls')!;
+    const header = element.querySelector('.blueprint-header')!;
+    expect(controls.querySelector('.blueprint-header')).toBeNull();
+    expect(Array.from(header.children).map((child) => child.className)).toEqual(
+      ['ship-type-name text-bold', 'quantity', 'remove-btn btn-icon']
+    );
+    expect(
+      header.querySelector('.remove-btn')?.getAttribute('aria-label')
+    ).toBe('Remove Interceptor');
+    expect(
+      Array.from(controls.querySelector('.slot-actions')!.children).map(
+        (child) => child.className
+      )
+    ).toEqual(['drive-warning', 'slot-action-buttons']);
     const driveWarning = element.querySelector('.drive-warning')!;
-    expect(driveWarning.parentElement?.className).toBe('blueprint-visual');
+    expect(driveWarning.parentElement?.className).toBe('slot-actions');
     expect(driveWarning.closest('.blueprint-canvas-wrap')).toBeNull();
     expect(driveWarning.closest('.external-section')).toBeNull();
   });
@@ -92,41 +109,77 @@ describe('ShipBlueprint', () => {
     );
   });
 
-  test('expands the part controls into the spare desktop width', () => {
+  test('uses a compact, unified desktop workbench', () => {
     expect(blueprintStyles).toMatch(
-      /var\(--blueprint-canvas-width\)\s+minmax\(11\.5rem, 1fr\)\s+minmax\(4\.5rem, max-content\)/
+      /@media \(min-width: 60\.0625rem\)[\s\S]*grid-template-columns:\s*max-content minmax\(0, 1fr\)/
     );
     expect(blueprintStyles).toMatch(
-      /@media \(min-width: 60\.0625rem\)[\s\S]*\.slot-action-buttons\s*{[^}]*display:\s*flex[^}]*gap:\s*var\(--space-sm\)[^}]*}[\s\S]*\.recent-parts-list\s*{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/
+      /--blueprint-canvas-height:\s*8rem[\s\S]*grid-template-areas:\s*'actions actions'\s*'recent external'/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.blueprint-controls\s*{[^}]*border:\s*1px solid var\(--color-border\)/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.slot-actions\s*{[^}]*display:\s*flex[^}]*gap:\s*var\(--space-xs\)/
     );
     expect(blueprintStyles).not.toMatch(/\.remove-part-btn\s*{[^}]*color:/);
   });
 
-  test('keeps external bonuses collapsed until requested', () => {
+  test('keeps external bonuses and Muon Source visible in the workbench', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
     const element = render(ship.id);
-    const external = element.querySelector(
-      '.external-section'
-    ) as HTMLDetailsElement;
-    const status = element.querySelector(
-      '.external-summary-status'
-    ) as HTMLElement;
+    const external = element.querySelector('.external-section')!;
 
-    expect(external.open).toBe(false);
-    expect(status.hidden).toBe(true);
-
-    (element.querySelector('.external-summary') as HTMLElement).click();
-    expect(external.open).toBe(true);
+    expect(external.tagName).toBe('SECTION');
+    expect(element.querySelector('.external-summary')).toBeNull();
+    expect(external.getAttribute('aria-label')).toBe(
+      'External bonuses and Muon Source'
+    );
+    expect(
+      Array.from(external.children).map((child) => child.className)
+    ).toEqual(['muon-control', 'external-heading']);
+    expect(
+      Array.from(external.querySelectorAll('.external-bonuses span')).map(
+        (bonus) => bonus.textContent
+      )
+    ).toEqual(['+2 Init']);
 
     const muon = element.querySelector('.muon-checkbox') as HTMLInputElement;
+    expect(muon.type).toBe('checkbox');
     muon.checked = true;
     muon.dispatchEvent(new Event('change'));
 
     expect(ship.blueprint?.muonSource).toBe(true);
-    expect(status.hidden).toBe(false);
-    expect(status.textContent).toBe('Muon installed');
+    expect(muon.checked).toBe(true);
+
+    const dreadnought = addOrSwapShipPreset('fleet-0', 'dreadnought', {
+      withBlueprint: true,
+    })!;
+    const dreadnoughtElement = render(dreadnought.id);
+    expect(
+      (dreadnoughtElement.querySelector('.external-heading') as HTMLElement)
+        .hidden
+    ).toBe(true);
+    expect(
+      dreadnoughtElement.querySelectorAll('.external-bonuses span')
+    ).toHaveLength(0);
+    expect(blueprintStyles).toMatch(
+      /\.external-heading\s*{[^}]*margin-left:\s*auto/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.muon-control \.muon-checkbox\s*{[^}]*position:\s*absolute[^}]*clip-path:\s*inset\(50%\)[^}]*opacity:\s*0/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.muon-control:has\(\.muon-checkbox:checked\)\s*{[^}]*border-color:\s*var\(--color-info\)/
+    );
+    expect(blueprintStyles).toMatch(
+      /@container blueprint-controls \(max-width: 52rem\)[\s\S]*\.external-bonuses\s*{[^}]*flex-direction:\s*column[^}]*align-items:\s*flex-end/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.muon-control strong\s*{[^}]*font-size:\s*0\.68rem[^}]*font-weight:\s*600/
+    );
   });
 
   test('renders hull without a plus sign', () => {
@@ -173,14 +226,13 @@ describe('ShipBlueprint', () => {
     expect(firstSlot.classList.contains('selected')).toBe(true);
     expect(firstSlot.getAttribute('aria-pressed')).toBe('true');
     expect(replace.disabled).toBe(false);
-    expect(element.querySelector('.selected-part')?.textContent).toBe(
-      'Electron Computer'
-    );
+    expect(element.querySelector('.selected-part')).toBeNull();
+    expect(replace.getAttribute('aria-label')).toBe('Edit Electron Computer');
 
     (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
     expect(firstSlot.classList.contains('selected')).toBe(false);
     expect(firstSlot.getAttribute('aria-pressed')).toBe('false');
-    expect(element.querySelector('.selected-part')?.textContent).toBe('Empty');
+    expect(replace.getAttribute('aria-label')).toBe('Fill empty slot');
     replace.click();
 
     const dialog = element.querySelector('.part-dialog') as HTMLDialogElement;

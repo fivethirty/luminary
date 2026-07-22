@@ -726,9 +726,10 @@ export function externalBonusLabels(
   factionId: FactionId | undefined = ''
 ): string[] {
   const stats = chassisStats(type, factionId);
-  const labels = [
-    `${stats.initiative >= 0 ? '+' : ''}${stats.initiative} Init`,
-  ];
+  const labels: string[] = [];
+  if (stats.initiative) {
+    labels.push(`${stats.initiative > 0 ? '+' : ''}${stats.initiative} Init`);
+  }
   if (stats.energy) labels.push(`+${stats.energy} Energy`);
   if (stats.computers) labels.push(`+${stats.computers} Comp`);
   if (stats.shields) labels.push(`−${stats.shields} Shield`);
