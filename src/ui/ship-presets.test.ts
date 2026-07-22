@@ -37,7 +37,7 @@ describe('starting player blueprints', () => {
     expect(getStartingShipConfig('orbital').config).toMatchObject({
       hull: 3,
       computers: 1,
-      initiative: 4,
+      initiative: 0,
       cannons: { ion: 2 },
     });
     expect(getStartingShipConfig('starbase').config).toMatchObject({
@@ -97,5 +97,6 @@ describe('starting player blueprints', () => {
       initiative: 2,
       cannons: { ion: 0 },
     });
+    expect(getDefaultShipConfig('orbital').config.initiative).toBe(4);
   });
 });

@@ -98,6 +98,13 @@ when sanitizing imported data: after role-invalid entries are removed, the first
 determines player versus NPC composition, and the first row for each type is retained. State takes
 ownership of imported and updated configurations and clamps quantities at this boundary.
 
+When no faction is selected, a defender may choose either structure. A faction-selected Exiles
+defender may field Orbitals but not Starbases; every other faction-selected defender may field
+Starbases but not Orbitals. Rho Indi fleets may not field Dreadnoughts. Changing faction or importing
+a faction-tagged setup removes a Rho Indi Dreadnought, and converts an invalid structure to its valid
+counterpart, clamps its quantity to the new component limit, and applies the new structure's
+faction-aware operating blueprint.
+
 These rules apply at the state boundary, not only in visible controls. The URL decoder applies the
 same pure sanitization so shared links, restored setups, and direct state commands cannot drift.
 Share decoding must remain backward-compatible for supported versions; storage is not a second
@@ -153,14 +160,17 @@ decision nodes.
 
 `assignments` controls the policy model:
 
-- `policy`: player fleets use deterministic DPS assignments and NPC fleets use NPC assignments.
+- `policy`: fleets use their selected deterministic DPS or NPC assignment policy; inherent NPC
+  fleets always use NPC assignments.
 - `minimax`: selected non-NPC assignments are decisions. By default both player fleets are
   selected; exact combat and the mutable optimal planner pass only the roles whose fleet damage
   type is `OPTIMAL`. Attacker nodes maximize and defender nodes minimize the queried reach
   objective.
 
-The UI's `DamageType.OPTIMAL` selects minimax assignments. If an interactive solve exceeds its
-caps, `OptimalDamagePlanner` falls back to DPS.
+The UI exposes optimal, DPS, and NPC targeting for player fleets. `DamageType.OPTIMAL` selects
+minimax assignments; `DamageType.DPS` and `DamageType.NPC` select their respective deterministic
+planners. If an interactive optimal solve exceeds its caps, `OptimalDamagePlanner` falls back to
+DPS without changing fleets that explicitly selected NPC targeting.
 
 For diagnostics, `getGraphStats()` reports chance and decision ownership counts, while
 `explainDecision(stateKey)` reports each dice outcome's candidate values and selected option.
@@ -196,8 +206,9 @@ HP only within groups of ships with the same `configKey`; this collapses interch
 without changing first-seen planner behavior. Healing can increase HP, so the graph may contain
 cycles and must not be treated as a DAG.
 
-Policy transitions call the real `BinnedDamageAssignmentHelper` on materialized ship clones.
-They do not reimplement NPC or DPS targeting. Minimax transitions reuse `enumerateCandidates`
+Policy transitions call the real `BinnedDamageAssignmentHelper` on materialized ship clones using
+each fleet's selected NPC or DPS policy. They do not reimplement either targeting planner. Minimax
+transitions reuse `enumerateCandidates`
 to produce legal, distinct successor assignments; NPC assignment remains deterministic. When all
 living targets have one combat configuration, concentrating damage is deterministic under DPS and
 is used as an exact reduction of that otherwise redundant minimax decision node.

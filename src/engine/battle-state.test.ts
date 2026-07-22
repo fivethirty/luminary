@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType } from './ship';
+import { DamageType } from 'src/constants';
 import {
   BattleModel,
   ExpandContext,
@@ -237,6 +238,47 @@ describe('BattleModel', () => {
       expect(attackerMove.kind).toBe('move');
       if (attackerMove.kind !== 'move') return;
       expect(attackerMove.decisionRole).toBe('A');
+    });
+
+    test('player fleets can use deterministic NPC targeting', () => {
+      const attacker = () => [
+        new Ship(ShipType.Interceptor, {
+          initiative: 3,
+          cannons: { ion: 1 },
+        }),
+      ];
+      const defender = () => [
+        new Ship(ShipType.Dreadnought, { initiative: 1, hull: 3 }),
+        new Ship(ShipType.Interceptor, {
+          initiative: 1,
+          hull: 3,
+          cannons: { antimatter: 1 },
+        }),
+      ];
+      const damagedHp = (damageType: DamageType) => {
+        const model = new BattleModel(
+          attacker(),
+          defender(),
+          false,
+          false,
+          damageType,
+          DamageType.DPS
+        );
+        const expansion = model.expand(model.initialState(), CTX);
+        expect(expansion.kind).toBe('move');
+        if (expansion.kind !== 'move') return [];
+        const hit = expansion.edges
+          .flatMap((edge) => edge.options)
+          .find(
+            (option) =>
+              'state' in option &&
+              option.state.hpB.reduce((sum, hp) => sum + hp, 0) === 7
+          );
+        return hit && 'state' in hit ? hit.state.hpB : [];
+      };
+
+      expect(damagedHp(DamageType.NPC)).toEqual([3, 4]);
+      expect(damagedHp(DamageType.DPS)).toEqual([4, 3]);
     });
 
     test('optimal mode uses deterministic DPS concentration against one living configuration', () => {

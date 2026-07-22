@@ -1,8 +1,15 @@
 import {
   isPlayerShipType,
   ShipType,
+  type ShipConfig,
   type ShipType as ShipTypeValue,
 } from '@calc/ship';
+import type { FactionId } from '@ui/fleet-metadata';
+import {
+  getStartingShipConfig,
+  presetKeysForType,
+  SHIP_QUANTITY_LIMITS,
+} from '@ui/ship-presets';
 
 export interface FleetShip {
   type: ShipTypeValue;
@@ -25,6 +32,74 @@ export function isShipTypeAllowedForRole(
       type !== ShipType.Starbase &&
       type !== ShipType.Orbital)
   );
+}
+
+export function factionStructureType(
+  factionId: FactionId | undefined
+): ShipTypeValue | null {
+  if (!factionId) return null;
+  return factionId === 'exiles' ? ShipType.Orbital : ShipType.Starbase;
+}
+
+export function isShipTypeAllowedForFleet(
+  type: ShipTypeValue,
+  isDefender: boolean,
+  factionId: FactionId | undefined
+): boolean {
+  if (!isShipTypeAllowedForRole(type, isDefender)) return false;
+  if (factionId === 'rho-indi' && type === ShipType.Dreadnought) return false;
+
+  const allowedStructure = factionStructureType(factionId);
+  if (
+    !allowedStructure ||
+    (type !== ShipType.Starbase && type !== ShipType.Orbital)
+  ) {
+    return true;
+  }
+  return type === allowedStructure;
+}
+
+interface ConfiguredFleetShip extends FleetShip {
+  quantity: number;
+  config: Partial<ShipConfig>;
+}
+
+export function reconcileFactionStructure<T extends ConfiguredFleetShip>(
+  ships: T[],
+  factionId: FactionId | undefined,
+  isDefender: boolean
+): T[] {
+  const allowedType = isDefender ? factionStructureType(factionId) : null;
+  if (!allowedType) return ships;
+
+  const invalidType =
+    allowedType === ShipType.Orbital ? ShipType.Starbase : ShipType.Orbital;
+  const invalidShip: ConfiguredFleetShip | undefined = ships.find(
+    (ship) => ship.type === invalidType
+  );
+  if (!invalidShip) return ships;
+
+  const allowedShip: ConfiguredFleetShip | undefined = ships.find(
+    (ship) => ship.type === allowedType
+  );
+  if (allowedShip) {
+    allowedShip.quantity = Math.min(
+      allowedShip.quantity + invalidShip.quantity,
+      SHIP_QUANTITY_LIMITS[allowedType]
+    );
+    return ships.filter((ship) => ship !== invalidShip);
+  }
+
+  invalidShip.type = allowedType;
+  invalidShip.quantity = Math.min(
+    invalidShip.quantity,
+    SHIP_QUANTITY_LIMITS[allowedType]
+  );
+  const preset = presetKeysForType(allowedType)[0];
+  if (preset) {
+    invalidShip.config = getStartingShipConfig(preset, factionId).config;
+  }
+  return ships;
 }
 
 /** Player hulls may mix; an NPC fleet may contain only one NPC ship type. */
@@ -55,10 +130,11 @@ export function incompatibleShipsForType<T extends FleetShip>(
  */
 export function sanitizeFleetComposition<T extends FleetShip>(
   ships: readonly T[],
-  isDefender: boolean
+  isDefender: boolean,
+  factionId?: FactionId
 ): T[] {
   const roleAllowed = ships.filter((ship) =>
-    isShipTypeAllowedForRole(ship.type, isDefender)
+    isShipTypeAllowedForFleet(ship.type, isDefender, factionId)
   );
   const first = roleAllowed[0];
   if (!first) return [];

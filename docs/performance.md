@@ -17,9 +17,10 @@ evaluates these named tiers in order:
 1. **`exact-optimal`:** enumerate dice outcomes and use minimax assignment for eligible optimal
    player roles.
 2. **`exact-dps`:** if optimal exact is ineligible or exceeds its allocation, use the remaining
-   exact budget to compute exact dice probabilities with deterministic DPS/NPC assignment.
-3. **`monte-carlo-dps`:** if neither exact tier finishes, sample battles with explicit DPS planners
-   for players and the official planner for NPCs.
+   exact budget to compute exact dice probabilities with deterministic DPS/NPC assignment. Optimal
+   player fleets fall back to DPS; explicitly selected NPC policies remain NPC.
+3. **`monte-carlo-dps`:** if neither exact tier finishes, sample battles after the same
+   optimal-to-DPS fallback while retaining explicitly selected and inherent NPC policies.
 
 The deadline is not reset between exact tiers. A tier receives only the time remaining, and an
 exact tier is skipped when no budget remains. Once the runner chooses Monte Carlo, mutable fleets

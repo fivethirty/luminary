@@ -39,6 +39,7 @@ import {
 import { DamageType } from 'src/constants';
 
 const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
+  npc: DamageType.NPC,
   dps: DamageType.DPS,
   optimal: DamageType.OPTIMAL,
 };

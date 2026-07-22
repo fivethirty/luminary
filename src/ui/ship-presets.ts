@@ -206,7 +206,7 @@ const GENERIC_STARTING_PLAYER_CONFIGS: Partial<
     cannons: { ion: 2, plasma: 0, soliton: 0, antimatter: 0 },
   },
   [ShipType.Orbital]: {
-    ...createEmptyConfig(4),
+    ...createEmptyConfig(0),
     hull: 3,
     computers: 1,
     cannons: { ion: 2, plasma: 0, soliton: 0, antimatter: 0 },

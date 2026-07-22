@@ -24,7 +24,7 @@ import {
   type FactionId,
   PLAYER_FLEET_COLORS,
 } from '@ui/fleet-metadata';
-import { isShipTypeAllowedForRole } from '@ui/fleet-rules';
+import { isShipTypeAllowedForFleet } from '@ui/fleet-rules';
 import {
   getDefaultShipConfig,
   presetKeysForType,
@@ -111,8 +111,9 @@ export class FleetElement extends HTMLElement {
     ) as HTMLSelectElement;
     plannerTypeSelect.value = this.fleet.plannerType;
     plannerTypeSelect.addEventListener('change', () => {
+      if (plannerTypeSelect.disabled) return;
       const value = plannerTypeSelect.value;
-      if (value !== 'dps' && value !== 'optimal') return;
+      if (value !== 'npc' && value !== 'dps' && value !== 'optimal') return;
       setFleetPlannerType(this.fleet.id, value);
     });
 
@@ -347,13 +348,14 @@ export class FleetElement extends HTMLElement {
       const variantData = getDefaultShipConfig(
         option.value as ShipDropdownOption
       );
-      const attackerForbidden = !isShipTypeAllowedForRole(
+      const unavailable = !isShipTypeAllowedForFleet(
         variantData.type,
-        !isAttacker
+        !isAttacker,
+        this.fleet.factionId
       );
       // iOS can expose hidden native options. Components are freshly rendered
       // after a role change, so remove illegal choices from this picker.
-      if (attackerForbidden) {
+      if (unavailable) {
         option.remove();
         return;
       }
@@ -383,8 +385,8 @@ export class FleetElement extends HTMLElement {
   }
 
   // An all-AI fleet always fights with the NPC planner (see Fleet.getDamageType),
-  // so lock the control to a disabled "NPC" for those fleets. Player fleets get
-  // the normal, editable set of planners.
+  // so lock the control to a disabled "NPC" for those fleets. Player fleets may
+  // choose NPC, DPS, or optimal assignment.
   private updatePlannerControl() {
     const select = this.querySelector(
       '.planner-type-select'
@@ -405,13 +407,16 @@ export class FleetElement extends HTMLElement {
       select.value = 'npc';
       select.disabled = true;
     } else {
+      const npcOption = document.createElement('option');
+      npcOption.value = 'npc';
+      npcOption.textContent = 'NPC';
       const dpsOption = document.createElement('option');
       dpsOption.value = 'dps';
       dpsOption.textContent = 'Max DPS removal';
       const optimalOption = document.createElement('option');
       optimalOption.value = 'optimal';
       optimalOption.textContent = 'Optimal';
-      select.append(dpsOption, optimalOption);
+      select.append(npcOption, dpsOption, optimalOption);
       select.disabled = false;
       select.value = this.fleet.plannerType;
     }

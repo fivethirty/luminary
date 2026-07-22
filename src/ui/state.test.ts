@@ -11,6 +11,7 @@ import {
   setFleetColor,
   unsetFleetColor,
   setFleetFaction,
+  setFleetPlannerType,
   updateShipType,
   removeShipType,
   replaceFleets,
@@ -140,6 +141,24 @@ describe('State', () => {
       expect(() => addShipType('fleet-1', ShipType.Starbase)).toThrow(
         'Starbase cannot be fielded by an attacker fleet'
       );
+      expect(state.fleets[1].shipTypes).toEqual([]);
+    });
+
+    test('rejects structures unavailable to the selected faction', () => {
+      setFleetFaction('fleet-0', 'exiles');
+
+      expect(() => addShipType('fleet-0', ShipType.Starbase)).toThrow();
+      expect(addOrSwapShipPreset('fleet-0', 'starbase')).toBeNull();
+      expect(addOrSwapShipPreset('fleet-0', 'orbital')?.type).toBe(
+        ShipType.Orbital
+      );
+    });
+
+    test('rejects dreadnoughts for Rho Indi fleets', () => {
+      setFleetFaction('fleet-1', 'rho-indi');
+
+      expect(() => addShipType('fleet-1', ShipType.Dreadnought)).toThrow();
+      expect(addOrSwapShipPreset('fleet-1', 'dreadnought')).toBeNull();
       expect(state.fleets[1].shipTypes).toEqual([]);
     });
 
@@ -323,6 +342,35 @@ describe('State', () => {
         8, 1, 1,
       ]);
     });
+
+    test('reconciles an imported structure with its faction', () => {
+      const fleets = state.fleets.map((fleet, index) => ({
+        ...fleet,
+        factionId: index === 0 ? ('exiles' as const) : fleet.factionId,
+        shipTypes:
+          index === 0
+            ? [
+                {
+                  id: 'imported-starbase',
+                  type: ShipType.Starbase,
+                  quantity: 3,
+                  config: { initiative: 9 },
+                },
+              ]
+            : [],
+      }));
+
+      replaceFleets(fleets);
+
+      expect(state.fleets[0].shipTypes).toEqual([
+        expect.objectContaining({
+          id: 'imported-starbase',
+          type: ShipType.Orbital,
+          quantity: 1,
+          config: expect.objectContaining({ initiative: 0 }),
+        }),
+      ]);
+    });
   });
 
   describe('fleet metadata', () => {
@@ -332,6 +380,12 @@ describe('State', () => {
 
       expect(state.fleets[1].factionId).toBe('rho-indi');
       expect(state.fleets[1].colorId).toBe('blue');
+    });
+
+    test('allows NPC targeting for a player fleet', () => {
+      setFleetPlannerType('fleet-1', 'npc');
+
+      expect(state.fleets[1].plannerType).toBe('npc');
     });
 
     test('migrates an untouched operating blueprint when faction changes', () => {
@@ -344,6 +398,46 @@ describe('State', () => {
         initiative: 4,
         cannons: { ion: 1 },
       });
+    });
+
+    test('switches structures when their faction availability changes', () => {
+      const orbital = addOrSwapShipPreset('fleet-0', 'orbital')!;
+      expect(orbital.config.initiative).toBe(0);
+
+      setFleetFaction('fleet-0', 'terran');
+      expect(state.fleets[0].shipTypes).toEqual([
+        expect.objectContaining({
+          id: orbital.id,
+          type: ShipType.Starbase,
+          quantity: 1,
+          config: expect.objectContaining({ initiative: 4 }),
+        }),
+      ]);
+
+      setFleetFaction('fleet-0', 'exiles');
+      expect(state.fleets[0].shipTypes).toEqual([
+        expect.objectContaining({
+          id: orbital.id,
+          type: ShipType.Orbital,
+          quantity: 1,
+          config: expect.objectContaining({ initiative: 0 }),
+        }),
+      ]);
+    });
+
+    test('removes an existing dreadnought when changing to Rho Indi', () => {
+      const dreadnought = addOrSwapShipPreset('fleet-1', 'dreadnought')!;
+      dreadnought.quantity = 2;
+      addOrSwapShipPreset('fleet-1', 'cruiser');
+
+      setFleetFaction('fleet-1', 'rho-indi');
+
+      expect(state.fleets[1].shipTypes.map((ship) => ship.type)).toEqual([
+        ShipType.Cruiser,
+      ]);
+      expect(getCachedShipType('fleet-1', ShipType.Dreadnought)?.quantity).toBe(
+        2
+      );
     });
 
     test('migrates an untouched cached blueprint when faction changes', () => {

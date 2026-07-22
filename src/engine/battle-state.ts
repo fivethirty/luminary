@@ -62,8 +62,8 @@ type CanonicalGroup = { key: string; indices: number[] };
 export class BattleModel {
   readonly schedule: Slot[];
   private readonly numMissileSlots: number;
-  private readonly attackerIsNpc: boolean;
-  private readonly defenderIsNpc: boolean;
+  private readonly attackerDamageType: DamageType;
+  private readonly defenderDamageType: DamageType;
   private readonly attackerTemplates: Ship[];
   private readonly defenderTemplates: Ship[];
   private readonly attackerInitialHp: number[];
@@ -75,7 +75,9 @@ export class BattleModel {
     attackerTemplates: Ship[],
     defenderTemplates: Ship[],
     private readonly attackerSplitter: boolean,
-    private readonly defenderSplitter: boolean
+    private readonly defenderSplitter: boolean,
+    attackerDamageType?: DamageType,
+    defenderDamageType?: DamageType
   ) {
     this.attackerInitialHp = attackerTemplates.map((s) => s.remainingHP());
     this.defenderInitialHp = defenderTemplates.map((s) => s.remainingHP());
@@ -97,8 +99,16 @@ export class BattleModel {
     );
     this.schedule = this.buildSchedule();
     this.numMissileSlots = this.schedule.filter((s) => s.missile).length;
-    this.attackerIsNpc = !this.attackerTemplates.some((s) => s.isPlayerShip());
-    this.defenderIsNpc = !this.defenderTemplates.some((s) => s.isPlayerShip());
+    this.attackerDamageType =
+      attackerDamageType ??
+      (this.attackerTemplates.some((ship) => ship.isPlayerShip())
+        ? DamageType.DPS
+        : DamageType.NPC);
+    this.defenderDamageType =
+      defenderDamageType ??
+      (this.defenderTemplates.some((ship) => ship.isPlayerShip())
+        ? DamageType.DPS
+        : DamageType.NPC);
   }
 
   // Mirrors getAllPhases(): each fleet contributes a cannon slot for every
@@ -328,9 +338,9 @@ export class BattleModel {
     const shooterSplitter = shooterIsAttacker
       ? this.attackerSplitter
       : this.defenderSplitter;
-    const shooterIsNpc = shooterIsAttacker
-      ? this.attackerIsNpc
-      : this.defenderIsNpc;
+    const shooterDamageType = shooterIsAttacker
+      ? this.attackerDamageType
+      : this.defenderDamageType;
 
     // Living shooters at this initiative.
     const livingShooterIdx: number[] = [];
@@ -345,7 +355,7 @@ export class BattleModel {
     const shooterShips = livingShooterIdx.map((i) => shooterTemplates[i]);
 
     const ordinaryDamageCeiling =
-      !shooterIsNpc &&
+      shooterDamageType !== DamageType.NPC &&
       ctx.decisionRoles.length === 2 &&
       ctx.decisionRoles.includes(slot.role)
         ? this.usefulOrdinaryDamageCeiling(
@@ -398,7 +408,7 @@ export class BattleModel {
 
     const assignmentControl = this.assignmentControl(
       slot,
-      shooterIsNpc,
+      shooterDamageType,
       this.hasOneLivingConfiguration(targetTemplates, targetHp),
       ctx
     );
@@ -583,7 +593,7 @@ export class BattleModel {
       return { ok: true, options };
     }
 
-    // Heuristic assignment: DPS for player fleets, NPC otherwise.
+    // Heuristic assignment follows the fleet's selected deterministic policy.
     const phases = this.buildPhaseTail(
       state.slot,
       shooterIsAttacker ? shooterMat.fleet : targetMat.fleet,
@@ -603,11 +613,11 @@ export class BattleModel {
 
   private assignmentControl(
     slot: Slot,
-    shooterIsNpc: boolean,
+    shooterDamageType: DamageType,
     targetIsHomogeneous: boolean,
     ctx: ExpandContext
   ): AssignmentControl {
-    if (shooterIsNpc) {
+    if (shooterDamageType === DamageType.NPC) {
       return { kind: 'heuristic', damageType: DamageType.NPC };
     }
     if (ctx.decisionRoles.includes(slot.role) && !targetIsHomogeneous) {

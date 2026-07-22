@@ -18,7 +18,9 @@ import {
 import {
   incompatibleShipsForType,
   isNpcComposition,
+  isShipTypeAllowedForFleet,
   isShipTypeAllowedForRole,
+  reconcileFactionStructure,
   sanitizeFleetComposition,
 } from '@ui/fleet-rules';
 import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
@@ -39,7 +41,7 @@ export interface ShipTypeConfig {
   config: Partial<ShipConfig>;
 }
 
-export type PlannerType = 'dps' | 'optimal';
+export type PlannerType = 'npc' | 'dps' | 'optimal';
 
 export interface FleetState {
   id: string;
@@ -232,6 +234,9 @@ export function addShipType(
   if (!isShipTypeAllowedForRole(shipType, isDefender)) {
     throw new Error(`${shipType} cannot be fielded by an attacker fleet`);
   }
+  if (!isShipTypeAllowedForFleet(shipType, isDefender, fleet.factionId)) {
+    throw new Error(`${shipType} cannot be fielded by ${fleet.factionId}`);
+  }
 
   const quantityWithinLimit = clampShipQuantity(shipType, quantity);
   const existing = fleet.shipTypes.find((ship) => ship.type === shipType);
@@ -271,7 +276,11 @@ export function addOrSwapShipPreset(
   const fleet = getFleetById(fleetId);
   const fleetIndex = state.fleets.indexOf(fleet);
   const variant = getStartingShipConfig(preset, fleet.factionId);
-  if (!isShipTypeAllowedForRole(variant.type, fleetIndex === 0)) return null;
+  if (
+    !isShipTypeAllowedForFleet(variant.type, fleetIndex === 0, fleet.factionId)
+  ) {
+    return null;
+  }
 
   const existing = fleet.shipTypes.find((ship) => ship.type === variant.type);
   if (existing) {
@@ -454,7 +463,25 @@ export function setFleetFaction(fleetId: string, factionId: FactionId) {
     cached.config = cachedShip.config;
   }
   fleet.factionId = factionId;
+  fleet.shipTypes = reconcileFactionStructure(
+    fleet.shipTypes,
+    factionId,
+    state.fleets.indexOf(fleet) === 0
+  );
+  removeFactionInvalidShipTypes(fleet);
   notifyFleetsChanged();
+}
+
+function removeFactionInvalidShipTypes(fleet: FleetState) {
+  const isDefender = state.fleets.indexOf(fleet) === 0;
+  const invalid = fleet.shipTypes.filter(
+    (ship) => !isShipTypeAllowedForFleet(ship.type, isDefender, fleet.factionId)
+  );
+  if (invalid.length === 0) return;
+
+  const invalidIds = new Set(invalid.map((ship) => ship.id));
+  invalid.forEach((ship) => cacheShipType(fleet.id, ship));
+  fleet.shipTypes = fleet.shipTypes.filter((ship) => !invalidIds.has(ship.id));
 }
 
 function migrateDefaultBlueprint(
@@ -525,7 +552,16 @@ export function makeFleetDefender(fleetId: string) {
 
 export function enforceFleetRoleRestrictions(fleets: FleetState[]) {
   fleets.forEach((fleet, index) => {
-    fleet.shipTypes = sanitizeFleetComposition(fleet.shipTypes, index === 0);
+    fleet.shipTypes = reconcileFactionStructure(
+      fleet.shipTypes,
+      fleet.factionId,
+      index === 0
+    );
+    fleet.shipTypes = sanitizeFleetComposition(
+      fleet.shipTypes,
+      index === 0,
+      fleet.factionId
+    );
   });
 }
 
