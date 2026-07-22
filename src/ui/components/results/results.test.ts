@@ -487,8 +487,10 @@ describe('Results', () => {
 
     const row = element.querySelector('#survivor-distribution-tbody tr')!;
     const attackerLabel = row.querySelector('.composition-fleet-label')!;
+    const shipLabel = row.querySelector('.composition-ship-label')!;
     expect(row.classList.contains('attacker-result-2')).toBe(true);
     expect(attackerLabel.classList.contains('attacker-result-2')).toBe(true);
+    expect(shipLabel.classList.contains('attacker-result-2')).toBe(true);
     expect(
       attackerLabel.querySelector('.composition-fleet-name')?.textContent
     ).toBe('Attacker');
