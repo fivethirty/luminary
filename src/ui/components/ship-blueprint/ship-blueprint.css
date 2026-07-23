@@ -34,18 +34,6 @@ calc-ship-blueprint {
   background: color-mix(in srgb, var(--color-bg-tertiary) 55%, transparent);
 }
 
-.clear-blueprint-btn {
-  min-height: 1.75rem;
-  margin-right: auto;
-  padding-block: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.clear-blueprint-btn[hidden] {
-  display: none;
-}
-
 .blueprint-visual {
   min-width: 0;
   width: 100%;

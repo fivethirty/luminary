@@ -68,7 +68,11 @@ describe('ShipBlueprint', () => {
     ).toEqual(['blueprint-visual', 'blueprint-details']);
     const header = element.querySelector('.blueprint-header')!;
     expect(Array.from(header.children).map((child) => child.className)).toEqual(
-      ['clear-blueprint-btn', 'blueprint-quantity', 'remove-btn btn-icon']
+      [
+        'ship-clear-btn clear-blueprint-btn',
+        'blueprint-quantity',
+        'remove-btn btn-icon',
+      ]
     );
     const clear = header.querySelector(
       '.clear-blueprint-btn'

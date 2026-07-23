@@ -3,7 +3,12 @@ import './index';
 import type { ShipTypeElement } from './index';
 import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
-import { addOrSwapShipPreset, state, resetFleets } from '@ui/state';
+import {
+  addOrSwapShipPreset,
+  replaceBlueprintPart,
+  state,
+  resetFleets,
+} from '@ui/state';
 import { ShipType } from '@calc/ship';
 import { getStartingShipConfig } from '@ui/ship-presets';
 
@@ -93,6 +98,40 @@ describe('ShipType', () => {
     expect(
       element.querySelector('.remove-btn')?.getAttribute('aria-label')
     ).toBe('Remove Interceptor');
+  });
+
+  test('clears edited stats from the header without changing quantity', () => {
+    state.fleets[0].factionId = 'orion';
+    const ship = addOrSwapShipPreset('fleet-0', 'cruiser')!;
+    ship.quantity = 3;
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    element.factionId = 'orion';
+    document.body.appendChild(element);
+
+    const header = element.querySelector('.ship-type > header')!;
+    const clear = header.querySelector('.clear-stats-btn') as HTMLButtonElement;
+    const quantity = header.querySelector('.quantity')!;
+    const hull = element.querySelector('[data-stat="hull"]') as StatCubeElement;
+    expect(clear.nextElementSibling).toBe(quantity);
+    expect(clear.textContent?.trim()).toBe('Clear');
+    expect(clear.getAttribute('aria-label')).toBe(
+      'Reset Cruiser to starting stats'
+    );
+    expect(clear.hidden).toBe(true);
+
+    (hull.querySelector('.stat-inc') as HTMLButtonElement).click();
+    expect(clear.hidden).toBe(false);
+
+    clear.click();
+
+    expect(ship.config).toEqual(
+      getStartingShipConfig('cruiser', 'orion').config
+    );
+    expect(ship.quantity).toBe(3);
+    expect(hull.value).toBe(1);
+    expect(clear.hidden).toBe(true);
   });
 
   test('marks stats changed from faction-aware defaults but not quantity', () => {
@@ -341,10 +380,34 @@ describe('ShipType', () => {
     expect(shipTypeConfig.config.missiles?.antimatter).toBe(1);
   });
 
-  test('warns before a stat edit detaches a blueprint-backed ship', () => {
+  test('does not warn before a stat edit detaches the starting blueprint', () => {
+    state.fleets[0].factionId = 'orion';
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    element.factionId = 'orion';
+    document.body.appendChild(element);
+
+    const notice = element.querySelector(
+      '.blueprint-backed-notice'
+    ) as HTMLElement;
+    expect(notice.hidden).toBe(true);
+
+    const hull = element.querySelector('[data-stat="hull"]') as HTMLElement;
+    (hull.querySelector('.stat-inc') as HTMLButtonElement).click();
+
+    expect(ship.blueprint).toBeUndefined();
+    expect(notice.hidden).toBe(true);
+  });
+
+  test('warns before a stat edit detaches a customized blueprint', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    replaceBlueprintPart('fleet-0', ship.id, 1, 'plc');
     const element = document.createElement('calc-ship-type') as ShipTypeElement;
     element.shipType = ship;
     element.fleetId = 'fleet-0';
@@ -382,6 +445,9 @@ describe('ShipType', () => {
     expect(offer.querySelector('strong')?.textContent).toBe(
       '⚠ Stats only! Parts unknown.'
     );
+    expect(
+      (element.querySelector('.clear-stats-btn') as HTMLButtonElement).hidden
+    ).toBe(true);
     expect(hull.value).toBe(9);
     expect(element.querySelector('.stats-blueprint-description')).toBeNull();
 
@@ -424,6 +490,9 @@ describe('ShipType', () => {
     expect(compCube.hasAttribute('disabled')).toBe(true);
     expect(input.disabled).toBe(true);
     expect(inc.disabled).toBe(true);
+    expect(
+      (element.querySelector('.clear-stats-btn') as HTMLButtonElement).hidden
+    ).toBe(true);
   });
 
   test.each([

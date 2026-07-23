@@ -1,5 +1,6 @@
 import html from './ship-blueprint.html' with { type: 'text' };
 import './ship-blueprint.css';
+import '../ship-clear-button.css';
 import '../selector';
 
 import interceptorBlueprintImage from '../../../assets/ship-blueprints/blueprint_interceptor.webp';

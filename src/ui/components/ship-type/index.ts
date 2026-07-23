@@ -1,5 +1,6 @@
 import html from './ship-type.html' with { type: 'text' };
 import './ship-type.css';
+import '../ship-clear-button.css';
 import '../selector';
 import '../stat-cube';
 
@@ -19,8 +20,8 @@ import type { ShipTypeConfig } from '@ui/state';
 import type { FactionId } from '@ui/fleet-metadata';
 import { ensureShipBlueprint, removeShipType, updateShipType } from '@ui/state';
 import { isPlayerShipType, type ShipConfig, type WeaponType } from '@calc/ship';
-import { cloneShipConfig } from '@ui/ship-config';
-import { isBlueprintShipType } from '@ui/ship-parts';
+import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
+import { createStartingBlueprint, isBlueprintShipType } from '@ui/ship-parts';
 import {
   getStartingShipConfig,
   matchShipPreset,
@@ -69,6 +70,7 @@ export class ShipTypeElement extends HTMLElement {
 
     this.renderShipTile(preset, shipName);
     this.bindSelectors(shipName);
+    this.bindClearButton(shipName);
     this.bindBlueprintReplacement();
     this.renderRepresentationNotices();
   }
@@ -90,7 +92,21 @@ export class ShipTypeElement extends HTMLElement {
     const backed = this.querySelector(
       '.blueprint-backed-notice'
     ) as HTMLElement;
-    backed.hidden = !this.shipType.blueprint;
+    const blueprint = this.shipType.blueprint;
+    if (!blueprint || !isBlueprintShipType(this.shipType.type)) {
+      backed.hidden = true;
+    } else {
+      const startingBlueprint = createStartingBlueprint(
+        this.shipType.type,
+        this.factionId
+      );
+      backed.hidden =
+        blueprint.muonSource === startingBlueprint.muonSource &&
+        blueprint.slots.length === startingBlueprint.slots.length &&
+        blueprint.slots.every(
+          (partId, index) => partId === startingBlueprint.slots[index]
+        );
+    }
 
     const offer = this.querySelector('.stats-blueprint-offer') as HTMLElement;
     offer.hidden = !(
@@ -115,6 +131,40 @@ export class ShipTypeElement extends HTMLElement {
     image.height = 256;
     image.loading = 'lazy';
     image.decoding = 'async';
+  }
+
+  private startingConfig(): Partial<ShipConfig> {
+    return getStartingShipConfig(
+      matchShipPreset(this.shipType.type, this.shipType.config),
+      this.factionId
+    ).config;
+  }
+
+  private bindClearButton(shipName: string) {
+    const clear = this.querySelector('.clear-stats-btn') as HTMLButtonElement;
+    clear.setAttribute('aria-label', `Reset ${shipName} to starting stats`);
+    clear.addEventListener('click', () => {
+      updateShipType(this.fleetId, this.shipType.id, {
+        config: this.startingConfig(),
+      });
+      this.querySelectorAll<StatCubeElement>('calc-stat-cube').forEach(
+        (cube) => {
+          cube.value = cube.defaultValue;
+        }
+      );
+      this.renderClearButton();
+      this.renderRepresentationNotices();
+    });
+    this.renderClearButton();
+  }
+
+  private renderClearButton() {
+    const clear = this.querySelector('.clear-stats-btn') as HTMLButtonElement;
+    clear.hidden =
+      !isPlayerShipType(this.shipType.type) ||
+      this.readOnly ||
+      this.offerBlueprintReplacement ||
+      shipConfigsEqual(this.shipType.config, this.startingConfig());
   }
 
   private bindSelectors(shipName: string) {
@@ -280,6 +330,7 @@ export class ShipTypeElement extends HTMLElement {
             const config = cloneShipConfig(this.shipType.config);
             setValue(config, cube.value);
             updateShipType(this.fleetId, this.shipType.id, { config });
+            this.renderClearButton();
             this.renderRepresentationNotices();
           });
         }

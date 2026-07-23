@@ -837,7 +837,7 @@ describe('App steppers preference', () => {
     expect(document.querySelector('calc-ship-blueprint')).toBeNull();
     expect(
       (document.querySelector('.blueprint-backed-notice') as HTMLElement).hidden
-    ).toBe(false);
+    ).toBe(true);
 
     (
       document.querySelector('[data-controls="ships"]') as HTMLButtonElement
