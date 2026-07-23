@@ -37,7 +37,7 @@ calc-ship-blueprint {
 }
 
 .blueprint-workbench {
-  --blueprint-canvas-width: 10rem;
+  --blueprint-canvas-width: 14rem;
 
   display: grid;
   grid-template-columns: var(--blueprint-canvas-width) minmax(0, 1fr);
@@ -373,6 +373,8 @@ calc-ship-blueprint {
 }
 
 .drive-warning {
+  grid-area: warning;
+  justify-self: end;
   flex: 0 0 auto;
   color: var(--color-danger, #ef7a7a);
   font-size: 0.72rem;
@@ -383,26 +385,50 @@ calc-ship-blueprint {
 
 .slot-actions {
   grid-area: actions;
-  display: flex;
-  gap: var(--space-xs);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'buttons name warning';
+  gap: var(--space-md);
   align-items: center;
   min-width: 0;
 }
 
 .slot-action-buttons {
+  grid-area: buttons;
   display: flex;
   gap: var(--space-xs);
 }
 
 .slot-action-buttons button {
-  min-width: 0;
-  min-height: 2.25rem;
-  padding-inline: var(--space-xs);
+  min-width: 5rem;
+  min-height: 2.5rem;
+  padding-inline: var(--space-sm);
+}
+
+.remove-part-btn:not(:disabled) {
+  border-color: var(--color-danger);
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.remove-part-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+.slot-action-buttons button:disabled {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .selected-part-name {
+  grid-area: name;
   min-width: 0;
+  padding-left: var(--space-md);
   overflow: hidden;
+  border-left: 1px solid var(--color-border);
   font-size: 0.75rem;
   font-weight: 600;
   text-align: left;
@@ -475,6 +501,33 @@ calc-ship-blueprint {
   .external-bonuses {
     flex-direction: column;
     align-items: flex-end;
+  }
+}
+
+@container blueprint-controls (max-width: 34rem) {
+  .slot-actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1rem;
+    grid-template-areas:
+      'buttons buttons'
+      'name warning';
+    column-gap: var(--space-md);
+    row-gap: var(--space-xs);
+  }
+
+  .selected-part-name {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+@container blueprint-controls (max-width: 23rem) {
+  .slot-action-buttons {
+    width: 100%;
+  }
+
+  .slot-action-buttons button {
+    flex: 1 1 50%;
   }
 }
 
@@ -727,23 +780,6 @@ calc-ship-blueprint {
 
   .external-section {
     flex-wrap: wrap;
-  }
-
-  .selected-part-name {
-    display: none;
-  }
-
-  .slot-actions {
-    flex-wrap: wrap;
-  }
-
-  .slot-action-buttons {
-    flex: 1 1 100%;
-    width: 100%;
-  }
-
-  .slot-action-buttons button {
-    flex: 1 1 50%;
   }
 
   .part-dialog {

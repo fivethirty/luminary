@@ -77,7 +77,7 @@ describe('ShipBlueprint', () => {
       Array.from(controls.querySelector('.slot-actions')!.children).map(
         (child) => child.className
       )
-    ).toEqual(['drive-warning', 'slot-action-buttons', 'selected-part-name']);
+    ).toEqual(['slot-action-buttons', 'selected-part-name', 'drive-warning']);
     const driveWarning = element.querySelector('.drive-warning')!;
     expect(driveWarning.parentElement?.className).toBe('slot-actions');
     expect(driveWarning.closest('.blueprint-canvas-wrap')).toBeNull();
@@ -120,14 +120,25 @@ describe('ShipBlueprint', () => {
       /\.blueprint-controls\s*{[^}]*border:\s*1px solid var\(--color-border\)/
     );
     expect(blueprintStyles).toMatch(
-      /\.slot-actions\s*{[^}]*display:\s*flex[^}]*gap:\s*var\(--space-xs\)/
-    );
-    expect(blueprintStyles).not.toMatch(/\.remove-part-btn\s*{[^}]*color:/);
-    expect(blueprintStyles).toMatch(
-      /\.selected-part-name\s*{[^}]*text-align:\s*left/
+      /\.slot-actions\s*{[^}]*display:\s*grid[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto[^}]*grid-template-areas:\s*'buttons name warning'/
     );
     expect(blueprintStyles).toMatch(
-      /@media \(max-width: 46rem\)\s*{[\s\S]*\.selected-part-name\s*{[^}]*display:\s*none[^}]*}[\s\S]*\.slot-action-buttons\s*{[^}]*width:\s*100%[^}]*}[\s\S]*\.slot-action-buttons button\s*{[^}]*flex:\s*1 1 50%/
+      /\.slot-action-buttons button\s*{[^}]*min-width:\s*5rem[^}]*min-height:\s*2\.5rem/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.remove-part-btn:not\(:disabled\)\s*{[^}]*border-color:\s*var\(--color-danger\)[^}]*color:\s*var\(--color-danger\)/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.slot-action-buttons button:disabled\s*{[^}]*cursor:\s*not-allowed[^}]*opacity:\s*0\.45/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.selected-part-name\s*{[^}]*padding-left:\s*var\(--space-md\)[^}]*border-left:\s*1px solid var\(--color-border\)[^}]*text-align:\s*left/
+    );
+    expect(blueprintStyles).toMatch(
+      /@container blueprint-controls \(max-width: 34rem\)\s*{[\s\S]*\.slot-actions\s*{[^}]*grid-template-rows:\s*auto 1rem[^}]*grid-template-areas:\s*'buttons buttons'\s*'name warning'/
+    );
+    expect(blueprintStyles).toMatch(
+      /@container blueprint-controls \(max-width: 23rem\)\s*{[\s\S]*\.slot-action-buttons\s*{[^}]*width:\s*100%[^}]*}[\s\S]*\.slot-action-buttons button\s*{[^}]*flex:\s*1 1 50%/
     );
   });
 
