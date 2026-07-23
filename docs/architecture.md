@@ -78,6 +78,9 @@ composition root between those layers.
   fleet-validity rules before calling it.
 - `ui/ship-config.ts`: pure normalization, deep cloning, and behavior-based equality for optional
   ship configurations.
+- `ui/ship-parts.ts`: the official part catalog, slot geometry, faction/chassis bonuses, blueprint
+  validation, and pure part-to-combat-stat derivation. Energy and drive validity are presentation
+  warnings and do not enter the engine configuration.
 - `ui/fleet-rules.ts`: pure defender/attacker legality, player/NPC compatibility, and first-valid
   composition sanitization. State commands, controls, and share-link decoding use the same rules.
 - `ui/ship-presets.ts` and `ui/fleet-metadata.ts`: canonical preset, quantity, faction, label, color,
@@ -88,6 +91,9 @@ composition root between those layers.
   setups use the share query as their single serialized format.
 - `ui/components/*`: custom-element rendering and interaction. Each component keeps its template,
   styles, and focused tests together and delegates durable mutations to `ui/state.ts`.
+- `ui/styles/tokens.css` and `ui/styles/primitives.css`: the production design-token and reusable
+  control/layout contracts imported by `app.css`. Component styles own domain layout and artwork
+  geometry, not alternate button/select/panel systems. See [ui-system.md](ui-system.md).
 
 ### Setup State Contract
 
@@ -110,6 +116,27 @@ same pure sanitization so shared links, restored setups, and direct state comman
 Share decoding must remain backward-compatible for supported versions; storage is not a second
 battle format. Preset add, swap, and repeat-increment behavior goes through the atomic
 `addOrSwapShipPreset` state command so configuration caching and notifications occur once.
+
+Player ship rows may additionally own a slot-ordered `blueprint`. While it exists, the row's
+combat `config` is a derived mirror of its parts, Muon Source checkbox, and faction/chassis
+bonuses. Tile mutations update both values in one state command. Removing a replacement part
+restores that slot's faction-aware starting part; a starting part cannot itself be removed.
+Faction-blocked slots remain unavailable. Control mode is only a local view preference except that
+Ship tiles mode may rehydrate an absent canonical blueprint when the
+aggregate config exactly matches its faction-aware starting stats. A direct aggregate-stat edit
+deletes only that ship's blueprint after the stat UI explains the one-way transition. Other
+aggregate configs cannot be reverse-engineered reliably; in Ship tiles mode those rows retain their
+editable stats and offer an explicit replacement with the canonical starting blueprint. Ships
+added from the Ship tiles picker have known provenance and start with a blueprint immediately.
+Planta's faction-specific unavailable blueprint slots remain empty through rendering, mutation,
+import normalization, and stat derivation.
+
+Version-1 share links remain backward compatible and continue to decode omitted stats against their
+legacy preset baseline. Version 2 encodes aggregate stats against faction-aware operating defaults,
+and adds fixed-order `.parts` plus optional `.muon` metadata. Decoding accepts tile metadata only
+when the complete slot list is valid, then derives combat stats after faction parsing; malformed
+metadata falls back to the version's aggregate stats. Standard and technology parts are repeatable.
+Discovery parts, including Muon Source, are unique within one fleet's blueprint set.
 
 Engine result maps use `FleetState.id` as identity even though the engine field is historically
 named `Fleet.name`. Visible faction/role names are derived presentation and must not be used as

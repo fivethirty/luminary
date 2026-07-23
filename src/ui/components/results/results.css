@@ -3,7 +3,6 @@ calc-results {
 }
 
 .results-container {
-  margin-top: var(--space-lg);
   display: block;
 }
 
@@ -171,23 +170,9 @@ calc-results {
   gap: var(--space-sm);
 }
 
-.impact-card {
-  min-width: 0;
-  padding: var(--space-md);
-  background: color-mix(
-    in srgb,
-    var(--color-bg-primary) 42%,
-    var(--color-bg-secondary)
-  );
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
 .impact-card h4 {
   margin: 0 0 var(--space-sm);
-  font-size: var(--font-size-sm);
-  letter-spacing: var(--label-letter-spacing);
-  text-transform: uppercase;
+  color: var(--color-text-primary);
 }
 
 .impact-card-heading {
@@ -204,7 +189,7 @@ calc-results {
 
 .impact-card-heading > span {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
 }
 
 .material-impact-table {
@@ -224,7 +209,7 @@ calc-results {
   padding-top: 0;
   border-top: 0;
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-normal);
 }
 
@@ -257,13 +242,14 @@ calc-results {
   justify-content: space-between;
   gap: var(--space-xs);
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
 }
 
 .sector-population-select {
   width: auto;
   min-width: 3.5rem;
-  padding: var(--space-xs) 1.75rem var(--space-xs) var(--space-sm);
+  padding: var(--space-xs) var(--select-compact-padding-inline-end)
+    var(--space-xs) var(--space-sm);
   background-position: right var(--space-xs) center;
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -321,7 +307,7 @@ calc-results {
   border-top: 1px solid var(--color-border);
 }
 
-.detailed-outcomes > summary {
+.detailed-outcomes > .ui-disclosure-summary {
   padding: var(--results-section-padding-block)
     var(--results-section-padding-inline);
   color: var(--color-text-secondary);
@@ -330,11 +316,11 @@ calc-results {
   touch-action: manipulation;
 }
 
-.detailed-outcomes > summary:hover {
+.detailed-outcomes > .ui-disclosure-summary:hover {
   color: var(--color-text-primary);
 }
 
-.detailed-outcomes > summary:focus-visible {
+.detailed-outcomes > .ui-disclosure-summary:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: -2px;
 }
@@ -377,7 +363,7 @@ calc-results {
 
 .composition-table th {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-normal);
   letter-spacing: var(--label-letter-spacing);
   text-align: right;
@@ -446,17 +432,6 @@ calc-results {
   gap: var(--results-section-gap);
 }
 
-.survivor-fleet-card {
-  padding: var(--space-md);
-  background: color-mix(
-    in srgb,
-    var(--color-bg-primary) 42%,
-    var(--color-bg-secondary)
-  );
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
 .survivor-fleet-card.defender-result,
 .survivor-fleet-card.attacker-result {
   border-color: currentColor;
@@ -497,22 +472,12 @@ calc-results {
   flex-wrap: wrap;
 }
 
-.results-actions .copy-link-btn {
-  border-color: var(--color-info);
-  color: var(--color-info);
-  background: transparent;
-}
-
-.results-actions .copy-link-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.1);
-}
-
 .results-actions button:disabled {
   cursor: default;
   opacity: 0.8;
 }
 
-@media (max-width: 42rem) {
+@media (max-width: 40rem) {
   .impact-grid {
     grid-template-columns: 1fr;
   }

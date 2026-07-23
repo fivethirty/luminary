@@ -15,14 +15,20 @@ import {
 } from '@ui/state';
 import type { PlannerType, SurvivorDistributionEntry } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
-import { deriveFleetNames, fleetColor, MAX_FLEETS } from '@ui/fleet-metadata';
 import {
-  applySteppersPreference,
+  deriveFleetNames,
+  deriveShortFleetNames,
+  fleetColor,
+  MAX_FLEETS,
+} from '@ui/fleet-metadata';
+import {
+  applyControlMode,
   applyThemePreference,
-  loadSteppersPreference,
+  loadControlMode,
   loadThemePreference,
-  saveSteppersPreference,
+  saveControlMode,
   saveThemePreference,
+  type ControlMode,
   type ThemePreference,
 } from '@ui/preferences';
 import {
@@ -47,6 +53,7 @@ const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
 // Results recompute automatically shortly after the last edit; the pause keeps
 // hold-to-repeat steppers from re-solving on every tick.
 const AUTO_SIMULATE_DELAY_MS = 200;
+let activeControlMode: ControlMode = 'steppers';
 
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
@@ -65,6 +72,7 @@ function renderFleets() {
   state.fleets.forEach((fleet, index) => {
     const fleetElement = document.createElement('calc-fleet') as FleetElement;
     fleetElement.fleet = fleet;
+    fleetElement.controlMode = activeControlMode;
 
     if (index >= 2) {
       fleetElement.setAttribute('can-remove', 'true');
@@ -86,6 +94,13 @@ function updateFleetNames() {
   state.fleets.forEach((fleet, index) => {
     fleet.name = names[index];
   });
+}
+
+function refreshFleetMetadata() {
+  updateFleetNames();
+  document
+    .querySelectorAll<FleetElement>('#fleets > calc-fleet')
+    .forEach((fleetElement) => fleetElement.refreshMetadata());
 }
 
 function addFleetHandler() {
@@ -268,6 +283,7 @@ function renderLiveBar() {
     return;
   }
 
+  const shortFleetNames = deriveShortFleetNames(state.fleets);
   const outcomes: Array<{
     label: string;
     probability: number;
@@ -277,7 +293,7 @@ function renderLiveBar() {
   }> = state.fleets.map((fleet, index) => {
     const color = fleetColor(fleet.colorId, index);
     return {
-      label: fleet.name,
+      label: shortFleetNames[index],
       probability: results.victoryProbability[fleet.id] ?? 0,
       className: resultClassNameForFleet(index),
       color: color.color,
@@ -366,23 +382,26 @@ function handleRouteChange() {
 
   switch (path) {
     case '/':
-      homeContent.style.display = 'block';
-      aboutContent.style.display = 'none';
+      homeContent.hidden = false;
+      aboutContent.hidden = true;
       break;
     case '/about':
-      homeContent.style.display = 'none';
-      aboutContent.style.display = 'block';
+      homeContent.hidden = true;
+      aboutContent.hidden = false;
       break;
     default:
       // Preserve the query string: shared battle links carry their state there.
       window.history.replaceState(null, '', '/' + window.location.search);
-      homeContent.style.display = 'block';
-      aboutContent.style.display = 'none';
+      homeContent.hidden = false;
+      aboutContent.hidden = true;
       break;
   }
 
   navLinks.forEach((link) => {
-    link.classList.toggle('active', link.getAttribute('href') === path);
+    const active = link.getAttribute('href') === path;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
   });
 
   renderLiveBar();
@@ -405,25 +424,31 @@ function init(): () => void {
   listen(document.getElementById('add-fleet-btn')!, 'click', addFleetHandler);
   listen(document.getElementById('clear-all-btn')!, 'click', clearAll);
 
-  const steppersToggle = document.getElementById('steppers-toggle');
-  const steppersToggleButtons = Array.from(
-    steppersToggle?.querySelectorAll<HTMLButtonElement>('[data-steppers]') ?? []
+  const controlsToggle = document.getElementById('steppers-toggle');
+  const controlsToggleButtons = Array.from(
+    controlsToggle?.querySelectorAll<HTMLButtonElement>('[data-controls]') ?? []
   );
-  const steppersEnabled = loadSteppersPreference();
-  const setSteppersEnabled = (enabled: boolean) => {
-    applySteppersPreference(enabled);
-    steppersToggleButtons.forEach((button) => {
-      const active = button.dataset.steppers === (enabled ? 'on' : 'off');
+  activeControlMode = loadControlMode();
+  const applyActiveControlMode = () => {
+    applyControlMode(activeControlMode);
+    controlsToggleButtons.forEach((button) => {
+      const active = button.dataset.controls === activeControlMode;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
   };
-  setSteppersEnabled(steppersEnabled);
-  steppersToggleButtons.forEach((button) => {
+  const changeControlMode = (nextMode: ControlMode) => {
+    activeControlMode = nextMode;
+    saveControlMode(activeControlMode);
+    applyActiveControlMode();
+    renderFleets();
+  };
+  applyActiveControlMode();
+  controlsToggleButtons.forEach((button) => {
     listen(button, 'click', () => {
-      const enabled = button.dataset.steppers === 'on';
-      saveSteppersPreference(enabled);
-      setSteppersEnabled(enabled);
+      const nextMode = button.dataset.controls as ControlMode;
+      if (nextMode === activeControlMode) return;
+      changeControlMode(nextMode);
     });
   });
 
@@ -467,7 +492,7 @@ function init(): () => void {
   const rerenderFleets = () => renderFleets();
   listen(document, 'fleet-removed', rerenderFleets);
   listen(document, 'fleet-order-changed', rerenderFleets);
-  listen(document, 'fleet-metadata-changed', rerenderFleets);
+  listen(document, 'fleet-metadata-changed', refreshFleetMetadata);
 
   document.querySelectorAll('.nav-link').forEach((link) => {
     listen(link, 'click', (e) => {

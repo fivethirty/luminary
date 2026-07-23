@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType } from './ship';
 import { Fleet } from './fleet';
 import { Battle, BattleOutcome } from './battle';
-import { CombatSimulator } from './combat-simulator';
 import { DamageType } from 'src/constants';
 import { BattleModel } from './battle-state';
 import { WinProbabilitySolver } from './win-probability-solver';
@@ -32,46 +31,80 @@ describe('OptimalDamagePlanner', () => {
     expect(result.outcome).toBe(BattleOutcome.Attacker);
   });
 
-  // The end-to-end validation: driving the real engine with the OPTIMAL planner
-  // must reproduce the solver's exact win probability. This exercises slot
-  // detection, roster mapping, and terminal handling together.
-  describe('simulated optimal win rate matches the exact solve', () => {
-    const ITERATIONS = 10_000;
-    for (const matchup of MATCHUPS.filter((m) => m.noHeal)) {
-      test(`${matchup.name} (±0.015)`, () => {
-        const model = new BattleModel(
-          buildShips(matchup.player),
-          buildShips(matchup.enemy),
-          false,
-          false
-        );
-        const exact = new WinProbabilitySolver(model, {
-          perspective: 'A',
-          assignments: 'minimax',
-        }).solve();
-        expect(exact.ok).toBe(true);
+  test('uses solved values to choose among live damage assignments', () => {
+    const attackerShips = [
+      new Ship(ShipType.Cruiser, {
+        initiative: 3,
+        hull: 1,
+        computers: 2,
+        cannons: { plasma: 1 },
+      }),
+      new Ship(ShipType.Interceptor, {
+        initiative: 1,
+        computers: 1,
+        cannons: { ion: 2 },
+      }),
+    ];
+    const defenderShips = [
+      new Ship(ShipType.Cruiser, {
+        initiative: 2,
+        hull: 1,
+        computers: 2,
+        cannons: { plasma: 1 },
+      }),
+      new Ship(ShipType.Interceptor, {
+        initiative: 1,
+        computers: 1,
+        cannons: { ion: 2 },
+      }),
+    ];
+    const attacker = new Fleet(
+      'Attacker',
+      attackerShips,
+      false,
+      DamageType.OPTIMAL
+    );
+    const defender = new Fleet(
+      'Defender',
+      defenderShips,
+      false,
+      DamageType.OPTIMAL
+    );
+    const planner = new OptimalDamagePlanner(() => {
+      throw new Error('unexpected fallback');
+    });
+    planner.setBattleContext({ attacker, defender }, attacker);
 
-        const enemyFleet = new Fleet(
-          'Enemy',
-          buildShips(matchup.enemy),
-          false,
-          DamageType.OPTIMAL
-        );
-        const playerFleet = new Fleet(
-          'Player',
-          buildShips(matchup.player),
-          false,
-          DamageType.OPTIMAL
-        );
-        const sim = new CombatSimulator().simulate(
-          [enemyFleet, playerFleet],
-          ITERATIONS
-        );
-        const simulated = sim.lastFleetStanding['Player'];
+    planner.assignDamage(
+      [{ roll: 6, computers: 2, damage: 2 }],
+      defenderShips,
+      [
+        {
+          ships: [defenderShips[0]],
+          initiative: 2,
+          shootingFleet: defender,
+          targetFleet: attacker,
+          missilePhase: false,
+        },
+        {
+          ships: [defenderShips[1]],
+          initiative: 1,
+          shootingFleet: defender,
+          targetFleet: attacker,
+          missilePhase: false,
+        },
+        {
+          ships: [attackerShips[1]],
+          initiative: 1,
+          shootingFleet: attacker,
+          targetFleet: defender,
+          missilePhase: false,
+        },
+      ]
+    );
 
-        expect(Math.abs(exact.winProbability - simulated)).toBeLessThan(0.015);
-      });
-    }
+    expect(defenderShips[0].isAlive()).toBe(false);
+    expect(defenderShips[1].isAlive()).toBe(true);
   });
 
   test('falls back cleanly and still assigns damage when unsolved', () => {

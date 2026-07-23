@@ -2,7 +2,7 @@
 // with no signal. The app shell (a navigation to any URL — battle state lives
 // in the query string) is served network-first with a cached fallback; hashed
 // build assets are immutable, so they're served cache-first.
-const CACHE_NAME = 'luminary-v1';
+const CACHE_NAME = 'luminary-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

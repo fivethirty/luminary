@@ -1,11 +1,15 @@
 import html from './fleet.html' with { type: 'text' };
 import './fleet.css';
 import '../ship-type';
+import '../ship-blueprint';
 import type { ShipTypeElement } from '../ship-type';
+import type { ShipBlueprintElement } from '../ship-blueprint';
 import { isPlayerShipType } from '@calc/ship';
 import type { FleetState } from '@ui/state';
+import type { ControlMode } from '@ui/preferences';
 import {
   addOrSwapShipPreset,
+  ensureShipBlueprint,
   isNpcFleet,
   moveFleet,
   removeFleet,
@@ -33,7 +37,12 @@ import {
 
 export class FleetElement extends HTMLElement {
   fleet!: FleetState;
+  controlMode: ControlMode = 'steppers';
   private fleetIndex = 0;
+  private shipSelectorOptions: Array<{
+    value: ShipDropdownOption;
+    label: string;
+  }> = [];
 
   connectedCallback() {
     this.innerHTML = html;
@@ -83,10 +92,19 @@ export class FleetElement extends HTMLElement {
       this.updateShipSelector();
       this.updatePlannerControl();
     });
+    this.addEventListener('ship-blueprint-created', () => {
+      this.renderShips();
+    });
 
     const shipSelector = this.querySelector(
       '.ship-selector'
     ) as HTMLSelectElement;
+    this.shipSelectorOptions = Array.from(shipSelector.options).map(
+      (option) => ({
+        value: option.value as ShipDropdownOption,
+        label: option.textContent ?? option.value,
+      })
+    );
     shipSelector.selectedIndex = -1;
     shipSelector.addEventListener('change', () => {
       const value = shipSelector.value;
@@ -120,6 +138,24 @@ export class FleetElement extends HTMLElement {
     this.updateShipSelector();
     this.updatePlannerControl();
     this.renderShips();
+  }
+
+  refreshMetadata() {
+    this.updateDisplayedName();
+    this.updateSettingsDialogLabels();
+    this.applyFleetColor();
+    this.updateColorControls();
+
+    const factionSelect = this.querySelector(
+      '.faction-select'
+    ) as HTMLSelectElement | null;
+    if (factionSelect) {
+      factionSelect.value = this.fleet.factionId ?? '';
+    }
+
+    this.renderShips();
+    this.updateShipSelector();
+    this.updatePlannerControl();
   }
 
   private applyFleetColor() {
@@ -169,16 +205,11 @@ export class FleetElement extends HTMLElement {
     const dialog = this.querySelector(
       '.fleet-settings-dialog'
     ) as HTMLDialogElement;
-    const title = this.querySelector('.fleet-settings-title') as HTMLElement;
-    title.textContent = this.displayName();
+    this.updateSettingsDialogLabels();
 
     const settingsBtn = this.querySelector(
       '.fleet-settings-btn'
     ) as HTMLButtonElement;
-    settingsBtn.setAttribute(
-      'aria-label',
-      `Edit ${this.displayName()} faction and color`
-    );
     settingsBtn.addEventListener('click', () => {
       if (typeof dialog.showModal === 'function') {
         dialog.showModal();
@@ -231,6 +262,21 @@ export class FleetElement extends HTMLElement {
       this.dispatchFleetMetadataChanged();
     });
     this.updateColorControls();
+  }
+
+  private updateSettingsDialogLabels() {
+    const title = this.querySelector(
+      '.fleet-settings-title'
+    ) as HTMLElement | null;
+    if (title) title.textContent = this.displayName();
+
+    const settingsBtn = this.querySelector(
+      '.fleet-settings-btn'
+    ) as HTMLButtonElement | null;
+    settingsBtn?.setAttribute(
+      'aria-label',
+      `Edit ${this.displayName()} faction and color`
+    );
   }
 
   private updateColorControls() {
@@ -322,12 +368,32 @@ export class FleetElement extends HTMLElement {
     shipsContainer.innerHTML = '';
 
     this.fleet.shipTypes.forEach((shipType) => {
+      const useBlueprintCard =
+        this.controlMode === 'ships' && isPlayerShipType(shipType.type);
+      const showBlueprint =
+        useBlueprintCard &&
+        (Boolean(shipType.blueprint) ||
+          ensureShipBlueprint(this.fleet.id, shipType.id));
+      if (showBlueprint) {
+        const blueprintElement = document.createElement(
+          'calc-ship-blueprint'
+        ) as ShipBlueprintElement;
+        blueprintElement.classList.add('ship-blueprint-card');
+        blueprintElement.shipType = shipType;
+        blueprintElement.fleetId = this.fleet.id;
+        blueprintElement.factionId = this.fleet.factionId;
+        shipsContainer.appendChild(blueprintElement);
+        return;
+      }
       const shipElement = document.createElement(
         'calc-ship-type'
       ) as ShipTypeElement;
       shipElement.shipType = shipType;
       shipElement.fleetId = this.fleet.id;
       shipElement.factionId = this.fleet.factionId;
+      shipElement.tileMode = this.controlMode === 'ships';
+      shipElement.classList.toggle('ship-blueprint-card', useBlueprintCard);
+      shipElement.offerBlueprintReplacement = useBlueprintCard;
       shipsContainer.appendChild(shipElement);
     });
   }
@@ -342,35 +408,36 @@ export class FleetElement extends HTMLElement {
     // A missing attribute defaults to defender (permissive).
     const isAttacker = this.getAttribute('is-defender') === 'false';
 
-    const options = shipSelector.querySelectorAll('option');
-    options.forEach((option) => {
-      if (!option.value) return;
-      const variantData = getDefaultShipConfig(
-        option.value as ShipDropdownOption
-      );
+    shipSelector.innerHTML = '';
+    this.shipSelectorOptions.forEach(({ value, label }) => {
+      const variantData = getDefaultShipConfig(value as ShipDropdownOption);
       const unavailable = !isShipTypeAllowedForFleet(
         variantData.type,
         !isAttacker,
         this.fleet.factionId
       );
       // iOS can expose hidden native options. Components are freshly rendered
-      // after a role change, so remove illegal choices from this picker.
-      if (unavailable) {
-        option.remove();
-        return;
-      }
+      // after a role change, so omit illegal choices from this picker.
+      if (unavailable) return;
+
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
       // Types with variants (Ancient/Guardian/GCDS) stay selectable while
       // fielded — picking a variant swaps the ship's stats. Single-variant
       // types would be duplicates, so those disable.
       const hasVariants = presetKeysForType(variantData.type).length > 1;
       option.disabled =
         existingTypes.includes(variantData.type) && !hasVariants;
+      shipSelector.appendChild(option);
     });
     shipSelector.selectedIndex = -1;
   }
 
   private addShip(dropdownOption: ShipDropdownOption) {
-    const ship = addOrSwapShipPreset(this.fleet.id, dropdownOption);
+    const ship = addOrSwapShipPreset(this.fleet.id, dropdownOption, {
+      withBlueprint: this.controlMode === 'ships',
+    });
     if (!ship) return;
     this.refreshAfterShipSelection();
   }

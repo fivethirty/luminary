@@ -2,27 +2,57 @@ import html from './ship-type.html' with { type: 'text' };
 import './ship-type.css';
 import '../selector';
 import '../stat-cube';
+
+import ancientTileImage from '../../../assets/ship-tiles/ai-anc.webp';
+import advancedAncientTileImage from '../../../assets/ship-tiles/ai-ancadv.webp';
+import worldsAfarAncientTileImage from '../../../assets/ship-tiles/ai-ancwa.webp';
+import guardianTileImage from '../../../assets/ship-tiles/ai-grd.webp';
+import advancedGuardianTileImage from '../../../assets/ship-tiles/ai-grdadv.webp';
+import worldsAfarGuardianTileImage from '../../../assets/ship-tiles/ai-grdwa.webp';
+import gcdsTileImage from '../../../assets/ship-tiles/ai-gcds.webp';
+import advancedGcdsTileImage from '../../../assets/ship-tiles/ai-gcdsadv.webp';
+import worldsAfarGcdsTileImage from '../../../assets/ship-tiles/ai-gcdswa.webp';
+
 import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
 import type { ShipTypeConfig } from '@ui/state';
 import type { FactionId } from '@ui/fleet-metadata';
-import { removeShipType, updateShipType } from '@ui/state';
+import { ensureShipBlueprint, removeShipType, updateShipType } from '@ui/state';
 import { isPlayerShipType, type ShipConfig, type WeaponType } from '@calc/ship';
-import { cloneShipConfig } from '@ui/ship-config';
+import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
+import { createStartingBlueprint, isBlueprintShipType } from '@ui/ship-parts';
 import {
   getStartingShipConfig,
   matchShipPreset,
   SHIP_NAMES,
   SHIP_QUANTITY_LIMITS,
+  type ShipDropdownOption,
 } from '@ui/ship-presets';
+
+const SHIP_TILE_IMAGES: Partial<Record<ShipDropdownOption, string>> = {
+  ancient: ancientTileImage,
+  'ancient-adv': advancedAncientTileImage,
+  'ancient-wa': worldsAfarAncientTileImage,
+  guardian: guardianTileImage,
+  'guardian-adv': advancedGuardianTileImage,
+  'guardian-wa': worldsAfarGuardianTileImage,
+  gcds: gcdsTileImage,
+  'gcds-adv': advancedGcdsTileImage,
+  'gcds-wa': worldsAfarGcdsTileImage,
+};
 
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
   fleetId!: string;
   factionId?: FactionId;
+  readOnly = false;
+  summaryOnly = false;
+  tileMode = false;
+  offerBlueprintReplacement = false;
 
   connectedCallback() {
     this.innerHTML = html;
+    this.classList.toggle('summary-only', this.summaryOnly);
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     removeBtn.addEventListener('click', () => {
@@ -32,16 +62,113 @@ export class ShipTypeElement extends HTMLElement {
     });
 
     const nameSpan = this.querySelector('.ship-type-name') as HTMLSpanElement;
-    const shipName =
-      SHIP_NAMES[matchShipPreset(this.shipType.type, this.shipType.config)];
+    const preset = matchShipPreset(this.shipType.type, this.shipType.config);
+    const shipName = SHIP_NAMES[preset];
     nameSpan.textContent = shipName;
     removeBtn.setAttribute('aria-label', `Remove ${shipName}`);
 
+    this.renderShipTile(preset, shipName);
     this.bindSelectors(shipName);
+    this.bindClearButton(shipName);
+    this.bindBlueprintReplacement();
+    this.renderRepresentationNotices();
+  }
+
+  private bindBlueprintReplacement() {
+    if (!this.offerBlueprintReplacement) return;
+    this.querySelector('.start-blueprint-btn')?.addEventListener(
+      'click',
+      () => {
+        if (!ensureShipBlueprint(this.fleetId, this.shipType.id, true)) return;
+        this.dispatchEvent(
+          new CustomEvent('ship-blueprint-created', { bubbles: true })
+        );
+      }
+    );
+  }
+
+  private renderRepresentationNotices() {
+    const backed = this.querySelector(
+      '.blueprint-backed-notice'
+    ) as HTMLElement;
+    const blueprint = this.shipType.blueprint;
+    if (!blueprint || !isBlueprintShipType(this.shipType.type)) {
+      backed.hidden = true;
+    } else {
+      const startingBlueprint = createStartingBlueprint(
+        this.shipType.type,
+        this.factionId
+      );
+      backed.hidden =
+        blueprint.muonSource === startingBlueprint.muonSource &&
+        blueprint.slots.length === startingBlueprint.slots.length &&
+        blueprint.slots.every(
+          (partId, index) => partId === startingBlueprint.slots[index]
+        );
+    }
+
+    const offer = this.querySelector('.stats-blueprint-offer') as HTMLElement;
+    offer.hidden = !(
+      this.offerBlueprintReplacement &&
+      !this.shipType.blueprint &&
+      isBlueprintShipType(this.shipType.type)
+    );
+  }
+
+  private renderShipTile(preset: ShipDropdownOption, shipName: string) {
+    const imageUrl = this.tileMode ? SHIP_TILE_IMAGES[preset] : undefined;
+    const tile = this.querySelector('.ship-tile') as HTMLElement;
+    const stats = this.querySelector('.stats') as HTMLElement;
+    tile.hidden = !imageUrl;
+    stats.hidden = Boolean(imageUrl);
+    if (!imageUrl) return;
+
+    const image = tile.querySelector('img') as HTMLImageElement;
+    image.src = imageUrl;
+    image.alt = `${shipName} ship tile`;
+    image.width = 256;
+    image.height = 256;
+    image.loading = 'lazy';
+    image.decoding = 'async';
+  }
+
+  private startingConfig(): Partial<ShipConfig> {
+    return getStartingShipConfig(
+      matchShipPreset(this.shipType.type, this.shipType.config),
+      this.factionId
+    ).config;
+  }
+
+  private bindClearButton(shipName: string) {
+    const clear = this.querySelector('.clear-stats-btn') as HTMLButtonElement;
+    clear.setAttribute('aria-label', `Reset ${shipName} to starting stats`);
+    clear.addEventListener('click', () => {
+      updateShipType(this.fleetId, this.shipType.id, {
+        config: this.startingConfig(),
+      });
+      this.querySelectorAll<StatCubeElement>('calc-stat-cube').forEach(
+        (cube) => {
+          cube.value = cube.defaultValue;
+        }
+      );
+      this.renderClearButton();
+      this.renderRepresentationNotices();
+    });
+    this.renderClearButton();
+  }
+
+  private renderClearButton() {
+    const clear = this.querySelector('.clear-stats-btn') as HTMLButtonElement;
+    clear.hidden =
+      !isPlayerShipType(this.shipType.type) ||
+      this.readOnly ||
+      this.offerBlueprintReplacement ||
+      shipConfigsEqual(this.shipType.config, this.startingConfig());
   }
 
   private bindSelectors(shipName: string) {
-    const statsEditable = isPlayerShipType(this.shipType.type);
+    const statsEditable =
+      isPlayerShipType(this.shipType.type) && !this.readOnly;
     const defaultConfig = getStartingShipConfig(
       matchShipPreset(this.shipType.type, this.shipType.config),
       this.factionId
@@ -194,6 +321,7 @@ export class ShipTypeElement extends HTMLElement {
             const config = cloneShipConfig(this.shipType.config);
             setValue(config, cube.value);
             updateShipType(this.fleetId, this.shipType.id, { config });
+            this.renderRepresentationNotices();
           }
           cube.disabled = !statsEditable;
           cube.addEventListener('change', () => {
@@ -201,6 +329,8 @@ export class ShipTypeElement extends HTMLElement {
             const config = cloneShipConfig(this.shipType.config);
             setValue(config, cube.value);
             updateShipType(this.fleetId, this.shipType.id, { config });
+            this.renderClearButton();
+            this.renderRepresentationNotices();
           });
         }
       }

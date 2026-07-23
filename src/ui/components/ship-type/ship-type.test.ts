@@ -3,7 +3,12 @@ import './index';
 import type { ShipTypeElement } from './index';
 import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
-import { state, resetFleets } from '@ui/state';
+import {
+  addOrSwapShipPreset,
+  replaceBlueprintPart,
+  state,
+  resetFleets,
+} from '@ui/state';
 import { ShipType } from '@calc/ship';
 import { getStartingShipConfig } from '@ui/ship-presets';
 
@@ -95,6 +100,40 @@ describe('ShipType', () => {
     ).toBe('Remove Interceptor');
   });
 
+  test('clears edited stats from the header without changing quantity', () => {
+    state.fleets[0].factionId = 'orion';
+    const ship = addOrSwapShipPreset('fleet-0', 'cruiser')!;
+    ship.quantity = 3;
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    element.factionId = 'orion';
+    document.body.appendChild(element);
+
+    const header = element.querySelector('.ship-type > header')!;
+    const clear = header.querySelector('.clear-stats-btn') as HTMLButtonElement;
+    const quantity = header.querySelector('.quantity')!;
+    const hull = element.querySelector('[data-stat="hull"]') as StatCubeElement;
+    expect(clear.nextElementSibling).toBe(quantity);
+    expect(clear.textContent?.trim()).toBe('Clear');
+    expect(clear.getAttribute('aria-label')).toBe(
+      'Reset Cruiser to starting stats'
+    );
+    expect(clear.hidden).toBe(true);
+
+    (hull.querySelector('.stat-inc') as HTMLButtonElement).click();
+    expect(clear.hidden).toBe(false);
+
+    clear.click();
+
+    expect(ship.config).toEqual(
+      getStartingShipConfig('cruiser', 'orion').config
+    );
+    expect(ship.quantity).toBe(3);
+    expect(hull.value).toBe(1);
+    expect(clear.hidden).toBe(true);
+  });
+
   test('marks stats changed from faction-aware defaults but not quantity', () => {
     const shipTypeConfig = {
       id: 'test-modified-cruiser',
@@ -148,6 +187,100 @@ describe('ShipType', () => {
       'Ancient (WA)'
     );
     expect(element.querySelector('[data-stat][modified]')).toBeNull();
+  });
+
+  test.each([
+    {
+      preset: 'ancient' as const,
+      assetName: 'ai-anc',
+      accessibleName: 'Ancient ship tile',
+    },
+    {
+      preset: 'ancient-adv' as const,
+      assetName: 'ai-ancadv',
+      accessibleName: 'Ancient (A) ship tile',
+    },
+    {
+      preset: 'ancient-wa' as const,
+      assetName: 'ai-ancwa',
+      accessibleName: 'Ancient (WA) ship tile',
+    },
+    {
+      preset: 'guardian' as const,
+      assetName: 'ai-grd',
+      accessibleName: 'Guardian ship tile',
+    },
+    {
+      preset: 'guardian-adv' as const,
+      assetName: 'ai-grdadv',
+      accessibleName: 'Guardian (A) ship tile',
+    },
+    {
+      preset: 'guardian-wa' as const,
+      assetName: 'ai-grdwa',
+      accessibleName: 'Guardian (WA) ship tile',
+    },
+    {
+      preset: 'gcds' as const,
+      assetName: 'ai-gcds',
+      accessibleName: 'GCDS ship tile',
+    },
+    {
+      preset: 'gcds-adv' as const,
+      assetName: 'ai-gcdsadv',
+      accessibleName: 'GCDS (A) ship tile',
+    },
+    {
+      preset: 'gcds-wa' as const,
+      assetName: 'ai-gcdswa',
+      accessibleName: 'GCDS (WA) ship tile',
+    },
+  ])(
+    'displays the $preset artwork in Ship tiles mode',
+    ({ preset, assetName, accessibleName }) => {
+      const shipTypeConfig = {
+        id: `test-${preset}-tile`,
+        type: getStartingShipConfig(preset).type,
+        quantity: 1,
+        config: getStartingShipConfig(preset).config,
+      };
+      const element = document.createElement(
+        'calc-ship-type'
+      ) as ShipTypeElement;
+      element.shipType = shipTypeConfig;
+      element.fleetId = 'fleet-0';
+      element.tileMode = true;
+
+      document.body.appendChild(element);
+
+      const tile = element.querySelector('.ship-tile') as HTMLElement;
+      const image = tile.querySelector('img') as HTMLImageElement;
+      expect(tile.hidden).toBe(false);
+      expect(image.src).toContain(assetName);
+      expect(image.alt).toBe(accessibleName);
+      expect((element.querySelector('.stats') as HTMLElement).hidden).toBe(
+        true
+      );
+    }
+  );
+
+  test('keeps stat rows for NPCs outside Ship tiles mode', () => {
+    const shipTypeConfig = {
+      id: 'test-guardian-tile-fallback',
+      type: ShipType.Guardian,
+      quantity: 1,
+      config: getStartingShipConfig('guardian').config,
+    };
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = 'fleet-0';
+
+    document.body.appendChild(element);
+
+    expect((element.querySelector('.ship-tile') as HTMLElement).hidden).toBe(
+      true
+    );
+    expect((element.querySelector('.stats') as HTMLElement).hidden).toBe(false);
   });
 
   test('updates state on change', async () => {
@@ -247,6 +380,92 @@ describe('ShipType', () => {
     expect(shipTypeConfig.config.missiles?.antimatter).toBe(1);
   });
 
+  test('does not warn before a stat edit detaches the starting blueprint', () => {
+    state.fleets[0].factionId = 'orion';
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    element.factionId = 'orion';
+    document.body.appendChild(element);
+
+    const notice = element.querySelector(
+      '.blueprint-backed-notice'
+    ) as HTMLElement;
+    expect(notice.hidden).toBe(true);
+
+    const hull = element.querySelector('[data-stat="hull"]') as HTMLElement;
+    (hull.querySelector('.stat-inc') as HTMLButtonElement).click();
+
+    expect(ship.blueprint).toBeUndefined();
+    expect(notice.hidden).toBe(true);
+  });
+
+  test('warns before a stat edit detaches a customized blueprint', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    replaceBlueprintPart('fleet-0', ship.id, 1, 'plc');
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    document.body.appendChild(element);
+
+    const notice = element.querySelector(
+      '.blueprint-backed-notice'
+    ) as HTMLElement;
+    expect(notice.hidden).toBe(false);
+    expect(notice.classList.contains('ui-warning')).toBe(true);
+    expect(notice.getAttribute('role')).toBe('alert');
+    expect(notice.textContent?.trim()).toBe(
+      '⚠ Blueprint will be lost on edit'
+    );
+
+    const hull = element.querySelector('[data-stat="hull"]') as HTMLElement;
+    (hull.querySelector('.stat-inc') as HTMLButtonElement).click();
+
+    expect(ship.blueprint).toBeUndefined();
+    expect(notice.hidden).toBe(true);
+  });
+
+  test('keeps aggregate stats visible before explicitly replacing them with a blueprint', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor')!;
+    ship.config = { hull: 9 };
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = ship;
+    element.fleetId = 'fleet-0';
+    element.offerBlueprintReplacement = true;
+    document.body.appendChild(element);
+
+    const offer = element.querySelector(
+      '.stats-blueprint-offer'
+    ) as HTMLElement;
+    const hull = element.querySelector('[data-stat="hull"]') as StatCubeElement;
+    expect(offer.hidden).toBe(false);
+    expect(offer.classList.contains('ui-warning')).toBe(true);
+    expect(offer.getAttribute('role')).toBe('alert');
+    expect(offer.querySelector('strong')?.textContent).toBe(
+      '⚠ Stats only! Parts unknown.'
+    );
+    expect(
+      (element.querySelector('.clear-stats-btn') as HTMLButtonElement).hidden
+    ).toBe(true);
+    expect(hull.value).toBe(9);
+    expect(element.querySelector('.stats-blueprint-description')).toBeNull();
+
+    let created = false;
+    element.addEventListener('ship-blueprint-created', () => {
+      created = true;
+    });
+    (offer.querySelector('.start-blueprint-btn') as HTMLButtonElement).click();
+
+    expect(created).toBe(true);
+    expect(ship.blueprint?.slots).toEqual(['nus', 'ioc', null, 'nud']);
+    expect(ship.config.hull).toBe(0);
+  });
+
   test('disables NPC ship layout stats', () => {
     const shipTypeConfig = {
       id: 'test-ancient',
@@ -275,6 +494,9 @@ describe('ShipType', () => {
     expect(compCube.hasAttribute('disabled')).toBe(true);
     expect(input.disabled).toBe(true);
     expect(inc.disabled).toBe(true);
+    expect(
+      (element.querySelector('.clear-stats-btn') as HTMLButtonElement).hidden
+    ).toBe(true);
   });
 
   test.each([

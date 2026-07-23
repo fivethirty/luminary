@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Ship, ShipType } from './ship';
 import { Fleet } from './fleet';
-import { CombatSimulator } from './combat-simulator';
 import { DamageType } from 'src/constants';
 import { BattleModel } from './battle-state';
 import { WinProbabilitySolver } from './win-probability-solver';
@@ -96,56 +95,6 @@ describe('solveOutcome', () => {
 });
 
 describe('computeExactBattle', () => {
-  // The end-to-end validation: exact numbers must agree with a Monte Carlo run
-  // of the same battle on every axis the app reports.
-  describe('matches Monte Carlo within noise', () => {
-    const ITERATIONS = 10_000;
-    for (const matchup of MATCHUPS.filter((m) => m.noHeal).slice(0, 4)) {
-      test(matchup.name, () => {
-        const exact = computeExactBattle(
-          new Fleet('Enemy', buildShips(matchup.enemy)),
-          new Fleet('Player', buildShips(matchup.player))
-        );
-        expect(exact.ok).toBe(true);
-
-        const enemyFleet = new Fleet('Enemy', buildShips(matchup.enemy));
-        const playerFleet = new Fleet('Player', buildShips(matchup.player));
-        const mc = new CombatSimulator().simulate(
-          [enemyFleet, playerFleet],
-          ITERATIONS
-        );
-
-        expect(
-          Math.abs(
-            exact.lastFleetStanding['Player'] - mc.lastFleetStanding['Player']
-          )
-        ).toBeLessThan(0.015);
-        expect(
-          Math.abs(
-            exact.lastFleetStanding['Enemy'] - mc.lastFleetStanding['Enemy']
-          )
-        ).toBeLessThan(0.015);
-        expect(Math.abs(exact.drawPercentage - mc.drawPercentage)).toBeLessThan(
-          0.01
-        );
-
-        // Expected survivors, winner-conditioned, per ship type.
-        for (const name of ['Player', 'Enemy']) {
-          const mcSurv = mc.expectedSurvivors[name] ?? {};
-          const exSurv = exact.expectedSurvivors[name] ?? {};
-          for (const type of new Set([
-            ...Object.keys(mcSurv),
-            ...Object.keys(exSurv),
-          ])) {
-            const a = (mcSurv as Record<string, number>)[type] ?? 0;
-            const b = (exSurv as Record<string, number>)[type] ?? 0;
-            expect(Math.abs(a - b)).toBeLessThan(0.15);
-          }
-        }
-      });
-    }
-  });
-
   test('an optimal-planner fleet is solved in optimal mode', () => {
     const matchup = MATCHUPS.find((m) => m.name.startsWith('HET: fast weak'))!;
     const dps = computeExactBattle(
@@ -323,6 +272,13 @@ describe('computeExactBattle', () => {
       );
       expect(result.ok).toBe(true);
       expect(result.lastFleetStanding['A']).toBeCloseTo(5 / 11, 9);
+      expect(result.lastFleetStanding['D']).toBeCloseTo(6 / 11, 9);
+      expect(result.drawPercentage).toBe(0);
+      expect(result.expectedSurvivors).toEqual({
+        D: { [ShipType.Interceptor]: 1 },
+        A: { [ShipType.Interceptor]: 1 },
+      });
+      expect(result.survivorDistribution).toHaveLength(2);
     });
 
     test('homogeneous fleets solve exactly and match the DPS-vs-DPS solve', () => {

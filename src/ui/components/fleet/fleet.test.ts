@@ -3,6 +3,14 @@ import './index';
 import type { FleetElement } from './index';
 import { state, resetFleets, removeShipType } from '@ui/state';
 import { ShipType } from '@calc/ship';
+import { getStartingShipConfig } from '@ui/ship-presets';
+
+const fleetStyles = await Bun.file(
+  new URL('./fleet.css', import.meta.url)
+).text();
+const primitiveStyles = await Bun.file(
+  new URL('../../styles/primitives.css', import.meta.url)
+).text();
 
 describe('Fleet', () => {
   beforeEach(() => {
@@ -41,7 +49,11 @@ describe('Fleet', () => {
     const titleRow = element.querySelector('.fleet-title-row')!;
     expect(
       Array.from(titleRow.children).map((child) => child.className)
-    ).toEqual(['role-controls', 'fleet-name text-bold', 'fleet-settings-btn']);
+    ).toEqual([
+      'role-controls',
+      'fleet-name ui-text-strong',
+      'fleet-settings-btn ui-button ui-button--quiet ui-button--compact',
+    ]);
     expect(
       titleRow.querySelector('.fleet-settings-btn')?.textContent?.trim()
     ).toBe('Edit');
@@ -65,6 +77,13 @@ describe('Fleet', () => {
     expect(element.querySelectorAll('.color-option')).toHaveLength(6);
     expect(element.querySelector('.color-option[value="neutral"]')).toBeNull();
     expect(element.querySelector('.color-unset-btn')).not.toBeNull();
+    expect(fleetStyles).toMatch(
+      /\.fleet-settings-field\s*>\s*\.faction-select\s*{[^}]*width:\s*100%/
+    );
+    expect(dialog.classList).toContain('ui-dialog');
+    expect(primitiveStyles).toMatch(
+      /:is\(html, body\):has\(\.ui-dialog\[open\]\)\s*{[^}]*overflow:\s*hidden/
+    );
   });
 
   test('metadata dialog updates faction and selected color', () => {
@@ -233,6 +252,101 @@ describe('Fleet', () => {
     const shipElements = element.querySelectorAll('calc-ship-type');
     expect(shipElements.length).toBe(1);
     expect(shipSelector.value).toBe('');
+  });
+
+  test('uses blueprint editors for players and tile artwork for NPCs in Ship tiles mode', () => {
+    const player = document.createElement('calc-fleet') as FleetElement;
+    player.fleet = state.fleets[0];
+    player.controlMode = 'ships';
+    document.body.appendChild(player);
+    const shipSelect = player.querySelector(
+      '.ship-selector'
+    ) as HTMLSelectElement;
+    shipSelect.value = 'interceptor';
+    shipSelect.dispatchEvent(new Event('change'));
+    const blueprint = player.querySelector('calc-ship-blueprint')!;
+    expect(blueprint.classList.contains('ship-blueprint-card')).toBe(true);
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+
+    document.body.innerHTML = '';
+    resetFleets();
+    state.fleets[0].shipTypes.push({
+      id: 'ancient',
+      type: ShipType.Ancient,
+      quantity: 1,
+      config: {},
+    });
+    const npc = document.createElement('calc-fleet') as FleetElement;
+    npc.fleet = state.fleets[0];
+    npc.controlMode = 'ships';
+    document.body.appendChild(npc);
+    const ancient = npc.querySelector('calc-ship-type') as HTMLElement;
+    expect(ancient).not.toBeNull();
+    expect(ancient.classList.contains('ship-blueprint-card')).toBe(false);
+    expect(npc.querySelector('calc-ship-blueprint')).toBeNull();
+    expect(
+      (ancient.querySelector('.ship-tile-image') as HTMLImageElement).src
+    ).toContain('ai-anc');
+    expect((ancient.querySelector('.ship-tile') as HTMLElement).hidden).toBe(
+      false
+    );
+    expect((ancient.querySelector('.stats') as HTMLElement).hidden).toBe(true);
+  });
+
+  test('keeps imported aggregate ships as editable stat rows in Ship tiles mode', () => {
+    state.fleets[0].shipTypes.push({
+      id: 'stats-interceptor',
+      type: ShipType.Interceptor,
+      quantity: 1,
+      config: { hull: 9 },
+    });
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.controlMode = 'ships';
+    document.body.appendChild(element);
+
+    const stats = element.querySelector('calc-ship-type') as HTMLElement;
+    expect(stats).not.toBeNull();
+    expect(stats.classList.contains('ship-blueprint-card')).toBe(true);
+    expect(element.querySelector('calc-ship-blueprint')).toBeNull();
+    expect(
+      (stats.querySelector('.stats-blueprint-offer') as HTMLElement).hidden
+    ).toBe(false);
+
+    (stats.querySelector('.start-blueprint-btn') as HTMLButtonElement).click();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+    expect(element.querySelector('calc-ship-type')).toBeNull();
+    expect(
+      element
+        .querySelector('calc-ship-blueprint')
+        ?.classList.contains('ship-blueprint-card')
+    ).toBe(true);
+  });
+
+  test('shows the starting blueprint for matching aggregate stats without a warning', () => {
+    state.fleets[0].factionId = 'orion';
+    state.fleets[0].shipTypes.push({
+      id: 'starting-interceptor',
+      type: ShipType.Interceptor,
+      quantity: 1,
+      config: getStartingShipConfig('interceptor', 'orion').config,
+    });
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeUndefined();
+
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.controlMode = 'ships';
+    document.body.appendChild(element);
+
+    expect(element.querySelector('calc-ship-type')).toBeNull();
+    expect(element.querySelector('calc-ship-blueprint')).not.toBeNull();
+    expect(element.querySelector('.ship-representation-notice')).toBeNull();
+    expect(state.fleets[0].shipTypes[0].blueprint?.slots).toEqual([
+      'nus',
+      'ioc',
+      'gas',
+      'nud',
+    ]);
   });
 
   test('places the ship and NPC add controls together after the ship list', () => {
@@ -599,22 +713,19 @@ describe('Fleet', () => {
 
   test('offers only the structure available to the selected faction', () => {
     state.fleets[0].factionId = 'exiles';
-    const exiles = document.createElement('calc-fleet') as FleetElement;
-    exiles.fleet = state.fleets[0];
-    exiles.setAttribute('is-defender', 'true');
-    document.body.appendChild(exiles);
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+    document.body.appendChild(element);
 
-    expect(shipOption(exiles, 'orbital')).toBeDefined();
-    expect(shipOption(exiles, 'starbase')).toBeUndefined();
+    expect(shipOption(element, 'orbital')).toBeDefined();
+    expect(shipOption(element, 'starbase')).toBeUndefined();
 
     state.fleets[0].factionId = 'terran';
-    const terran = document.createElement('calc-fleet') as FleetElement;
-    terran.fleet = state.fleets[0];
-    terran.setAttribute('is-defender', 'true');
-    document.body.appendChild(terran);
+    element.refreshMetadata();
 
-    expect(shipOption(terran, 'starbase')).toBeDefined();
-    expect(shipOption(terran, 'orbital')).toBeUndefined();
+    expect(shipOption(element, 'starbase')).toBeDefined();
+    expect(shipOption(element, 'orbital')).toBeUndefined();
   });
 
   test('does not offer dreadnoughts to Rho Indi', () => {

@@ -1,5 +1,5 @@
 <div class="results-container">
-  <div class="results-card card">
+  <div class="results-card ui-card">
     <div class="results-body" aria-live="polite">
       <div id="odds-strip" class="odds-strip"></div>
       <div id="results-bars" class="results-bars"></div>
@@ -15,13 +15,16 @@
     </div>
 
     <details class="detailed-outcomes">
-      <summary>Detailed outcomes</summary>
+      <summary class="ui-disclosure-summary">Detailed outcomes</summary>
 
       <div id="detailed-impact-section" class="detailed-impact-section">
         <div class="impact-grid">
           <div class="impact-summary-column">
-            <section id="material-impact" class="impact-card material-impact">
-              <h4>Material</h4>
+            <section
+              id="material-impact"
+              class="impact-card material-impact ui-panel"
+            >
+              <h4 class="ui-eyebrow">Material</h4>
               <table
                 class="material-impact-table"
                 aria-label="Fleet material cost and expected resources lost"
@@ -39,10 +42,10 @@
 
             <section
               id="reputation-impact"
-              class="impact-card reputation-impact"
+              class="impact-card reputation-impact ui-panel"
             >
               <div class="impact-card-heading">
-                <h4>Reputation draws</h4>
+                <h4 class="ui-eyebrow">Reputation draws</h4>
                 <span>Expected</span>
               </div>
               <div id="reputation-impact-rows"></div>
@@ -50,15 +53,15 @@
 
             <section
               id="population-impact"
-              class="impact-card population-impact"
+              class="impact-card population-impact ui-panel"
             >
               <div class="impact-card-heading population-impact-heading">
-                <h4>Sector Wiped (no neutron)</h4>
+                <h4 class="ui-eyebrow">Sector Wiped (no neutron)</h4>
                 <label class="population-select-label">
                   <span>Sector population</span>
                   <select
                     id="sector-population"
-                    class="standard-select sector-population-select"
+                    class="ui-select sector-population-select"
                     aria-label="Sector population"
                   ></select>
                 </label>
@@ -69,9 +72,9 @@
 
           <section
             id="survivor-distribution-section"
-            class="impact-card survivor-distribution-section"
+            class="impact-card survivor-distribution-section ui-panel"
           >
-            <h4>Surviving fleet</h4>
+            <h4 class="ui-eyebrow">Surviving fleet</h4>
             <div class="composition-table-wrap">
               <table
                 class="composition-table"
@@ -93,8 +96,15 @@
     </details>
 
     <div class="results-actions">
-      <button class="copy-link-btn">Copy link</button>
-      <button class="copy-chat-btn">Copy for chat</button>
+      <button
+        class="copy-link-btn ui-button ui-button--accent"
+        type="button"
+      >
+        Copy link
+      </button>
+      <button class="copy-chat-btn ui-button" type="button">
+        Copy for chat
+      </button>
     </div>
   </div>
 </div>

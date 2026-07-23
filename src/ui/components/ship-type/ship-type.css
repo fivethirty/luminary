@@ -4,6 +4,20 @@ calc-ship-type {
   max-width: 100%;
 }
 
+calc-ship-type.summary-only .ship-type > header {
+  display: none;
+}
+
+calc-ship-type.summary-only .ship-type {
+  margin: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+calc-ship-type.summary-only .ship-type .stats {
+  padding: 0;
+}
+
 .ship-type {
   width: 100%;
   min-width: 0;
@@ -27,6 +41,40 @@ calc-ship-type {
   padding: var(--space-sm) var(--space-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 72%, transparent);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.ship-representation-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+}
+
+.ship-representation-notice[hidden] {
+  display: none;
+}
+
+.stats-blueprint-offer .start-blueprint-btn {
+  flex: 0 0 auto;
+}
+
+.ship-tile {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.ship-tile[hidden],
+.ship-type > .stats[hidden] {
+  display: none;
+}
+
+.ship-tile-image {
+  display: block;
+  width: min(100%, 10rem);
+  height: auto;
 }
 
 .ship-type-name {
@@ -60,15 +108,9 @@ calc-ship-type {
 
 .stat-group-title {
   grid-column: 1 / -1;
-  color: var(--color-text-muted);
-  font-size: 0.6875rem;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.12em;
-  line-height: 1;
-  text-transform: uppercase;
 }
 
-@media (max-width: 52rem) {
+@media (max-width: 48rem) {
   .ship-type .stats {
     grid-template-columns: 1fr;
     gap: var(--space-sm);
@@ -87,30 +129,31 @@ calc-ship-type {
     --stat-cube-input-padding: var(--space-xs) 0;
   }
 
-  .stat-group-title {
-    font-size: 0.625rem;
-    letter-spacing: 0.08em;
-  }
 }
 
-@media (max-width: 42rem) {
+@media (max-width: 40rem) {
   .ship-type .stats {
     gap: var(--space-xs);
   }
 
   .stat-group {
-    gap: 0.1875rem;
+    gap: calc(var(--space-xs) * 0.75);
   }
 
   .quantity {
     margin-right: var(--space-xs);
+  }
+
+  .stats-blueprint-offer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
 /* Five cubes fit at 360px, but the Stepper layout uses wider controls. Use
    balanced 3 + 2 rows for Systems/Cannons and four columns for Missiles on
    narrow phones. Read-only NPC layouts still match the selected view. */
-@media (max-width: 27rem) {
+@media (max-width: 40rem) {
   body:not(.no-steppers) :is(.stat-group-core, .stat-group-weapons) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -120,7 +163,7 @@ calc-ship-type {
   }
 }
 
-@media (min-width: 52.0625rem) {
+@media (width > 48rem) {
   .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
   }
@@ -156,7 +199,7 @@ calc-ship-type {
 /* Wide screens have enough room for all fourteen stats without splitting the
    ship editor into two rows. Explicit zero minimums let the groups share the
    available width instead of inheriting the narrower-layout cube minimum. */
-@media (min-width: 74rem) {
+@media (width > 80rem) {
   body:not(.no-steppers) .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
     grid-template-areas: none;
@@ -186,7 +229,7 @@ body.no-steppers .stat-group {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-@media (min-width: 52.0625rem) {
+@media (width > 48rem) {
   body.no-steppers .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
     gap: var(--space-sm);

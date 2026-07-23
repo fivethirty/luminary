@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import { ShipType } from '@calc/ship';
+import { calculateBlueprint, createStartingBlueprint } from '@ui/ship-parts';
 import type { FleetState } from '@ui/state';
 import {
   saveSetup,
@@ -44,6 +45,17 @@ function fleets(attackerQuantity: number): FleetState[] {
 function fleetsWithAttackerHull(hull: number): FleetState[] {
   const result = fleets(2);
   result[1].shipTypes[0].config = { initiative: 2, hull };
+  return result;
+}
+
+function fleetsWithAttackerBlueprint(): FleetState[] {
+  const result = fleets(2);
+  const blueprint = createStartingBlueprint(ShipType.Cruiser);
+  result[1].shipTypes[0].blueprint = blueprint;
+  result[1].shipTypes[0].config = calculateBlueprint(
+    ShipType.Cruiser,
+    blueprint
+  ).config;
   return result;
 }
 
@@ -102,6 +114,13 @@ describe('recent battles', () => {
     const recents = loadRecentBattles();
     expect(recents).toHaveLength(1);
     expect(recents[0].label).toBe('Guardian vs 2× Cruiser');
+  });
+
+  test('retains blueprint provenance in a recent battle', () => {
+    recordRecentBattle(fleetsWithAttackerBlueprint(), T0);
+    expect(loadRecentBattles()[0].query).toContain(
+      'a.cruiser.parts=elc-ioc-_-nus-hul-nud'
+    );
   });
 
   test('edits within the merge window update the newest entry', () => {

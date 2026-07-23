@@ -9,6 +9,8 @@ import {
   formatChatReport,
 } from './share';
 import { exactResults } from './test-helpers';
+import { calculateBlueprint, createStartingBlueprint } from './ship-parts';
+import { getStartingShipConfig } from './ship-presets';
 
 function fleet(overrides: Partial<FleetState> = {}): FleetState {
   return {
@@ -71,8 +73,7 @@ function battle(): FleetState[] {
 describe('encodeBattleQuery', () => {
   test('produces a human-readable query with only non-default stats', () => {
     expect(encodeBattleQuery(battle())).toBe(
-      'v=1&d.guardian=1&a.cruiser=2&a.cruiser.hull=1&a.cruiser.comp=1' +
-        '&a.cruiser.rift=1&a.cruiser.ion=1&a.cruiser.plasma=1' +
+      'v=2&d.guardian=1&a.cruiser=2&a.cruiser.rift=1&a.cruiser.plasma=1' +
         '&a.cruiser.plasma-m=1&a.ams=1&a.planner=dps'
     );
   });
@@ -95,10 +96,46 @@ describe('encodeBattleQuery', () => {
 
   test('encodes a player ship with default stats as a single param', () => {
     const fleets = battle();
-    fleets[1].shipTypes[0].config = { initiative: 2 };
+    fleets[1].shipTypes[0].config = getStartingShipConfig('cruiser').config;
     fleets[1].antimatterSplitter = false;
     fleets[1].plannerType = 'optimal';
-    expect(encodeBattleQuery(fleets)).toBe('v=1&d.guardian=1&a.cruiser=2');
+    expect(encodeBattleQuery(fleets)).toBe('v=2&d.guardian=1&a.cruiser=2');
+  });
+
+  test('compares player stats with faction-aware defaults', () => {
+    const fleets = battle();
+    fleets[1].factionId = 'orion';
+    fleets[1].shipTypes[0].config = getStartingShipConfig(
+      'cruiser',
+      'orion'
+    ).config;
+    fleets[1].antimatterSplitter = false;
+    fleets[1].plannerType = 'optimal';
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toBe('v=2&d.guardian=1&a.cruiser=2&a.faction=orion');
+    expect(parseBattleQuery(query)?.[1].shipTypes[0].config).toEqual(
+      fleets[1].shipTypes[0].config
+    );
+  });
+
+  test('uses faction defaults after a blueprint is converted to stats', () => {
+    const fleets = battle();
+    const blueprint = createStartingBlueprint(ShipType.Cruiser, 'rho-indi');
+    fleets[1].factionId = 'rho-indi';
+    fleets[1].shipTypes[0] = {
+      id: 'flattened-cruiser',
+      type: ShipType.Cruiser,
+      quantity: 1,
+      config: calculateBlueprint(ShipType.Cruiser, blueprint, 'rho-indi')
+        .config,
+    };
+    fleets[1].antimatterSplitter = false;
+    fleets[1].plannerType = 'optimal';
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toBe('v=2&d.guardian=1&a.cruiser=1&a.faction=rho-indi');
+    expect(query).not.toContain('a.cruiser.');
   });
 
   test('round-trips NPC targeting for player fleets', () => {
@@ -178,6 +215,41 @@ describe('encodeBattleQuery', () => {
     expect(query).toContain('a6.interceptor=1');
     expect(parseBattleQuery(query)).toHaveLength(7);
   });
+
+  test('round-trips ordered slots and the external Muon Source', () => {
+    const fleets = battle();
+    const blueprint = createStartingBlueprint(ShipType.Cruiser);
+    blueprint.muonSource = true;
+    fleets[1].shipTypes[0] = {
+      id: 'tile-cruiser',
+      type: ShipType.Cruiser,
+      quantity: 1,
+      blueprint,
+      config: calculateBlueprint(ShipType.Cruiser, blueprint).config,
+    };
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain(
+      'a.cruiser.parts=elc-ioc-_-nus-hul-nud&a.cruiser.muon=1'
+    );
+    const decoded = parseBattleQuery(query)![1].shipTypes[0];
+    expect(decoded.blueprint).toEqual(blueprint);
+    expect(decoded.config).toEqual(
+      calculateBlueprint(ShipType.Cruiser, blueprint).config
+    );
+  });
+
+  test('omits stale blueprint metadata while preserving aggregate stats', () => {
+    const fleets = battle();
+    fleets[1].shipTypes[0].blueprint = createStartingBlueprint(
+      ShipType.Cruiser
+    );
+    fleets[1].shipTypes[0].config = { hull: 9 };
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).not.toContain('.parts=');
+    expect(query).toContain('a.cruiser.hull=9');
+  });
 });
 
 describe('parseBattleQuery', () => {
@@ -227,7 +299,32 @@ describe('parseBattleQuery', () => {
 
   test('requires the version param', () => {
     expect(parseBattleQuery('d.guardian=1')).toBeNull();
-    expect(parseBattleQuery('v=2&d.guardian=1')).toBeNull();
+    expect(parseBattleQuery('v=3&d.guardian=1')).toBeNull();
+  });
+
+  test('decodes v2 faction defaults independent of parameter order', () => {
+    const factionFirst = parseBattleQuery('v=2&a.faction=orion&a.cruiser=1')!;
+    const factionLast = parseBattleQuery('v=2&a.cruiser=1&a.faction=orion')!;
+    const expected = getStartingShipConfig('cruiser', 'orion').config;
+
+    expect(factionFirst[1].shipTypes[0].config).toEqual(expected);
+    expect(factionLast[1].shipTypes[0].config).toEqual(expected);
+  });
+
+  test('preserves zero overrides against nonzero faction defaults in v2', () => {
+    const decoded = parseBattleQuery(
+      'v=2&a.cruiser=1&a.cruiser.shield=0&a.faction=orion'
+    )!;
+
+    expect(decoded[1].shipTypes[0].config.shields).toBe(0);
+    expect(decoded[1].shipTypes[0].config.initiative).toBe(3);
+  });
+
+  test('keeps v1 omissions on the legacy preset baseline', () => {
+    const decoded = parseBattleQuery('v=1&a.cruiser=1&a.faction=orion')!;
+
+    expect(decoded[1].shipTypes[0].config.shields).toBe(0);
+    expect(decoded[1].shipTypes[0].config.initiative).toBe(2);
   });
 
   test('returns null when nothing battle-related is present', () => {
@@ -316,6 +413,37 @@ describe('parseBattleQuery', () => {
     const decoded = parseBattleQuery('v=1&d.orbital=1')!;
     expect(decoded[0].shipTypes[0].config.initiative).toBe(4);
   });
+
+  test('lets valid parts override legacy stats independent of parameter order', () => {
+    const first = parseBattleQuery(
+      'v=1&a.interceptor.hull=9&a.interceptor.parts=nus-ioc-_-nud'
+    )!;
+    const second = parseBattleQuery(
+      'v=1&a.interceptor.parts=nus-ioc-_-nud&a.interceptor.hull=9'
+    )!;
+    expect(first[1].shipTypes[0].config.hull).toBe(0);
+    expect(second[1].shipTypes[0].config.hull).toBe(0);
+    expect(second[1].shipTypes[0].blueprint?.slots).toEqual([
+      'nus',
+      'ioc',
+      null,
+      'nud',
+    ]);
+  });
+
+  test('drops malformed tile metadata while retaining legacy combat stats', () => {
+    const unknown = parseBattleQuery(
+      'v=1&a.interceptor.hull=9&a.interceptor.parts=nus-community-_-nud'
+    )!;
+    expect(unknown[1].shipTypes[0].blueprint).toBeUndefined();
+    expect(unknown[1].shipTypes[0].config.hull).toBe(9);
+
+    const driveOnStructure = parseBattleQuery(
+      'v=1&d.starbase.hull=7&d.starbase.parts=elc-_-ioc-hul-nud'
+    )!;
+    expect(driveOnStructure[0].shipTypes[0].blueprint).toBeUndefined();
+    expect(driveOnStructure[0].shipTypes[0].config.hull).toBe(7);
+  });
 });
 
 describe('battleLabel', () => {
@@ -389,7 +517,7 @@ describe('battleUrl', () => {
   test('builds a full URL from the current location', () => {
     const url = battleUrl(battle());
     expect(url.startsWith(window.location.origin)).toBe(true);
-    expect(url).toContain('?v=1&d.guardian=1&a.cruiser=2');
+    expect(url).toContain('?v=2&d.guardian=1&a.cruiser=2');
   });
 });
 

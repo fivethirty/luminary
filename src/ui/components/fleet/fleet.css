@@ -1,8 +1,4 @@
-.fleet-component {
-  margin-bottom: var(--space-md);
-}
-
-.fleet.card {
+.fleet.ui-card {
   --fleet-accent: var(--fleet-accent-source, var(--color-border-strong));
   --fleet-accent-soft: var(
     --fleet-accent-soft-source,
@@ -19,7 +15,7 @@
 }
 
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme]) .fleet.card {
+  :root:not([data-theme]) .fleet.ui-card {
     --fleet-accent: color-mix(
       in srgb,
       var(--fleet-accent-source, var(--color-border-strong)) 72%,
@@ -33,7 +29,7 @@
   }
 }
 
-:root[data-theme='light'] .fleet.card {
+:root[data-theme='light'] .fleet.ui-card {
   --fleet-accent: color-mix(
     in srgb,
     var(--fleet-accent-source, var(--color-border-strong)) 72%,
@@ -106,66 +102,20 @@
 
 .fleet-settings-btn {
   flex: 0 0 auto;
-  padding: 0 var(--space-xs);
-  border-color: transparent;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.fleet-settings-btn:hover {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
 }
 
 .fleet-settings-dialog {
   width: min(24rem, calc(100vw - 2rem));
-  padding: 0;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-}
-
-.fleet-settings-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.48);
 }
 
 .fleet-settings-form {
   padding: var(--space-md);
-  display: flex;
   flex-direction: column;
   gap: var(--space-md);
 }
 
-.fleet-settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.fleet-settings-field {
-  margin: 0;
-  padding: 0;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.fleet-settings-field > span,
-.fleet-settings-field > legend {
-  color: var(--color-text-muted);
-  font-size: var(--label-font-size);
-  text-transform: uppercase;
-  letter-spacing: var(--label-letter-spacing);
-}
-
-.faction-select {
+.fleet-settings-field > .faction-select {
   width: 100%;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
 }
 
 .color-options {
@@ -178,7 +128,6 @@
   width: 100%;
   margin-top: var(--space-sm);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
 }
 
 .color-unset-btn.selected {
@@ -194,6 +143,10 @@
   padding: 0;
   border-radius: var(--radius-sm);
   background: var(--option-color);
+}
+
+.color-option:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--option-color) 88%, var(--color-bg-secondary));
 }
 
 .color-option.selected {
@@ -218,40 +171,68 @@
   border-top: none;
 }
 
-.ship-selector-control {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 5.5rem;
-  font-family: inherit;
-  font-size: inherit;
-  padding: calc(var(--space-xs) * 1.5) 1.75rem calc(var(--space-xs) * 1.5)
-    var(--space-sm);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-bg-tertiary) var(--select-chevron) right
-    var(--space-sm) center / 0.75rem no-repeat;
-  color: var(--color-text-primary);
-  cursor: pointer;
+.ship-blueprint-card {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  text-align: center;
-  font-weight: var(--font-weight-semibold);
+  background: color-mix(
+    in srgb,
+    var(--color-bg-secondary) 88%,
+    var(--color-bg-primary)
+  );
+}
+
+.ship-blueprint-card > :is(.ship-blueprint, .ship-type) {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.fleet-ships:has(> .ship-blueprint-card) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
+  flex: 0 1 calc(50% - var(--space-sm));
+}
+
+calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+@media (width > 64rem) {
+  .fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
+    flex-basis: calc(25% - var(--space-sm));
+  }
+}
+
+/* Stats-only ships share the narrower blueprint-card columns in Ship tiles
+   mode. Keep each stat group full-width so its cubes stay inside the card. */
+@media (width > 48rem) {
+  calc-ship-type.ship-blueprint-card .ship-type .stats {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+
+  calc-ship-type.ship-blueprint-card .ship-type .stat-group {
+    grid-area: auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 .ship-selector-control > span {
-  pointer-events: none;
   white-space: nowrap;
-}
-
-.ship-selector {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  border: 0;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .fleet-add-row {
@@ -263,15 +244,6 @@
 
 .fleet-add-row .ship-selector-control {
   min-width: 0;
-}
-
-.ship-selector-control:hover {
-  background-color: var(--color-border);
-}
-
-.ship-selector-control:has(.ship-selector:focus-visible) {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
 }
 
 .preset-chips {
@@ -298,77 +270,11 @@
 }
 
 .preset-chip {
-  box-sizing: border-box;
-  padding: var(--space-xs) var(--space-md);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
-  background-color: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  font-family: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.preset-picker-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  padding-right: var(--space-xl);
-}
-
-.preset-picker-wrap span {
-  min-width: 0;
-  overflow: hidden;
-  pointer-events: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.preset-picker-wrap::after {
-  content: '';
-  position: absolute;
-  right: var(--space-md);
-  top: 50%;
-  width: 0.75rem;
-  height: 0.75rem;
-  pointer-events: none;
-  transform: translateY(-50%);
-  background-image: var(--select-chevron);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 0.75rem;
-}
-
-.preset-picker {
-  appearance: none;
-  -webkit-appearance: none;
-  position: absolute;
-  inset: 0;
-  border: 0;
-  opacity: 0;
-  font-family: inherit;
-  font-size: inherit;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.preset-picker:focus-visible {
-  outline: none;
-}
-
-.preset-picker-wrap:has(.preset-picker:focus-visible) {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
+  border-color: var(--color-border-strong);
 }
 
 .preset-chip:hover {
   background-color: var(--color-border);
-  border-color: var(--fleet-accent, var(--color-border-strong));
 }
 
 .fleet-tech {
@@ -378,7 +284,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .tech-option {
@@ -395,16 +301,16 @@
 /* Ship headers switch to the compact inline inset at tablet width. Keep the
    containing fleet header on that same column instead of waiting for the
    narrower phone layout below. */
-@media (max-width: 52rem) {
-  .fleet.card > .fleet-header {
+@media (max-width: 48rem) {
+  .fleet.ui-card > .fleet-header {
     padding-inline: var(--space-sm);
   }
 }
 
 /* On phones the row can't hold both controls plus the planner select, so stack
    them and let the select take the full width. */
-@media (max-width: 42rem) {
-  .fleet.card {
+@media (max-width: 40rem) {
+  .fleet.ui-card {
     margin-bottom: calc(var(--space-sm) * 1.5);
   }
 
@@ -438,6 +344,14 @@
   .fleet-add-row .ship-selector-control {
     width: 100%;
     min-width: 0;
+  }
+
+  .fleet-ships:has(> .ship-blueprint-card) {
+    padding: var(--space-sm);
+  }
+
+  .fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
+    flex-basis: 100%;
   }
 
   .fleet-add-row {

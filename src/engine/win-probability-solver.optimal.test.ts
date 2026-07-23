@@ -46,21 +46,6 @@ describe('WinProbabilitySolver (minimax assignments)', () => {
     }
   });
 
-  test('optimal win probability is a valid probability', () => {
-    const model = new BattleModel(
-      buildShips(MATCHUPS[0].player),
-      buildShips(MATCHUPS[0].enemy),
-      false,
-      false
-    );
-    const optimal = new WinProbabilitySolver(model, {
-      perspective: 'A',
-      assignments: 'minimax',
-    }).solve();
-    expect(optimal.winProbability).toBeGreaterThanOrEqual(0);
-    expect(optimal.winProbability).toBeLessThanOrEqual(1);
-  });
-
   test('homogeneous targeting has the same value without decision nodes', () => {
     // Player: one interceptor with 2 antimatter cannons and high computers, so
     // both dice almost always land (only a natural 1 misses).

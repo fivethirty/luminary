@@ -4,6 +4,10 @@ This file is a routing index. Read [docs/architecture.md](docs/architecture.md) 
 combat contracts, and [docs/performance.md](docs/performance.md) before changing solver strategy,
 caps, fallbacks, or performance-sensitive code.
 
+Read [docs/ui-system.md](docs/ui-system.md) before creating or restyling UI. Reuse its interaction
+contracts, tokens, and primitives; do not copy production styles from the ship-builder proposal
+study.
+
 ## Runtime
 
 - Use Bun 1.2.19 and the tracked `bun.lock`; do not create npm or legacy binary lockfiles.
@@ -43,6 +47,7 @@ caps, fallbacks, or performance-sensitive code.
   other safe ESLint fixes before final validation.
 - Exact solver: `bun run test:solver`; other engine work: `bun run test:engine`.
 - UI work: run the nearest component/state test while iterating.
+- UI consistency: `bun run audit:ui:strict` (also included in `bun run check`).
 - Type and style: `bun run typecheck` and `bun run lint`.
 - Cross-module completion: `bun run check` (includes the production build). Use `bun run build`
   alone for a focused asset/build check.

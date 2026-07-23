@@ -1,0 +1,85 @@
+<article class="ship-blueprint">
+  <header class="blueprint-header">
+    <button
+      class="ship-clear-btn clear-blueprint-btn ui-button ui-button--quiet ui-button--compact ui-push-end"
+      type="button"
+      hidden
+    >
+      Clear
+    </button>
+    <div class="blueprint-quantity">
+      <calc-selector></calc-selector>
+    </div>
+    <button class="remove-btn ui-icon-button" type="button">×</button>
+  </header>
+
+  <div class="blueprint-editor" hidden>
+    <div class="blueprint-visual">
+      <div class="blueprint-canvas-wrap">
+        <div class="blueprint-canvas">
+          <img class="blueprint-background" alt="" />
+          <div class="blueprint-slots"></div>
+          <div class="blueprint-readouts" role="group">
+            <span data-blueprint-stat="initiative"></span>
+            <span data-blueprint-stat="energy"></span>
+            <span data-blueprint-stat="movement"></span>
+            <span data-blueprint-stat="computer"></span>
+            <span data-blueprint-stat="hull"></span>
+            <span data-blueprint-stat="shield"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="blueprint-details">
+      <section class="external-section" aria-label="Muon Source">
+        <label class="muon-control">
+          <input class="muon-checkbox" type="checkbox" />
+          <img class="muon-image" alt="" />
+          <span>
+            <strong>Muon Source</strong>
+          </span>
+        </label>
+        <div class="drive-warning" aria-live="polite" hidden>
+          ⚠ No drive installed
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <dialog class="part-dialog ui-dialog">
+    <div class="part-dialog-shell ui-dialog__surface">
+      <header class="part-dialog-header ui-dialog__header">
+        <div>
+          <div class="dialog-kicker ui-eyebrow">Parts Finder</div>
+          <h3 class="part-dialog-title"></h3>
+        </div>
+        <button
+          class="dialog-close ui-icon-button"
+          type="button"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </header>
+      <label class="part-search-label">
+        <span class="sr-only">Search ship parts</span>
+        <input
+          class="part-search ui-input ui-control--touch"
+          type="search"
+          placeholder="Search parts…"
+          autocomplete="off"
+        />
+      </label>
+      <div class="part-dialog-actions">
+        <button
+          class="remove-part-btn ui-button ui-button--danger ui-control--touch"
+          type="button"
+          hidden
+        ></button>
+      </div>
+      <div class="part-buckets"></div>
+      <div class="part-search-empty" hidden>No matching parts</div>
+    </div>
+  </dialog>
+</article>

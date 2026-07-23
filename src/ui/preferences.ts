@@ -1,14 +1,20 @@
 const STEPPERS_COOKIE = 'luminary:steppers';
+const CONTROLS_COOKIE = 'luminary:controls';
 const THEME_COOKIE = 'luminary:theme';
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 export type ThemePreference = 'system' | 'light' | 'dark';
+export type ControlMode = 'steppers' | 'compact' | 'ships';
+
+function cookieValue(name: string): string | undefined {
+  return document.cookie
+    .split('; ')
+    .find((cookie) => cookie.startsWith(`${name}=`))
+    ?.split('=')[1];
+}
 
 export function loadSteppersPreference(): boolean {
-  const value = document.cookie
-    .split('; ')
-    .find((cookie) => cookie.startsWith(`${STEPPERS_COOKIE}=`))
-    ?.split('=')[1];
+  const value = cookieValue(STEPPERS_COOKIE);
   return value !== 'off';
 }
 
@@ -20,6 +26,25 @@ export function saveSteppersPreference(enabled: boolean) {
 // disappear and the stat cubes compress into single rows.
 export function applySteppersPreference(enabled: boolean) {
   document.body.classList.toggle('no-steppers', !enabled);
+}
+
+export function loadControlMode(): ControlMode {
+  const value = cookieValue(CONTROLS_COOKIE);
+  if (value === 'steppers' || value === 'compact' || value === 'ships') {
+    return value;
+  }
+  return loadSteppersPreference() ? 'steppers' : 'compact';
+}
+
+export function saveControlMode(mode: ControlMode) {
+  document.cookie = `${CONTROLS_COOKIE}=${mode}; Max-Age=${COOKIE_MAX_AGE_SECONDS}; Path=/; SameSite=Lax`;
+  saveSteppersPreference(mode === 'steppers');
+}
+
+export function applyControlMode(mode: ControlMode) {
+  document.body.dataset.controls = mode;
+  document.body.classList.toggle('no-steppers', mode !== 'steppers');
+  document.body.classList.toggle('ship-tiles', mode === 'ships');
 }
 
 export function loadThemePreference(): ThemePreference {

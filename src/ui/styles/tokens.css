@@ -1,0 +1,176 @@
+:root {
+  color-scheme: dark;
+
+  --color-bg-primary: #151922;
+  --color-bg-secondary: #20253a;
+  --color-bg-tertiary: #323851;
+  --color-border: #404962;
+  --color-border-strong: #525d78;
+  --color-text-primary: #e8ecf2;
+  --color-text-secondary: #a0aec0;
+  --color-text-muted: #718096;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --color-attacker: #35d0c8;
+  --color-attacker-soft: #123b43;
+  --color-attacker-2: #8fc45d;
+  --color-attacker-2-soft: #263a1e;
+  --color-attacker-3: #d58fe8;
+  --color-attacker-3-soft: #3b2743;
+  --color-attacker-4: #5fa8ff;
+  --color-attacker-4-soft: #1d314c;
+  --color-defender: #f0a35b;
+  --color-defender-soft: #462c1e;
+  --color-draw: #98a6bd;
+  --color-draw-soft: #293040;
+  --color-focus-ring: var(--color-info);
+  --color-on-accent: #ffffff;
+  --color-info-soft: color-mix(in srgb, var(--color-info) 12%, transparent);
+  --color-danger-soft: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  --color-dialog-backdrop: rgb(0 0 0 / 64%);
+  --color-artwork-canvas: #05080b;
+  --color-artwork-ink: #f7f7f4;
+  --color-artwork-blocked: #000000;
+  --shadow-artwork-text: 0 1px 2px rgb(0 0 0 / 90%);
+
+  --color-stat-ion: #facc15;
+  --color-stat-plasma: #fb923c;
+  --color-stat-soliton: #60a5fa;
+  --color-stat-antimatter: #ef4444;
+  --color-stat-rift: #f9a8d4;
+
+  /* Spacing is intentionally sparse. Prefer a semantic component token below
+     when a control needs something between these steps. */
+  --space-2xs: 0.125rem;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  --font-size-3xs: 0.625rem;
+  --font-size-2xs: 0.6875rem;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 0.9375rem;
+  --font-size-control: 1rem;
+  --font-size-lg: 1.0625rem;
+  --font-size-xl: 1.1875rem;
+  --font-size-2xl: 1.375rem;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --label-font-size: var(--font-size-sm);
+  --label-letter-spacing: 0.08em;
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-full: 9999px;
+
+  --transition-fast: 150ms ease;
+  --transition-base: 300ms ease;
+  --transition-slow: 500ms ease;
+
+  --control-height-compact: 2rem;
+  --control-height: 2.25rem;
+  --control-height-touch: 2.75rem;
+  --control-padding-block: var(--space-xs);
+  --control-padding-inline: var(--space-sm);
+  --control-padding-inline-wide: var(--space-md);
+  --control-disabled-opacity: 0.45;
+  --focus-ring-width: 2px;
+  --font-size-blueprint-readout: clamp(
+    var(--font-size-3xs),
+    5cqi,
+    0.9rem
+  );
+  --select-compact-padding-inline-end: 1.75rem;
+
+  --surface-inset: color-mix(
+    in srgb,
+    var(--color-bg-primary) 42%,
+    var(--color-bg-secondary)
+  );
+
+  --max-width: 80rem;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --color-bg-primary: #f5f7fa;
+    --color-bg-secondary: #ffffff;
+    --color-bg-tertiary: #e8edf4;
+    --color-border: #c8d0dc;
+    --color-border-strong: #9aa8ba;
+    --color-text-primary: #172033;
+    --color-text-secondary: #46556b;
+    --color-text-muted: #64748b;
+    --color-success: #047857;
+    --color-warning: #a16207;
+    --color-danger: #b91c1c;
+    --color-info: #1d64b5;
+    --color-attacker: #087b76;
+    --color-attacker-soft: #d5f0ee;
+    --color-attacker-2: #507d19;
+    --color-attacker-2-soft: #e6f1d8;
+    --color-attacker-3: #8b419d;
+    --color-attacker-3-soft: #f1def5;
+    --color-attacker-4: #2367ad;
+    --color-attacker-4-soft: #dceafa;
+    --color-defender: #a8520b;
+    --color-defender-soft: #f8e4d2;
+    --color-draw: #526178;
+    --color-draw-soft: #e1e6ed;
+    --color-stat-ion: #8a6500;
+    --color-stat-plasma: #b5460a;
+    --color-stat-soliton: #1769aa;
+    --color-stat-antimatter: #b91c1c;
+    --color-stat-rift: #a83272;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2346556b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-bg-primary: #f5f7fa;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #e8edf4;
+  --color-border: #c8d0dc;
+  --color-border-strong: #9aa8ba;
+  --color-text-primary: #172033;
+  --color-text-secondary: #46556b;
+  --color-text-muted: #64748b;
+  --color-success: #047857;
+  --color-warning: #a16207;
+  --color-danger: #b91c1c;
+  --color-info: #1d64b5;
+  --color-attacker: #087b76;
+  --color-attacker-soft: #d5f0ee;
+  --color-attacker-2: #507d19;
+  --color-attacker-2-soft: #e6f1d8;
+  --color-attacker-3: #8b419d;
+  --color-attacker-3-soft: #f1def5;
+  --color-attacker-4: #2367ad;
+  --color-attacker-4-soft: #dceafa;
+  --color-defender: #a8520b;
+  --color-defender-soft: #f8e4d2;
+  --color-draw: #526178;
+  --color-draw-soft: #e1e6ed;
+  --color-stat-ion: #8a6500;
+  --color-stat-plasma: #b5460a;
+  --color-stat-soliton: #1769aa;
+  --color-stat-antimatter: #b91c1c;
+  --color-stat-rift: #a83272;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2346556b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+}

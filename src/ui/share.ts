@@ -2,6 +2,7 @@ import { type ShipConfig, type WeaponType } from '@calc/ship';
 import { formatCompactFleetComposition } from '@ui/fleet-composition';
 import {
   getDefaultShipConfig,
+  getStartingShipConfig,
   isShipPresetKey,
   matchShipPreset,
   SHIP_ABBREVIATIONS,
@@ -22,6 +23,12 @@ import {
   sanitizeFleetComposition,
 } from '@ui/fleet-rules';
 import { normalizeShipConfig, shipConfigsEqual } from '@ui/ship-config';
+import {
+  calculateBlueprint,
+  isBlueprintShipType,
+  isDiscoveryPart,
+  normalizeShipBlueprint,
+} from '@ui/ship-parts';
 import type {
   FleetState,
   PlannerType,
@@ -30,9 +37,9 @@ import type {
 } from '@ui/state';
 
 // Battle setups are shared as a human-readable query string, e.g.
-//   ?v=1&d.guardian-wa=1&a.cruiser=2&a.cruiser.hull=1&a.cruiser.ion=2
+//   ?v=2&d.guardian-wa=1&a.cruiser=2&a.cruiser.hull=2
 // Params are `<fleet>.<preset>=<quantity>` plus `<fleet>.<preset>.<stat>=<n>`
-// for stats that differ from the preset's defaults, and per-fleet flags
+// for stats that differ from the faction's operating defaults, and per-fleet flags
 // `<fleet>.ams=1` (antimatter splitter), `<fleet>.planner=dps`,
 // `<fleet>.faction=rho-indi`, and `<fleet>.color=red`. Fleet keys
 // are `d` (defender) and `a`, `a2`...`a6` (attackers). Ships whose config
@@ -40,7 +47,8 @@ import type {
 // variant with no stat params. Decoding is lenient: unknown params are
 // ignored, numbers are clamped to UI limits, and fleet composition rules
 // (NPCs defend only, no mixed player/NPC fleets) are enforced.
-const SHARE_VERSION = '1';
+const LEGACY_SHARE_VERSION = '1';
+const SHARE_VERSION = '2';
 const MAX_STAT = 99;
 
 interface StatField {
@@ -131,11 +139,14 @@ function fleetIndexFromKey(key: string): number | null {
 function encodeShip(
   key: string,
   shipType: ShipTypeConfig,
-  params: [string, string][]
+  params: [string, string][],
+  factionId: FactionId
 ) {
   const config = normalizeShipConfig(shipType.config);
   const preset = matchShipPreset(shipType.type, shipType.config);
-  const presetConfig = normalizeShipConfig(getDefaultShipConfig(preset).config);
+  const presetConfig = normalizeShipConfig(
+    getStartingShipConfig(preset, factionId).config
+  );
   const exact = shipConfigsEqual(config, presetConfig);
 
   params.push([`${key}.${preset}`, String(shipType.quantity)]);
@@ -150,6 +161,29 @@ function encodeShip(
       }
     }
   }
+
+  if (isBlueprintShipType(shipType.type)) {
+    const blueprint = normalizeShipBlueprint(
+      shipType.type,
+      shipType.blueprint,
+      factionId
+    );
+    if (
+      blueprint &&
+      shipConfigsEqual(
+        shipType.config,
+        calculateBlueprint(shipType.type, blueprint, factionId).config
+      )
+    ) {
+      params.push([
+        `${key}.${preset}.parts`,
+        blueprint.slots.map((partId) => partId ?? '_').join('-'),
+      ]);
+      if (blueprint.muonSource) {
+        params.push([`${key}.${preset}.muon`, '1']);
+      }
+    }
+  }
 }
 
 // Returns the query string for a battle ('' when there is nothing to share).
@@ -158,7 +192,9 @@ export function encodeBattleQuery(fleets: FleetState[]): string {
 
   fleets.slice(0, MAX_FLEETS).forEach((fleet, index) => {
     const key = fleetKey(index);
-    fleet.shipTypes.forEach((shipType) => encodeShip(key, shipType, params));
+    fleet.shipTypes.forEach((shipType) =>
+      encodeShip(key, shipType, params, fleet.factionId ?? '')
+    );
     if (fleet.antimatterSplitter) {
       params.push([`${key}.ams`, '1']);
     }
@@ -192,18 +228,24 @@ interface FleetDraft {
   colorIsManual: boolean;
   antimatterSplitter: boolean;
   plannerType: PlannerType;
+  blueprintParts: Map<ShipDropdownOption, string>;
+  blueprintMuons: Set<ShipDropdownOption>;
 }
 
 function draftShip(
   draft: FleetDraft,
   preset: ShipDropdownOption,
   fleetIndex: number,
-  shipIndex: number
+  shipIndex: number,
+  version: string
 ): ShipTypeConfig | null {
   const existing = draft.ships.get(preset);
   if (existing) return existing;
 
-  const variant = getDefaultShipConfig(preset);
+  const variant =
+    version === SHARE_VERSION
+      ? getStartingShipConfig(preset, draft.factionId)
+      : getDefaultShipConfig(preset);
   // One entry per ship type: a second preset of the same type (e.g. `ancient`
   // and `ancient-wa`) is ignored, matching the UI's dropdown behavior.
   const typeTaken = [...draft.ships.values()].some(
@@ -223,7 +265,10 @@ function draftShip(
 
 export function parseBattleQuery(search: string): FleetState[] | null {
   const params = new URLSearchParams(search);
-  if (params.get('v') !== SHARE_VERSION) return null;
+  const version = params.get('v');
+  if (version !== LEGACY_SHARE_VERSION && version !== SHARE_VERSION) {
+    return null;
+  }
 
   const drafts = new Map<number, FleetDraft>();
   const getDraft = (index: number): FleetDraft => {
@@ -236,11 +281,26 @@ export function parseBattleQuery(search: string): FleetState[] | null {
         colorIsManual: false,
         antimatterSplitter: false,
         plannerType: 'optimal',
+        blueprintParts: new Map(),
+        blueprintMuons: new Set(),
       };
       drafts.set(index, draft);
     }
     return draft;
   };
+
+  // Version 2 ship params are based on faction-aware defaults. Read faction
+  // metadata first so decoding is independent of query-parameter order.
+  if (version === SHARE_VERSION) {
+    for (const [key, value] of params.entries()) {
+      const parts = key.split('.');
+      if (parts.length !== 2 || parts[1] !== 'faction') continue;
+      const fleetIndex = fleetIndexFromKey(parts[0]);
+      if (fleetIndex !== null && isFactionId(value)) {
+        getDraft(fleetIndex).factionId = value;
+      }
+    }
+  }
 
   let recognized = false;
   for (const [key, value] of params.entries()) {
@@ -279,7 +339,13 @@ export function parseBattleQuery(search: string): FleetState[] | null {
 
     if (!isShipPresetKey(parts[1])) continue;
     const draft = getDraft(fleetIndex);
-    const ship = draftShip(draft, parts[1], fleetIndex, draft.ships.size);
+    const ship = draftShip(
+      draft,
+      parts[1],
+      fleetIndex,
+      draft.ships.size,
+      version
+    );
     if (!ship) continue;
 
     const numeric = Number(value);
@@ -294,6 +360,17 @@ export function parseBattleQuery(search: string): FleetState[] | null {
       continue;
     }
 
+    if (parts[2] === 'parts') {
+      draft.blueprintParts.set(parts[1], value);
+      recognized = true;
+      continue;
+    }
+    if (parts[2] === 'muon') {
+      if (value === '1') draft.blueprintMuons.add(parts[1]);
+      recognized = true;
+      continue;
+    }
+
     const field = STAT_FIELDS_BY_KEY.get(parts[2]);
     if (field && Number.isFinite(numeric)) {
       field.set(ship.config as Required<ShipConfig>, clampStat(numeric));
@@ -302,6 +379,8 @@ export function parseBattleQuery(search: string): FleetState[] | null {
   }
 
   if (!recognized) return null;
+
+  finalizeBlueprintDrafts(drafts);
 
   const fleetCount = Math.max(2, ...[...drafts.keys()].map((i) => i + 1));
   return Array.from({ length: fleetCount }, (_, index) => {
@@ -315,14 +394,33 @@ export function parseBattleQuery(search: string): FleetState[] | null {
           isDefender
         )
       : [];
+    const shipTypes = sanitizeFleetComposition(
+      reconciledShips,
+      isDefender,
+      factionId
+    );
+    shipTypes.forEach((ship) => {
+      if (!ship.blueprint) return;
+      if (!isBlueprintShipType(ship.type)) {
+        delete ship.blueprint;
+        return;
+      }
+      const blueprint = normalizeShipBlueprint(
+        ship.type,
+        ship.blueprint,
+        factionId
+      );
+      if (!blueprint) {
+        delete ship.blueprint;
+        return;
+      }
+      ship.blueprint = blueprint;
+      ship.config = calculateBlueprint(ship.type, blueprint, factionId).config;
+    });
     return {
       id: `fleet-${index}`,
       name: '',
-      shipTypes: sanitizeFleetComposition(
-        reconciledShips,
-        isDefender,
-        factionId
-      ),
+      shipTypes,
       factionId,
       colorId: draft?.colorId ?? defaultFleetColorId(index),
       colorIsManual: draft?.colorIsManual ?? false,
@@ -330,6 +428,46 @@ export function parseBattleQuery(search: string): FleetState[] | null {
       plannerType: draft?.plannerType ?? 'optimal',
     };
   });
+}
+
+function finalizeBlueprintDrafts(drafts: Map<number, FleetDraft>) {
+  for (const draft of drafts.values()) {
+    const usedDiscoveries = new Set<string>();
+    for (const [preset, ship] of draft.ships) {
+      const encoded = draft.blueprintParts.get(preset);
+      if (!encoded || !isBlueprintShipType(ship.type)) continue;
+      const slots = encoded
+        .split('-')
+        .map((partId) => (partId === '_' ? null : partId));
+      const blueprint = normalizeShipBlueprint(
+        ship.type,
+        {
+          slots,
+          muonSource: draft.blueprintMuons.has(preset),
+        },
+        draft.factionId
+      );
+      if (!blueprint) continue;
+
+      const discoveries = blueprint.slots.filter((partId): partId is string =>
+        Boolean(partId && isDiscoveryPart(partId))
+      );
+      if (blueprint.muonSource) discoveries.push('mus');
+      if (
+        new Set(discoveries).size !== discoveries.length ||
+        discoveries.some((partId) => usedDiscoveries.has(partId))
+      ) {
+        continue;
+      }
+      discoveries.forEach((partId) => usedDiscoveries.add(partId));
+      ship.blueprint = blueprint;
+      ship.config = calculateBlueprint(
+        ship.type,
+        blueprint,
+        draft.factionId
+      ).config;
+    }
+  }
 }
 
 // The full shareable URL for a battle, based on the current page location.

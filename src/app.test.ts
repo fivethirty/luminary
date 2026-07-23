@@ -12,6 +12,7 @@ import {
 import { monteCarloResults } from '@ui/test-helpers';
 import {
   loadSteppersPreference,
+  loadControlMode,
   loadThemePreference,
   saveSteppersPreference,
   saveThemePreference,
@@ -19,12 +20,55 @@ import {
 import { init } from './app';
 import { exactDpsPlannerOverrides } from '@calc/exact-combat';
 import indexHtml from './index.html' with { type: 'text' };
+import appCss from './app.css' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
 import { Fleet } from '@calc/fleet';
 import { DamageType } from './constants';
+import { getStartingShipConfig } from '@ui/ship-presets';
 
-// Waits out the auto-simulate debounce.
-const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
+const realSetTimeout = globalThis.setTimeout;
+const realClearTimeout = globalThis.clearTimeout;
+const pendingTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
+let nextTimerId = -1;
+
+// The app's auto-simulation is intentionally debounced in production. Capture
+// positive-delay timers so these tests can exercise that boundary without
+// sleeping for the wall clock.
+beforeEach(() => {
+  pendingTimers.clear();
+  globalThis.setTimeout = ((
+    handler: TimerHandler,
+    timeout = 0,
+    ...args: unknown[]
+  ) => {
+    if (timeout > 0) {
+      const id = nextTimerId-- as unknown as ReturnType<typeof setTimeout>;
+      pendingTimers.set(id, () => {
+        if (typeof handler === 'function') handler(...args);
+      });
+      return id;
+    }
+    return realSetTimeout(handler, timeout, ...args);
+  }) as typeof setTimeout;
+  globalThis.clearTimeout = ((
+    id: ReturnType<typeof setTimeout> | undefined
+  ) => {
+    if (id !== undefined && pendingTimers.delete(id)) return;
+    realClearTimeout(id);
+  }) as typeof clearTimeout;
+});
+
+afterEach(() => {
+  pendingTimers.clear();
+  globalThis.setTimeout = realSetTimeout;
+  globalThis.clearTimeout = realClearTimeout;
+});
+
+const settle = () => {
+  const callbacks = Array.from(pendingTimers.values());
+  pendingTimers.clear();
+  callbacks.forEach((callback) => callback());
+};
 
 describe('App', () => {
   beforeEach(() => {
@@ -95,13 +139,29 @@ describe('App', () => {
   test('groups controls and theme under the UI section', () => {
     const section = document.querySelector('.ui-section')!;
     const heading = section.querySelector('h2')!;
-    const optionLabels = Array.from(
-      section.querySelectorAll('.preference-label')
-    ).map((label) => label.textContent?.trim());
+    const optionLabels = Array.from(section.querySelectorAll('.ui-label')).map(
+      (label) => label.textContent?.trim()
+    );
 
     expect(heading.textContent).toBe('UI');
     expect(section.getAttribute('aria-labelledby')).toBe(heading.id);
     expect(optionLabels).toEqual(['Controls', 'Theme']);
+  });
+
+  test('reserves scrollable space below the UI for the fixed results bar', () => {
+    const style = document.createElement('style');
+    // Happy DOM does not resolve the linked stylesheet imports; the app-level
+    // layout contract under test is self-contained once those lines are removed.
+    style.textContent = appCss.replace(/^@import .*;\n/gm, '');
+    document.head.append(style);
+
+    const liveBar = document.getElementById('live-bar')!;
+    liveBar.hidden = false;
+
+    expect(getComputedStyle(document.body).paddingBottom).toBe('80px');
+    expect(getComputedStyle(document.documentElement).scrollPaddingBottom).toBe(
+      '5rem'
+    );
   });
 
   test('uses selected faction as the fleet name', () => {
@@ -118,6 +178,42 @@ describe('App', () => {
       (name) => name.textContent
     );
     expect(fleetNames).toEqual(['Terran', 'Attacker']);
+  });
+
+  test('keeps fleet settings open while changing faction and color', () => {
+    const fleetElement = document.querySelectorAll('calc-fleet')[1];
+    const editButton = fleetElement.querySelector(
+      '.fleet-settings-btn'
+    ) as HTMLButtonElement;
+    const dialog = fleetElement.querySelector(
+      '.fleet-settings-dialog'
+    ) as HTMLDialogElement;
+    editButton.click();
+
+    const factionSelect = dialog.querySelector(
+      '.faction-select'
+    ) as HTMLSelectElement;
+    factionSelect.focus();
+    factionSelect.value = 'rho-indi';
+    factionSelect.dispatchEvent(new Event('change'));
+
+    expect(dialog.open).toBe(true);
+    expect(dialog.isConnected).toBe(true);
+    expect(document.querySelectorAll('calc-fleet')[1]).toBe(fleetElement);
+    expect(document.activeElement).toBe(factionSelect);
+    expect(state.fleets[1].factionId).toBe('rho-indi');
+
+    const redButton = dialog.querySelector(
+      '.color-option[value="red"]'
+    ) as HTMLButtonElement;
+    redButton.focus();
+    redButton.click();
+
+    expect(dialog.open).toBe(true);
+    expect(dialog.isConnected).toBe(true);
+    expect(document.querySelectorAll('calc-fleet')[1]).toBe(fleetElement);
+    expect(document.activeElement).toBe(redButton);
+    expect(state.fleets[1].colorId).toBe('red');
   });
 
   test('uses The Ancients for an NPC defender fleet', async () => {
@@ -187,7 +283,7 @@ describe('App', () => {
     const clearBtn = document.getElementById(
       'clear-all-btn'
     ) as HTMLButtonElement;
-    expect(clearBtn.textContent).toBe('Clear setup');
+    expect(clearBtn.textContent?.trim()).toBe('Clear setup');
     clearBtn.click();
 
     expect(state.fleets.length).toBe(2);
@@ -255,10 +351,43 @@ describe('App', () => {
     (document.querySelector('a[href="/about"]') as HTMLAnchorElement).click();
     expect(window.location.pathname).toBe('/about');
     expect(liveBar.hidden).toBe(true);
+    expect(document.getElementById('home-content')?.hidden).toBe(true);
+    expect(document.getElementById('about-content')?.hidden).toBe(false);
+    expect(
+      document.querySelector('a[href="/about"]')?.getAttribute('aria-current')
+    ).toBe('page');
 
     (document.querySelector('a[href="/"]') as HTMLAnchorElement).click();
     expect(window.location.pathname).toBe('/');
     expect(liveBar.hidden).toBe(false);
+    expect(document.getElementById('home-content')?.hidden).toBe(false);
+    expect(document.getElementById('about-content')?.hidden).toBe(true);
+    expect(
+      document.querySelector('a[href="/"]')?.getAttribute('aria-current')
+    ).toBe('page');
+  });
+
+  test('uses shortened faction names in live odds', () => {
+    setFleetFaction(state.fleets[1].id, 'eridani');
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          [state.fleets[0].id]: 0.1,
+          [state.fleets[1].id]: 0.9,
+        },
+      })
+    );
+
+    (document.querySelector('a[href="/about"]') as HTMLAnchorElement).click();
+    (document.querySelector('a[href="/"]') as HTMLAnchorElement).click();
+
+    const liveBar = document.getElementById('live-bar')!;
+    expect(liveBar.querySelector('.live-verdict')!.textContent).toBe(
+      'Eridani 90.0%'
+    );
+    expect(liveBar.getAttribute('aria-label')).toContain(
+      'Eridani 90.0 percent'
+    );
   });
 
   test('auto-simulates three fleets with exact combat', async () => {
@@ -483,9 +612,13 @@ describe('App', () => {
   });
 
   test('persists the setup and restores it on the next init', () => {
-    addShipType(state.fleets[1].id, ShipType.Cruiser, { initiative: 2 });
+    addShipType(
+      state.fleets[1].id,
+      ShipType.Cruiser,
+      getStartingShipConfig('cruiser').config
+    );
     const saved = localStorage.getItem('luminary:setup');
-    expect(saved).toBe('v=1&a.cruiser=1');
+    expect(saved).toBe('v=2&a.cruiser=1');
 
     // Simulate a fresh page load with no battle in the URL. Resetting fires
     // the save subscription, so put the snapshot back before re-initializing.
@@ -499,7 +632,7 @@ describe('App', () => {
     expect(state.fleets[1].shipTypes).toHaveLength(1);
     expect(state.fleets[1].shipTypes[0].type).toBe(ShipType.Cruiser);
     // The restored battle also lands back in the URL for sharing.
-    expect(window.location.search).toBe('?v=1&a.cruiser=1');
+    expect(window.location.search).toBe('?v=2&a.cruiser=1');
   });
 });
 
@@ -636,28 +769,6 @@ describe('App shared battle links', () => {
     expect(state.fleets[0].shipTypes[0].quantity).toBe(3);
   });
 
-  test('keeps recent battle labels compact on narrow screens', async () => {
-    const realMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: /max-width/.test(query),
-      media: query,
-    })) as typeof window.matchMedia;
-
-    try {
-      window.history.replaceState(null, '', `/${SHARED_QUERY}`);
-      init();
-      await settle();
-
-      const select = document.getElementById(
-        'recent-battles'
-      ) as HTMLSelectElement;
-      const options = Array.from(select.querySelectorAll('option'));
-      expect(options[0].textContent).toBe('3I vs 2C');
-    } finally {
-      window.matchMedia = realMatchMedia;
-    }
-  });
-
   test('ignores an unrelated or malformed query', () => {
     window.history.replaceState(null, '', '/?utm_source=discord');
     init();
@@ -673,22 +784,27 @@ describe('App shared battle links', () => {
     init();
     expect(window.location.search).toBe('');
 
-    const ship = addShipType(state.fleets[1].id, ShipType.Cruiser, {
-      initiative: 2,
-    });
-    expect(window.location.search).toBe('?v=1&a.cruiser=1');
+    const ship = addShipType(
+      state.fleets[1].id,
+      ShipType.Cruiser,
+      getStartingShipConfig('cruiser').config
+    );
+    expect(window.location.search).toBe('?v=2&a.cruiser=1');
 
     updateShipType(state.fleets[1].id, ship.id, {
       quantity: 2,
-      config: { initiative: 2, hull: 1 },
+      config: {
+        ...getStartingShipConfig('cruiser').config,
+        hull: 2,
+      },
     });
-    expect(window.location.search).toBe('?v=1&a.cruiser=2&a.cruiser.hull=1');
+    expect(window.location.search).toBe('?v=2&a.cruiser=2&a.cruiser.hull=2');
 
     resetFleets();
     expect(window.location.search).toBe('');
   });
 
-  test('serializes UI operating blueprints explicitly for v1 link safety', () => {
+  test('omits UI operating stats that match their defaults', () => {
     init();
     const attackerSelector = document.querySelectorAll<HTMLSelectElement>(
       'calc-fleet .ship-selector'
@@ -697,16 +813,16 @@ describe('App shared battle links', () => {
     attackerSelector.value = 'cruiser';
     attackerSelector.dispatchEvent(new Event('change'));
 
-    expect(window.location.search).toBe(
-      '?v=1&a.cruiser=1&a.cruiser.hull=1&a.cruiser.comp=1&a.cruiser.ion=1'
-    );
+    expect(window.location.search).toBe('?v=2&a.cruiser=1');
   });
 
   test('keeps the URL canonical after loading a shared battle', () => {
     window.history.replaceState(null, '', '/?v=1&a.cruiser.hull=1&junk=x');
     init();
 
-    expect(window.location.search).toBe('?v=1&a.cruiser=1&a.cruiser.hull=1');
+    expect(window.location.search).toBe(
+      '?v=2&a.cruiser=1&a.cruiser.comp=0&a.cruiser.ion=0'
+    );
   });
 });
 
@@ -715,12 +831,16 @@ describe('App steppers preference', () => {
     localStorage.clear();
     resetFleets();
     setSimulationResults(null);
+    window.history.replaceState(null, '', '/');
     document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
+    document.cookie = 'luminary:controls=; Max-Age=0; Path=/';
     document.documentElement.innerHTML = indexHtml;
   });
 
   afterEach(() => {
+    window.history.replaceState(null, '', '/');
     document.cookie = 'luminary:steppers=; Max-Age=0; Path=/';
+    document.cookie = 'luminary:controls=; Max-Age=0; Path=/';
   });
 
   test('defaults to steppers on', () => {
@@ -757,6 +877,55 @@ describe('App steppers preference', () => {
         ?.classList.contains('active')
     ).toBe(true);
     expect(document.body.classList.contains('no-steppers')).toBe(true);
+  });
+
+  test('rehydrates shared starting stats as a blueprint in Ship tiles mode', () => {
+    window.history.replaceState(null, '', '/?v=2&d.interceptor=1');
+    document.cookie = 'luminary:controls=ships; Path=/';
+    init();
+
+    expect(loadControlMode()).toBe('ships');
+    expect(state.fleets[0].shipTypes[0].blueprint?.slots).toEqual([
+      'nus',
+      'ioc',
+      null,
+      'nud',
+    ]);
+    expect(window.location.search).toContain(
+      'd.interceptor.parts=nus-ioc-_-nud'
+    );
+    expect(document.querySelector('calc-ship-blueprint')).not.toBeNull();
+    expect(document.querySelector('.ship-representation-notice')).toBeNull();
+  });
+
+  test('preserves blueprint data while switching control modes', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?v=2&d.interceptor=1&d.interceptor.parts=nus-ioc-_-nud'
+    );
+    document.cookie = 'luminary:controls=ships; Path=/';
+    init();
+    const compact = document.querySelector(
+      '[data-controls="compact"]'
+    ) as HTMLButtonElement;
+
+    compact.click();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+    expect(loadControlMode()).toBe('compact');
+    expect(window.location.search).toContain(
+      'd.interceptor.parts=nus-ioc-_-nud'
+    );
+    expect(document.querySelector('calc-ship-blueprint')).toBeNull();
+    expect(
+      (document.querySelector('.blueprint-backed-notice') as HTMLElement).hidden
+    ).toBe(true);
+
+    (
+      document.querySelector('[data-controls="ships"]') as HTMLButtonElement
+    ).click();
+    expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
+    expect(document.querySelector('calc-ship-blueprint')).not.toBeNull();
   });
 });
 
