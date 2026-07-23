@@ -225,7 +225,10 @@ describe('ShipBlueprint', () => {
       /\.ship-blueprint-card\s*>\s*:is\(\.ship-blueprint, \.ship-type\)\s*{[^}]*height:\s*100%[^}]*margin:\s*0[^}]*border:\s*0[^}]*background:\s*transparent/
     );
     expect(shipTypeStyles).toMatch(
-      /\.stats-blueprint-offer--card\s*{[^}]*align-items:\s*stretch[^}]*flex-direction:\s*column/
+      /\.stats-blueprint-offer\s*{[^}]*gap:\s*var\(--space-xs\)[^}]*white-space:\s*nowrap/
+    );
+    expect(shipTypeStyles).not.toMatch(
+      /\.stats-blueprint-offer[^}]*flex-direction:\s*column/
     );
     expect(shipTypeStyles).toMatch(
       /@media \(width > 48rem\)[\s\S]*\.stats\[data-layout='card'\]\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*grid-template-areas:\s*none/

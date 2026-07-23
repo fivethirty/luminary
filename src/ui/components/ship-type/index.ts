@@ -58,10 +58,6 @@ export class ShipTypeElement extends HTMLElement {
     this.classList.toggle('summary-only', this.summaryOnly);
     const stats = this.querySelector('.stats') as HTMLElement;
     stats.dataset.layout = this.statsLayout;
-    this.querySelector('.stats-blueprint-offer')?.classList.toggle(
-      'stats-blueprint-offer--card',
-      this.statsLayout === 'card'
-    );
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     removeBtn.addEventListener('click', () => {

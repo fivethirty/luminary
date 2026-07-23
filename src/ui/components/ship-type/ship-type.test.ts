@@ -116,11 +116,6 @@ describe('ShipType', () => {
     expect(
       (element.querySelector('.stats') as HTMLElement).dataset.layout
     ).toBe('card');
-    expect(
-      element
-        .querySelector('.stats-blueprint-offer')
-        ?.classList.contains('stats-blueprint-offer--card')
-    ).toBe(true);
   });
 
   test('clears edited stats from the header without changing quantity', () => {
@@ -469,9 +464,18 @@ describe('ShipType', () => {
     expect(offer.hidden).toBe(false);
     expect(offer.classList.contains('ui-warning')).toBe(true);
     expect(offer.getAttribute('role')).toBe('alert');
-    expect(offer.querySelector('strong')?.textContent).toBe(
-      '⚠ Stats only! Parts unknown.'
-    );
+    expect(offer.querySelector('strong')?.textContent).toBe('⚠ Stats only');
+    expect(
+      offer.querySelector('.start-blueprint-btn')?.textContent?.trim()
+    ).toBe('Use blueprint');
+    expect(
+      offer.querySelector('.start-blueprint-btn')?.getAttribute('aria-label')
+    ).toBe('Replace stats with the standard ship blueprint');
+    expect(
+      offer
+        .querySelector('.start-blueprint-btn')
+        ?.classList.contains('ui-button--compact')
+    ).toBe(true);
     expect(
       (element.querySelector('.clear-stats-btn') as HTMLButtonElement).hidden
     ).toBe(true);

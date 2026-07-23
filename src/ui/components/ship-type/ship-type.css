@@ -58,11 +58,15 @@ calc-ship-type.summary-only .ship-type .stats {
 
 .stats-blueprint-offer .start-blueprint-btn {
   flex: 0 0 auto;
+  margin-left: auto;
+  font-size: var(--font-size-xs);
 }
 
-.stats-blueprint-offer--card {
-  align-items: stretch;
-  flex-direction: column;
+.stats-blueprint-offer {
+  gap: var(--space-xs);
+  padding-inline: var(--space-sm);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
 .ship-tile {
@@ -133,7 +137,6 @@ calc-ship-type.summary-only .ship-type .stats {
   .stat-group-missiles {
     --stat-cube-input-padding: var(--space-xs) 0;
   }
-
 }
 
 @media (max-width: 40rem) {
@@ -147,11 +150,6 @@ calc-ship-type.summary-only .ship-type .stats {
 
   .quantity {
     margin-right: var(--space-xs);
-  }
-
-  .stats-blueprint-offer {
-    align-items: stretch;
-    flex-direction: column;
   }
 }
 
