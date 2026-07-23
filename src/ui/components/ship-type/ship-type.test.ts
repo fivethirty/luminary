@@ -100,6 +100,29 @@ describe('ShipType', () => {
     ).toBe('Remove Interceptor');
   });
 
+  test('applies its stats layout directly to the owned grid', () => {
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = {
+      id: 'test-card-layout',
+      type: ShipType.Interceptor,
+      quantity: 1,
+      config: { hull: 9 },
+    };
+    element.fleetId = 'fleet-0';
+    element.statsLayout = 'card';
+
+    document.body.appendChild(element);
+
+    expect(
+      (element.querySelector('.stats') as HTMLElement).dataset.layout
+    ).toBe('card');
+    expect(
+      element
+        .querySelector('.stats-blueprint-offer')
+        ?.classList.contains('stats-blueprint-offer--card')
+    ).toBe(true);
+  });
+
   test('clears edited stats from the header without changing quantity', () => {
     state.fleets[0].factionId = 'orion';
     const ship = addOrSwapShipPreset('fleet-0', 'cruiser')!;

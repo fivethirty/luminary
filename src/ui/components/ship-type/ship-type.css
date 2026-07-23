@@ -60,6 +60,11 @@ calc-ship-type.summary-only .ship-type .stats {
   flex: 0 0 auto;
 }
 
+.stats-blueprint-offer--card {
+  align-items: stretch;
+  flex-direction: column;
+}
+
 .ship-tile {
   display: flex;
   justify-content: center;
@@ -154,18 +159,22 @@ calc-ship-type.summary-only .ship-type .stats {
    balanced 3 + 2 rows for Systems/Cannons and four columns for Missiles on
    narrow phones. Read-only NPC layouts still match the selected view. */
 @media (max-width: 40rem) {
-  body:not(.no-steppers) :is(.stat-group-core, .stat-group-weapons) {
+  .stats[data-layout='steppers']
+    :is(.stat-group-core, .stat-group-weapons) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  body:not(.no-steppers) .stat-group-missiles {
+  .stats[data-layout='steppers'] .stat-group-missiles {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (width > 48rem) {
-  .ship-type .stats {
+  .stats[data-layout='steppers'] {
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+    grid-template-areas:
+      'core .'
+      'weapons missiles';
   }
 
   .stat-group-core,
@@ -177,22 +186,34 @@ calc-ship-type.summary-only .ship-type .stats {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  body:not(.no-steppers) .ship-type .stats {
-    grid-template-areas:
-      'core .'
-      'weapons missiles';
-  }
-
-  body:not(.no-steppers) .stat-group-core {
+  .stats[data-layout='steppers'] .stat-group-core {
     grid-area: core;
   }
 
-  body:not(.no-steppers) .stat-group-weapons {
+  .stats[data-layout='steppers'] .stat-group-weapons {
     grid-area: weapons;
   }
 
-  body:not(.no-steppers) .stat-group-missiles {
+  .stats[data-layout='steppers'] .stat-group-missiles {
     grid-area: missiles;
+  }
+
+  .stats[data-layout='compact'] {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
+    gap: var(--space-sm);
+  }
+
+  /* Stats-only ships share the narrower blueprint-card columns in Ship tiles
+     mode. Keep each stat group full-width so its cubes stay inside the card. */
+  .stats[data-layout='card'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+    gap: var(--space-sm);
+  }
+
+  .stats[data-layout='card'] .stat-group {
+    grid-area: auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -200,46 +221,15 @@ calc-ship-type.summary-only .ship-type .stats {
    ship editor into two rows. Explicit zero minimums let the groups share the
    available width instead of inheriting the narrower-layout cube minimum. */
 @media (width > 80rem) {
-  body:not(.no-steppers) .ship-type .stats {
+  .stats[data-layout='steppers'] {
     grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
     grid-template-areas: none;
     gap: var(--space-sm);
   }
 
-  body:not(.no-steppers) .stat-group-core,
-  body:not(.no-steppers) .stat-group-weapons,
-  body:not(.no-steppers) .stat-group-missiles {
+  .stats[data-layout='steppers'] .stat-group-core,
+  .stats[data-layout='steppers'] .stat-group-weapons,
+  .stats[data-layout='steppers'] .stat-group-missiles {
     grid-area: auto;
-  }
-
-  .stat-group-core,
-  .stat-group-weapons {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .stat-group-missiles {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-/* Stepper-free mode: without the +/− buttons the cubes are narrow enough for
-   each group to sit on a single row — 5-5-4 stacked on phones, all three
-   groups side by side in one row on desktop. */
-body.no-steppers .stat-group {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-@media (width > 48rem) {
-  body.no-steppers .ship-type .stats {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
-    gap: var(--space-sm);
-  }
-
-  body.no-steppers .stat-group-core {
-    grid-column: auto;
-  }
-
-  body.no-steppers .stat-group-missiles {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

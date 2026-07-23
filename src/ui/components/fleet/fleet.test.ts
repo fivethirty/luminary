@@ -283,6 +283,9 @@ describe('Fleet', () => {
     const ancient = npc.querySelector('calc-ship-type') as HTMLElement;
     expect(ancient).not.toBeNull();
     expect(ancient.classList.contains('ship-blueprint-card')).toBe(false);
+    expect(
+      (ancient.querySelector('.stats') as HTMLElement).dataset.layout
+    ).toBe('compact');
     expect(npc.querySelector('calc-ship-blueprint')).toBeNull();
     expect(
       (ancient.querySelector('.ship-tile-image') as HTMLImageElement).src
@@ -308,6 +311,9 @@ describe('Fleet', () => {
     const stats = element.querySelector('calc-ship-type') as HTMLElement;
     expect(stats).not.toBeNull();
     expect(stats.classList.contains('ship-blueprint-card')).toBe(true);
+    expect((stats.querySelector('.stats') as HTMLElement).dataset.layout).toBe(
+      'card'
+    );
     expect(element.querySelector('calc-ship-blueprint')).toBeNull();
     expect(
       (stats.querySelector('.stats-blueprint-offer') as HTMLElement).hidden
