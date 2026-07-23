@@ -14,6 +14,9 @@ const blueprintStyles = await Bun.file(
 const fleetStyles = await Bun.file(
   new URL('../fleet/fleet.css', import.meta.url)
 ).text();
+const primitiveStyles = await Bun.file(
+  new URL('../../styles/primitives.css', import.meta.url)
+).text();
 
 function render(shipId: string, fleetId = 'fleet-0'): ShipBlueprintElement {
   const fleet = state.fleets.find((candidate) => candidate.id === fleetId)!;
@@ -547,10 +550,11 @@ describe('ShipBlueprint', () => {
     );
   });
 
-  test('locks background scrolling while the parts picker is open', () => {
-    expect(blueprintStyles).toMatch(
-      /:is\(html, body\):has\(\.part-dialog\[open\]\)\s*{[^}]*overflow:\s*hidden/
+  test('uses the shared background scroll lock while the parts picker is open', () => {
+    expect(primitiveStyles).toMatch(
+      /:is\(html, body\):has\(\.ui-dialog\[open\]\)\s*{[^}]*overflow:\s*hidden/
     );
+    expect(blueprintStyles).not.toMatch(/:has\(\.part-dialog\[open\]\)/);
   });
 
   test('does not display part options that do not match the search', () => {

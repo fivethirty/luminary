@@ -303,10 +303,6 @@ calc-ship-blueprint {
   white-space: normal;
 }
 
-:is(html, body):has(.part-dialog[open]) {
-  overflow: hidden;
-}
-
 .part-dialog {
   width: min(58rem, calc(100vw - 2rem));
   max-width: none;

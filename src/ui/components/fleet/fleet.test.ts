@@ -8,6 +8,9 @@ import { getStartingShipConfig } from '@ui/ship-presets';
 const fleetStyles = await Bun.file(
   new URL('./fleet.css', import.meta.url)
 ).text();
+const primitiveStyles = await Bun.file(
+  new URL('../../styles/primitives.css', import.meta.url)
+).text();
 
 describe('Fleet', () => {
   beforeEach(() => {
@@ -76,6 +79,10 @@ describe('Fleet', () => {
     expect(element.querySelector('.color-unset-btn')).not.toBeNull();
     expect(fleetStyles).toMatch(
       /\.fleet-settings-field\s*>\s*\.faction-select\s*{[^}]*width:\s*100%/
+    );
+    expect(dialog.classList).toContain('ui-dialog');
+    expect(primitiveStyles).toMatch(
+      /:is\(html, body\):has\(\.ui-dialog\[open\]\)\s*{[^}]*overflow:\s*hidden/
     );
   });
 
