@@ -74,15 +74,15 @@ describe('ShipBlueprint', () => {
     const header = element.querySelector('.blueprint-header')!;
     expect(Array.from(header.children).map((child) => child.className)).toEqual(
       [
-        'ship-clear-btn clear-blueprint-btn',
+        'ship-clear-btn clear-blueprint-btn ui-button ui-button--quiet ui-button--compact ui-push-end',
         'blueprint-quantity',
-        'remove-btn btn-icon',
+        'remove-btn ui-icon-button',
       ]
     );
     const clear = header.querySelector(
       '.clear-blueprint-btn'
     ) as HTMLButtonElement;
-    expect(clear.textContent).toBe('Clear');
+    expect(clear.textContent?.trim()).toBe('Clear');
     expect(clear.getAttribute('aria-label')).toBe(
       'Reset Interceptor to starting parts'
     );
@@ -94,9 +94,9 @@ describe('ShipBlueprint', () => {
     ).toBe('Remove Interceptor');
     expect(element.querySelector('.blueprint-footer')).toBeNull();
     const driveWarning = element.querySelector('.drive-warning')!;
-    expect(driveWarning.parentElement?.className).toBe('blueprint-details');
+    expect(driveWarning.parentElement?.className).toBe('external-section');
     expect(driveWarning.closest('.blueprint-canvas-wrap')).toBeNull();
-    expect(driveWarning.closest('.external-section')).toBeNull();
+    expect(driveWarning.closest('.external-section')).not.toBeNull();
   });
 
   test('clears custom parts and Muon Source back to the starting blueprint', () => {
@@ -241,7 +241,7 @@ describe('ShipBlueprint', () => {
     expect(external.getAttribute('aria-label')).toBe('Muon Source');
     expect(
       Array.from(external.children).map((child) => child.className)
-    ).toEqual(['muon-control']);
+    ).toEqual(['muon-control', 'drive-warning']);
     expect(element.querySelector('.external-heading')).toBeNull();
 
     const muon = element.querySelector('.muon-checkbox') as HTMLInputElement;
@@ -259,10 +259,13 @@ describe('ShipBlueprint', () => {
       /\.muon-control:has\(\.muon-checkbox:checked\)\s*{[^}]*border-color:\s*var\(--color-info\)/
     );
     expect(blueprintStyles).toMatch(
-      /\.external-section\s*{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap/
+      /\.external-section\s*{[^}]*display:\s*flex[^}]*flex-wrap:\s*nowrap/
     );
     expect(blueprintStyles).toMatch(
-      /\.muon-control strong\s*{[^}]*font-size:\s*0\.68rem[^}]*font-weight:\s*600/
+      /\.drive-warning\s*{[^}]*flex:\s*1 1 auto[^}]*min-width:\s*0[^}]*margin-inline-start:\s*auto[^}]*overflow-wrap:\s*anywhere[^}]*text-align:\s*right[^}]*white-space:\s*normal/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.muon-control strong\s*{[^}]*font-size:\s*var\(--font-size-2xs\)[^}]*font-weight:\s*var\(--font-weight-semibold\)/
     );
   });
 
@@ -371,7 +374,7 @@ describe('ShipBlueprint', () => {
       buckets.every((section) =>
         section
           .querySelector('summary')
-          ?.classList.contains('disclosure-summary')
+          ?.classList.contains('ui-disclosure-summary')
       )
     ).toBe(true);
     expect(buckets.every((section) => !section.open)).toBe(true);

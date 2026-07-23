@@ -575,7 +575,7 @@ export class ResultsElement extends HTMLElement {
     survivors: [string, number][]
   ): HTMLElement {
     const card = document.createElement('div');
-    card.className = 'survivor-fleet-card';
+    card.className = 'survivor-fleet-card ui-panel';
     card.classList.add(...this.sideClasses(fleetKey));
     this.applyFleetResultColor(card, fleetKey);
 

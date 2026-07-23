@@ -417,6 +417,8 @@ describe('ShipType', () => {
       '.blueprint-backed-notice'
     ) as HTMLElement;
     expect(notice.hidden).toBe(false);
+    expect(notice.classList.contains('ui-warning')).toBe(true);
+    expect(notice.getAttribute('role')).toBe('alert');
     expect(notice.textContent?.trim()).toBe(
       '⚠ Blueprint will be lost on edit'
     );
@@ -442,6 +444,8 @@ describe('ShipType', () => {
     ) as HTMLElement;
     const hull = element.querySelector('[data-stat="hull"]') as StatCubeElement;
     expect(offer.hidden).toBe(false);
+    expect(offer.classList.contains('ui-warning')).toBe(true);
+    expect(offer.getAttribute('role')).toBe('alert');
     expect(offer.querySelector('strong')?.textContent).toBe(
       '⚠ Stats only! Parts unknown.'
     );

@@ -49,19 +49,11 @@ calc-ship-type.summary-only .ship-type .stats {
   justify-content: space-between;
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 56%, transparent);
-  color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
 }
 
 .ship-representation-notice[hidden] {
   display: none;
-}
-
-.ship-representation-notice strong {
-  color: var(--color-text-primary);
 }
 
 .stats-blueprint-offer .start-blueprint-btn {
@@ -116,12 +108,6 @@ calc-ship-type.summary-only .ship-type .stats {
 
 .stat-group-title {
   grid-column: 1 / -1;
-  color: var(--color-text-muted);
-  font-size: 0.6875rem;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.12em;
-  line-height: 1;
-  text-transform: uppercase;
 }
 
 @media (max-width: 48rem) {
@@ -143,10 +129,6 @@ calc-ship-type.summary-only .ship-type .stats {
     --stat-cube-input-padding: var(--space-xs) 0;
   }
 
-  .stat-group-title {
-    font-size: 0.625rem;
-    letter-spacing: 0.08em;
-  }
 }
 
 @media (max-width: 40rem) {
@@ -155,7 +137,7 @@ calc-ship-type.summary-only .ship-type .stats {
   }
 
   .stat-group {
-    gap: 0.1875rem;
+    gap: calc(var(--space-xs) * 0.75);
   }
 
   .quantity {

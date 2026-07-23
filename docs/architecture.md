@@ -91,6 +91,9 @@ composition root between those layers.
   setups use the share query as their single serialized format.
 - `ui/components/*`: custom-element rendering and interaction. Each component keeps its template,
   styles, and focused tests together and delegates durable mutations to `ui/state.ts`.
+- `ui/styles/tokens.css` and `ui/styles/primitives.css`: the production design-token and reusable
+  control/layout contracts imported by `app.css`. Component styles own domain layout and artwork
+  geometry, not alternate button/select/panel systems. See [ui-system.md](ui-system.md).
 
 ### Setup State Contract
 

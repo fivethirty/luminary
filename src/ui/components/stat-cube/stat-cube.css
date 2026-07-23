@@ -19,7 +19,7 @@ calc-stat-cube {
   );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 0.25rem 0 0.0625rem;
+  padding: var(--space-xs) 0 calc(var(--space-xs) / 4);
   box-sizing: border-box;
   cursor: pointer;
   transition:
@@ -43,7 +43,7 @@ calc-stat-cube {
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   line-height: 1;
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -98,7 +98,7 @@ calc-stat-cube {
   .stat-step {
     width: 1.5rem;
     height: 2rem;
-    font-size: 1rem;
+    font-size: var(--font-size-control);
     color: var(--color-text-secondary);
   }
 }
@@ -106,7 +106,7 @@ calc-stat-cube {
 @media (max-width: 40rem) {
   .stat-cube {
     min-height: 2.75rem;
-    padding-top: 0.1875rem;
+    padding-top: calc(var(--space-xs) * 0.75);
   }
 
   .stat-step {
@@ -117,7 +117,7 @@ calc-stat-cube {
   .stat-cube input {
     width: 1.375rem;
     height: 1.25rem;
-    font-size: 1rem;
+    font-size: var(--font-size-control);
   }
 }
 
@@ -183,7 +183,7 @@ calc-stat-cube[disabled] .stat-step {
 }
 
 .stat-cube label {
-  font-size: 0.625rem;
+  font-size: var(--font-size-3xs);
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -196,8 +196,8 @@ calc-stat-cube[disabled] .stat-step {
   /* Dense parent layouts can tune spacing without selecting this input. */
   padding: var(--stat-cube-input-padding, var(--space-xs) 0);
   text-align: center;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--font-size-control);
+  font-weight: var(--font-weight-semibold);
   background: transparent;
   border: none;
   color: var(--color-text-primary);

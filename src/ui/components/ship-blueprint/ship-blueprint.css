@@ -54,7 +54,7 @@ calc-ship-blueprint {
       ),
       transparent 58%
     ),
-    #05080b;
+    var(--color-artwork-canvas);
 }
 
 .blueprint-canvas {
@@ -80,13 +80,13 @@ calc-ship-blueprint {
   position: absolute;
   z-index: 3;
   inset: 0;
-  color: #f7f7f4;
-  font-size: clamp(0.625rem, 5cqi, 0.9rem);
-  font-weight: 700;
+  color: var(--color-artwork-ink);
+  font-size: var(--font-size-blueprint-readout);
+  font-weight: var(--font-weight-bold);
   line-height: 1;
   pointer-events: none;
   text-align: center;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
+  text-shadow: var(--shadow-artwork-text);
 }
 
 .blueprint-canvas-dreadnought .blueprint-readouts {
@@ -139,7 +139,7 @@ calc-ship-blueprint {
 }
 
 .blueprint-readouts .invalid {
-  color: var(--color-danger, #ef7a7a);
+  color: var(--color-danger);
 }
 
 .blueprint-slot {
@@ -148,7 +148,7 @@ calc-ship-blueprint {
   overflow: hidden;
   padding: 0;
   border: 2px solid transparent;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-bg-secondary) 16%, transparent);
   color: white;
   cursor: pointer;
@@ -177,17 +177,9 @@ calc-ship-blueprint {
 
 .blueprint-slot-blocked {
   border: 0;
-  border-radius: 0.2rem;
-  background: #000;
+  border-radius: var(--radius-sm);
+  background: var(--color-artwork-blocked);
   pointer-events: none;
-}
-
-.dialog-kicker {
-  color: var(--color-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .blueprint-details {
@@ -200,7 +192,7 @@ calc-ship-blueprint {
 
 .external-section {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-sm);
   align-items: center;
   min-width: 0;
@@ -214,7 +206,8 @@ calc-ship-blueprint {
   align-items: center;
   flex: 0 0 auto;
   min-height: 2.75rem;
-  padding: 0.2rem 1.7rem 0.2rem 0.2rem;
+  padding: var(--space-xs) calc(var(--space-lg) + var(--space-xs))
+    var(--space-xs) var(--space-xs);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-secondary);
@@ -233,8 +226,8 @@ calc-ship-blueprint {
   border: 1px solid transparent;
   border-radius: 50%;
   color: var(--color-on-accent);
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
   line-height: 1;
   opacity: 0;
   transform: translateY(-50%);
@@ -278,7 +271,7 @@ calc-ship-blueprint {
 .muon-control img {
   width: 2rem;
   height: 2rem;
-  border-radius: 0.2rem;
+  border-radius: var(--radius-sm);
   object-fit: cover;
 }
 
@@ -290,19 +283,24 @@ calc-ship-blueprint {
   display: block;
   min-width: 0;
   overflow: hidden;
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .drive-warning {
-  color: var(--color-danger, #ef7a7a);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-inline-start: auto;
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-align: right;
+  white-space: normal;
 }
 
 :is(html, body):has(.part-dialog[open]) {
@@ -314,21 +312,11 @@ calc-ship-blueprint {
   max-width: none;
   height: min(48rem, calc(100dvh - 2rem));
   max-height: none;
-  padding: 0;
   overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
   background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-}
-
-.part-dialog::backdrop {
-  background: rgb(0 0 0 / 72%);
-  backdrop-filter: blur(2px);
 }
 
 .part-dialog-shell {
-  display: flex;
   flex-direction: column;
   height: 100%;
 }
@@ -336,17 +324,13 @@ calc-ship-blueprint {
 .part-dialog-header {
   position: relative;
   z-index: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-md);
   padding: var(--space-md);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
 }
 
 .part-dialog-header h3 {
-  margin: 0.15rem 0 0;
+  margin: var(--space-2xs) 0 0;
 }
 
 .part-search-label {
@@ -369,11 +353,6 @@ calc-ship-blueprint {
 
 .part-search {
   width: 100%;
-  min-height: 2.75rem;
-}
-
-.part-search:focus-visible {
-  outline: none;
 }
 
 .part-dialog-actions {
@@ -387,12 +366,6 @@ calc-ship-blueprint {
 
 .remove-part-btn {
   width: 100%;
-  min-height: 2.75rem;
-  background: transparent;
-}
-
-.remove-part-btn:hover {
-  background: var(--color-border);
 }
 
 .part-buckets {
@@ -419,7 +392,7 @@ calc-ship-blueprint {
 }
 
 .part-bucket summary {
-  min-height: 2.75rem;
+  min-height: var(--control-height-touch);
   padding: var(--space-sm) var(--space-md);
   background: color-mix(
     in srgb,
@@ -446,7 +419,7 @@ calc-ship-blueprint {
 .part-bucket h4 {
   display: inline;
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -496,7 +469,8 @@ calc-ship-blueprint {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  padding: 0.3rem 3.2rem 0.3rem 0;
+  padding: var(--space-xs) calc(var(--space-2xl) + var(--space-xs))
+    var(--space-xs) 0;
 }
 
 .part-option-copy strong {
@@ -510,7 +484,7 @@ calc-ship-blueprint {
   top: 0.3rem;
   right: 0.3rem;
   color: var(--color-text-muted);
-  font-size: 0.6rem;
+  font-size: var(--font-size-3xs);
   font-style: normal;
   text-transform: uppercase;
 }

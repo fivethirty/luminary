@@ -42,7 +42,11 @@ describe('Fleet', () => {
     const titleRow = element.querySelector('.fleet-title-row')!;
     expect(
       Array.from(titleRow.children).map((child) => child.className)
-    ).toEqual(['role-controls', 'fleet-name text-bold', 'fleet-settings-btn']);
+    ).toEqual([
+      'role-controls',
+      'fleet-name ui-text-strong',
+      'fleet-settings-btn ui-button ui-button--quiet ui-button--compact',
+    ]);
     expect(
       titleRow.querySelector('.fleet-settings-btn')?.textContent?.trim()
     ).toBe('Edit');
@@ -695,22 +699,19 @@ describe('Fleet', () => {
 
   test('offers only the structure available to the selected faction', () => {
     state.fleets[0].factionId = 'exiles';
-    const exiles = document.createElement('calc-fleet') as FleetElement;
-    exiles.fleet = state.fleets[0];
-    exiles.setAttribute('is-defender', 'true');
-    document.body.appendChild(exiles);
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    element.setAttribute('is-defender', 'true');
+    document.body.appendChild(element);
 
-    expect(shipOption(exiles, 'orbital')).toBeDefined();
-    expect(shipOption(exiles, 'starbase')).toBeUndefined();
+    expect(shipOption(element, 'orbital')).toBeDefined();
+    expect(shipOption(element, 'starbase')).toBeUndefined();
 
     state.fleets[0].factionId = 'terran';
-    const terran = document.createElement('calc-fleet') as FleetElement;
-    terran.fleet = state.fleets[0];
-    terran.setAttribute('is-defender', 'true');
-    document.body.appendChild(terran);
+    element.refreshMetadata();
 
-    expect(shipOption(terran, 'starbase')).toBeDefined();
-    expect(shipOption(terran, 'orbital')).toBeUndefined();
+    expect(shipOption(element, 'starbase')).toBeDefined();
+    expect(shipOption(element, 'orbital')).toBeUndefined();
   });
 
   test('does not offer dreadnoughts to Rho Indi', () => {

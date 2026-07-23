@@ -1,6 +1,5 @@
 import html from './ship-blueprint.html' with { type: 'text' };
 import './ship-blueprint.css';
-import '../ship-clear-button.css';
 import '../selector';
 
 import interceptorBlueprintImage from '../../../assets/ship-blueprints/blueprint_interceptor.webp';
@@ -521,7 +520,7 @@ export class ShipBlueprintElement extends HTMLElement {
     section.dataset.bucket = id;
     section.open = open;
     const summary = document.createElement('summary');
-    summary.className = 'disclosure-summary';
+    summary.className = 'ui-disclosure-summary';
     const heading = document.createElement('h4');
     heading.textContent = label;
     summary.appendChild(heading);

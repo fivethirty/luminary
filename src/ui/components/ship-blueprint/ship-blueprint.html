@@ -1,10 +1,16 @@
 <article class="ship-blueprint">
   <header class="blueprint-header">
-    <button class="ship-clear-btn clear-blueprint-btn" type="button" hidden>Clear</button>
+    <button
+      class="ship-clear-btn clear-blueprint-btn ui-button ui-button--quiet ui-button--compact ui-push-end"
+      type="button"
+      hidden
+    >
+      Clear
+    </button>
     <div class="blueprint-quantity">
       <calc-selector></calc-selector>
     </div>
-    <button class="remove-btn btn-icon" type="button">×</button>
+    <button class="remove-btn ui-icon-button" type="button">×</button>
   </header>
 
   <div class="blueprint-editor" hidden>
@@ -26,9 +32,6 @@
     </div>
 
     <div class="blueprint-details">
-      <div class="drive-warning" aria-live="polite" hidden>
-        ⚠ No drive installed
-      </div>
       <section class="external-section" aria-label="Muon Source">
         <label class="muon-control">
           <input class="muon-checkbox" type="checkbox" />
@@ -37,32 +40,43 @@
             <strong>Muon Source</strong>
           </span>
         </label>
+        <div class="drive-warning" aria-live="polite" hidden>
+          ⚠ No drive installed
+        </div>
       </section>
     </div>
   </div>
 
-  <dialog class="part-dialog">
-    <div class="part-dialog-shell">
-      <header class="part-dialog-header">
+  <dialog class="part-dialog ui-dialog">
+    <div class="part-dialog-shell ui-dialog__surface">
+      <header class="part-dialog-header ui-dialog__header">
         <div>
-          <div class="dialog-kicker">Parts Finder</div>
+          <div class="dialog-kicker ui-eyebrow">Parts Finder</div>
           <h3 class="part-dialog-title"></h3>
         </div>
-        <button class="dialog-close btn-icon" type="button" aria-label="Close">
+        <button
+          class="dialog-close ui-icon-button"
+          type="button"
+          aria-label="Close"
+        >
           ×
         </button>
       </header>
       <label class="part-search-label">
         <span class="sr-only">Search ship parts</span>
         <input
-          class="part-search"
+          class="part-search ui-input ui-control--touch"
           type="search"
           placeholder="Search parts…"
           autocomplete="off"
         />
       </label>
       <div class="part-dialog-actions">
-        <button class="remove-part-btn" type="button" hidden></button>
+        <button
+          class="remove-part-btn ui-button ui-button--danger ui-control--touch"
+          type="button"
+          hidden
+        ></button>
       </div>
       <div class="part-buckets"></div>
       <div class="part-search-empty" hidden>No matching parts</div>

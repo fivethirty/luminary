@@ -20,6 +20,7 @@ import {
 import { init } from './app';
 import { exactDpsPlannerOverrides } from '@calc/exact-combat';
 import indexHtml from './index.html' with { type: 'text' };
+import appCss from './app.css' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
 import { Fleet } from '@calc/fleet';
 import { DamageType } from './constants';
@@ -138,13 +139,29 @@ describe('App', () => {
   test('groups controls and theme under the UI section', () => {
     const section = document.querySelector('.ui-section')!;
     const heading = section.querySelector('h2')!;
-    const optionLabels = Array.from(
-      section.querySelectorAll('.preference-label')
-    ).map((label) => label.textContent?.trim());
+    const optionLabels = Array.from(section.querySelectorAll('.ui-label')).map(
+      (label) => label.textContent?.trim()
+    );
 
     expect(heading.textContent).toBe('UI');
     expect(section.getAttribute('aria-labelledby')).toBe(heading.id);
     expect(optionLabels).toEqual(['Controls', 'Theme']);
+  });
+
+  test('reserves scrollable space below the UI for the fixed results bar', () => {
+    const style = document.createElement('style');
+    // Happy DOM does not resolve the linked stylesheet imports; the app-level
+    // layout contract under test is self-contained once those lines are removed.
+    style.textContent = appCss.replace(/^@import .*;\n/gm, '');
+    document.head.append(style);
+
+    const liveBar = document.getElementById('live-bar')!;
+    liveBar.hidden = false;
+
+    expect(getComputedStyle(document.body).paddingBottom).toBe('80px');
+    expect(getComputedStyle(document.documentElement).scrollPaddingBottom).toBe(
+      '5rem'
+    );
   });
 
   test('uses selected faction as the fleet name', () => {
@@ -161,6 +178,42 @@ describe('App', () => {
       (name) => name.textContent
     );
     expect(fleetNames).toEqual(['Terran', 'Attacker']);
+  });
+
+  test('keeps fleet settings open while changing faction and color', () => {
+    const fleetElement = document.querySelectorAll('calc-fleet')[1];
+    const editButton = fleetElement.querySelector(
+      '.fleet-settings-btn'
+    ) as HTMLButtonElement;
+    const dialog = fleetElement.querySelector(
+      '.fleet-settings-dialog'
+    ) as HTMLDialogElement;
+    editButton.click();
+
+    const factionSelect = dialog.querySelector(
+      '.faction-select'
+    ) as HTMLSelectElement;
+    factionSelect.focus();
+    factionSelect.value = 'rho-indi';
+    factionSelect.dispatchEvent(new Event('change'));
+
+    expect(dialog.open).toBe(true);
+    expect(dialog.isConnected).toBe(true);
+    expect(document.querySelectorAll('calc-fleet')[1]).toBe(fleetElement);
+    expect(document.activeElement).toBe(factionSelect);
+    expect(state.fleets[1].factionId).toBe('rho-indi');
+
+    const redButton = dialog.querySelector(
+      '.color-option[value="red"]'
+    ) as HTMLButtonElement;
+    redButton.focus();
+    redButton.click();
+
+    expect(dialog.open).toBe(true);
+    expect(dialog.isConnected).toBe(true);
+    expect(document.querySelectorAll('calc-fleet')[1]).toBe(fleetElement);
+    expect(document.activeElement).toBe(redButton);
+    expect(state.fleets[1].colorId).toBe('red');
   });
 
   test('uses The Ancients for an NPC defender fleet', async () => {
@@ -230,7 +283,7 @@ describe('App', () => {
     const clearBtn = document.getElementById(
       'clear-all-btn'
     ) as HTMLButtonElement;
-    expect(clearBtn.textContent).toBe('Clear setup');
+    expect(clearBtn.textContent?.trim()).toBe('Clear setup');
     clearBtn.click();
 
     expect(state.fleets.length).toBe(2);
@@ -298,10 +351,20 @@ describe('App', () => {
     (document.querySelector('a[href="/about"]') as HTMLAnchorElement).click();
     expect(window.location.pathname).toBe('/about');
     expect(liveBar.hidden).toBe(true);
+    expect(document.getElementById('home-content')?.hidden).toBe(true);
+    expect(document.getElementById('about-content')?.hidden).toBe(false);
+    expect(
+      document.querySelector('a[href="/about"]')?.getAttribute('aria-current')
+    ).toBe('page');
 
     (document.querySelector('a[href="/"]') as HTMLAnchorElement).click();
     expect(window.location.pathname).toBe('/');
     expect(liveBar.hidden).toBe(false);
+    expect(document.getElementById('home-content')?.hidden).toBe(false);
+    expect(document.getElementById('about-content')?.hidden).toBe(true);
+    expect(
+      document.querySelector('a[href="/"]')?.getAttribute('aria-current')
+    ).toBe('page');
   });
 
   test('uses shortened faction names in live odds', () => {

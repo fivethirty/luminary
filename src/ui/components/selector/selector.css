@@ -19,8 +19,8 @@ calc-selector {
 }
 
 .selector button {
-  width: 1.875rem;
-  height: 1.875rem;
+  width: var(--control-height-compact);
+  height: var(--control-height-compact);
   padding: 0;
   border: 1px solid transparent;
   background: var(--color-bg-tertiary);
@@ -31,13 +31,6 @@ calc-selector {
   justify-content: center;
   cursor: pointer;
   border-radius: calc(var(--radius-sm) / 2);
-}
-
-@media (pointer: coarse) {
-  .selector button {
-    width: 2rem;
-    height: 2rem;
-  }
 }
 
 .selector button:hover:not(:disabled) {

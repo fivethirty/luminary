@@ -105,8 +105,16 @@
           </div>
           <div id="fleets"></div>
           <div class="add-fleet-row">
-            <button id="add-fleet-btn">+ Fleet</button>
-            <button id="clear-all-btn" class="danger">Clear setup</button>
+            <button id="add-fleet-btn" class="ui-button" type="button">
+              + Fleet
+            </button>
+            <button
+              id="clear-all-btn"
+              class="ui-button ui-button--danger"
+              type="button"
+            >
+              Clear setup
+            </button>
           </div>
         </section>
 
@@ -116,10 +124,15 @@
         </section>
 
         <div class="controls">
-          <label id="recent-battles-control" class="command-select" hidden>
+          <label
+            id="recent-battles-control"
+            class="ui-command-select"
+            hidden
+          >
             <span>Recent battles…</span>
             <select
               id="recent-battles"
+              class="ui-native-overlay-select"
               aria-label="Open a recent battle"
             ></select>
           </label>
@@ -128,11 +141,11 @@
           <h2 id="ui-heading">UI</h2>
           <div class="preferences-row">
             <div class="steppers-control">
-              <span id="steppers-toggle-label" class="preference-label"
+              <span id="steppers-toggle-label" class="ui-label"
                 >Controls</span
               >
               <div
-                class="steppers-toggle"
+                class="ui-segmented-control"
                 id="steppers-toggle"
                 role="group"
                 aria-labelledby="steppers-toggle-label"
@@ -155,8 +168,8 @@
               </div>
             </div>
             <label class="theme-control" for="theme-select">
-              <span class="preference-label">Theme</span>
-              <select id="theme-select" class="standard-select">
+              <span class="ui-label">Theme</span>
+              <select id="theme-select" class="ui-select">
                 <option value="system">System</option>
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
@@ -166,13 +179,14 @@
         </section>
       </div>
 
-      <div id="about-content" style="display: none">
+      <div id="about-content" hidden>
         <h2>About</h2>
         <p>
           Luminary is a battle calculator for
           <a
             href="https://boardgamegeek.com/boardgame/246900/eclipse-second-dawn-for-the-galaxy"
             target="_blank"
+            rel="noreferrer"
             >Eclipse: Second Dawn for the Galaxy</a
           >.
         </p>
@@ -210,6 +224,7 @@
         <p>
           Please file any bugs over on
           <a href="https://github.com/fivethirty/luminary" target="_blank"
+            rel="noreferrer"
             >GitHub</a
           >.
         </p>
@@ -225,7 +240,7 @@
       hidden
     >
       <span class="live-bar-row">
-        <span class="live-label">Live odds</span>
+        <span class="live-label ui-label">Live odds</span>
         <span class="live-verdict"></span>
       </span>
       <span class="live-odds"></span>

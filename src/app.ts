@@ -96,6 +96,13 @@ function updateFleetNames() {
   });
 }
 
+function refreshFleetMetadata() {
+  updateFleetNames();
+  document
+    .querySelectorAll<FleetElement>('#fleets > calc-fleet')
+    .forEach((fleetElement) => fleetElement.refreshMetadata());
+}
+
 function addFleetHandler() {
   if (state.fleets.length >= MAX_FLEETS) return;
   addFleet();
@@ -375,23 +382,26 @@ function handleRouteChange() {
 
   switch (path) {
     case '/':
-      homeContent.style.display = 'block';
-      aboutContent.style.display = 'none';
+      homeContent.hidden = false;
+      aboutContent.hidden = true;
       break;
     case '/about':
-      homeContent.style.display = 'none';
-      aboutContent.style.display = 'block';
+      homeContent.hidden = true;
+      aboutContent.hidden = false;
       break;
     default:
       // Preserve the query string: shared battle links carry their state there.
       window.history.replaceState(null, '', '/' + window.location.search);
-      homeContent.style.display = 'block';
-      aboutContent.style.display = 'none';
+      homeContent.hidden = false;
+      aboutContent.hidden = true;
       break;
   }
 
   navLinks.forEach((link) => {
-    link.classList.toggle('active', link.getAttribute('href') === path);
+    const active = link.getAttribute('href') === path;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
   });
 
   renderLiveBar();
@@ -482,7 +492,7 @@ function init(): () => void {
   const rerenderFleets = () => renderFleets();
   listen(document, 'fleet-removed', rerenderFleets);
   listen(document, 'fleet-order-changed', rerenderFleets);
-  listen(document, 'fleet-metadata-changed', rerenderFleets);
+  listen(document, 'fleet-metadata-changed', refreshFleetMetadata);
 
   document.querySelectorAll('.nav-link').forEach((link) => {
     listen(link, 'click', (e) => {

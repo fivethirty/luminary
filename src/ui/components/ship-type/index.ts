@@ -1,6 +1,5 @@
 import html from './ship-type.html' with { type: 'text' };
 import './ship-type.css';
-import '../ship-clear-button.css';
 import '../selector';
 import '../stat-cube';
 
