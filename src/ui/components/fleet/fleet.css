@@ -114,7 +114,7 @@
   gap: var(--space-md);
 }
 
-.faction-select {
+.fleet-settings-field > .faction-select {
   width: 100%;
 }
 
@@ -143,6 +143,10 @@
   padding: 0;
   border-radius: var(--radius-sm);
   background: var(--option-color);
+}
+
+.color-option:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--option-color) 88%, var(--color-bg-secondary));
 }
 
 .color-option.selected {
@@ -271,7 +275,6 @@ calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
 
 .preset-chip:hover {
   background-color: var(--color-border);
-  border-color: var(--fleet-accent, var(--color-border-strong));
 }
 
 .fleet-tech {

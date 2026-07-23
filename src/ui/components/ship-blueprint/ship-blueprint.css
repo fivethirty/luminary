@@ -155,7 +155,7 @@ calc-ship-blueprint {
   touch-action: manipulation;
 }
 
-.blueprint-slot:hover {
+.blueprint-slot:hover:not(:disabled) {
   border-color: color-mix(in srgb, white 62%, transparent);
   background: color-mix(in srgb, var(--color-info) 12%, transparent);
 }

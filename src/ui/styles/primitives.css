@@ -302,7 +302,8 @@ button:hover:not(:disabled) {
   color: var(--color-text-primary);
 }
 
-.ui-segmented-control > button.active {
+.ui-segmented-control > button.active,
+.ui-segmented-control > button.active:hover:not(:disabled) {
   background: var(--color-info);
   color: var(--color-on-accent);
 }

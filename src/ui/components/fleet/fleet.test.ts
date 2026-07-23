@@ -5,6 +5,10 @@ import { state, resetFleets, removeShipType } from '@ui/state';
 import { ShipType } from '@calc/ship';
 import { getStartingShipConfig } from '@ui/ship-presets';
 
+const fleetStyles = await Bun.file(
+  new URL('./fleet.css', import.meta.url)
+).text();
+
 describe('Fleet', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -70,6 +74,9 @@ describe('Fleet', () => {
     expect(element.querySelectorAll('.color-option')).toHaveLength(6);
     expect(element.querySelector('.color-option[value="neutral"]')).toBeNull();
     expect(element.querySelector('.color-unset-btn')).not.toBeNull();
+    expect(fleetStyles).toMatch(
+      /\.fleet-settings-field\s*>\s*\.faction-select\s*{[^}]*width:\s*100%/
+    );
   });
 
   test('metadata dialog updates faction and selected color', () => {
