@@ -41,6 +41,8 @@ const SHIP_TILE_IMAGES: Partial<Record<ShipDropdownOption, string>> = {
   'gcds-wa': worldsAfarGcdsTileImage,
 };
 
+export type StatsLayout = 'steppers' | 'compact' | 'card';
+
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
   fleetId!: string;
@@ -49,10 +51,13 @@ export class ShipTypeElement extends HTMLElement {
   summaryOnly = false;
   tileMode = false;
   offerBlueprintReplacement = false;
+  statsLayout: StatsLayout = 'steppers';
 
   connectedCallback() {
     this.innerHTML = html;
     this.classList.toggle('summary-only', this.summaryOnly);
+    const stats = this.querySelector('.stats') as HTMLElement;
+    stats.dataset.layout = this.statsLayout;
 
     const removeBtn = this.querySelector('.remove-btn') as HTMLButtonElement;
     removeBtn.addEventListener('click', () => {

@@ -14,6 +14,9 @@ const blueprintStyles = await Bun.file(
 const fleetStyles = await Bun.file(
   new URL('../fleet/fleet.css', import.meta.url)
 ).text();
+const shipTypeStyles = await Bun.file(
+  new URL('../ship-type/ship-type.css', import.meta.url)
+).text();
 const primitiveStyles = await Bun.file(
   new URL('../../styles/primitives.css', import.meta.url)
 ).text();
@@ -221,14 +224,20 @@ describe('ShipBlueprint', () => {
     expect(fleetStyles).toMatch(
       /\.ship-blueprint-card\s*>\s*:is\(\.ship-blueprint, \.ship-type\)\s*{[^}]*height:\s*100%[^}]*margin:\s*0[^}]*border:\s*0[^}]*background:\s*transparent/
     );
-    expect(fleetStyles).toMatch(
-      /calc-ship-type\.ship-blueprint-card\s+\.stats-blueprint-offer\s*{[^}]*align-items:\s*stretch[^}]*flex-direction:\s*column/
+    expect(shipTypeStyles).toMatch(
+      /\.stats-blueprint-offer\s*{[^}]*gap:\s*var\(--space-xs\)[^}]*white-space:\s*nowrap/
     );
-    expect(fleetStyles).toMatch(
-      /@media \(width > 48rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stats\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*grid-template-areas:\s*none/
+    expect(shipTypeStyles).not.toMatch(
+      /\.stats-blueprint-offer[^}]*flex-direction:\s*column/
     );
-    expect(fleetStyles).toMatch(
-      /@media \(width > 48rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stat-group\s*{[^}]*grid-area:\s*auto[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/
+    expect(shipTypeStyles).toMatch(
+      /@media \(width > 48rem\)[\s\S]*\.stats\[data-layout='card'\]\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*grid-template-areas:\s*none/
+    );
+    expect(shipTypeStyles).toMatch(
+      /@media \(width > 48rem\)[\s\S]*\.stats\[data-layout='card'\]\s+\.stat-group\s*{[^}]*grid-area:\s*auto[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/
+    );
+    expect(fleetStyles).not.toMatch(
+      /calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stats/
     );
   });
 

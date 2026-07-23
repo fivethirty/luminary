@@ -100,6 +100,24 @@ describe('ShipType', () => {
     ).toBe('Remove Interceptor');
   });
 
+  test('applies its stats layout directly to the owned grid', () => {
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = {
+      id: 'test-card-layout',
+      type: ShipType.Interceptor,
+      quantity: 1,
+      config: { hull: 9 },
+    };
+    element.fleetId = 'fleet-0';
+    element.statsLayout = 'card';
+
+    document.body.appendChild(element);
+
+    expect(
+      (element.querySelector('.stats') as HTMLElement).dataset.layout
+    ).toBe('card');
+  });
+
   test('clears edited stats from the header without changing quantity', () => {
     state.fleets[0].factionId = 'orion';
     const ship = addOrSwapShipPreset('fleet-0', 'cruiser')!;
@@ -446,9 +464,18 @@ describe('ShipType', () => {
     expect(offer.hidden).toBe(false);
     expect(offer.classList.contains('ui-warning')).toBe(true);
     expect(offer.getAttribute('role')).toBe('alert');
-    expect(offer.querySelector('strong')?.textContent).toBe(
-      '⚠ Stats only! Parts unknown.'
-    );
+    expect(offer.querySelector('strong')?.textContent).toBe('⚠ Stats only');
+    expect(
+      offer.querySelector('.start-blueprint-btn')?.textContent?.trim()
+    ).toBe('Use blueprint');
+    expect(
+      offer.querySelector('.start-blueprint-btn')?.getAttribute('aria-label')
+    ).toBe('Replace stats with the standard ship blueprint');
+    expect(
+      offer
+        .querySelector('.start-blueprint-btn')
+        ?.classList.contains('ui-button--compact')
+    ).toBe(true);
     expect(
       (element.querySelector('.clear-stats-btn') as HTMLButtonElement).hidden
     ).toBe(true);

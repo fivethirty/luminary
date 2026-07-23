@@ -392,6 +392,11 @@ export class FleetElement extends HTMLElement {
       shipElement.fleetId = this.fleet.id;
       shipElement.factionId = this.fleet.factionId;
       shipElement.tileMode = this.controlMode === 'ships';
+      shipElement.statsLayout = useBlueprintCard
+        ? 'card'
+        : this.controlMode === 'steppers'
+          ? 'steppers'
+          : 'compact';
       shipElement.classList.toggle('ship-blueprint-card', useBlueprintCard);
       shipElement.offerBlueprintReplacement = useBlueprintCard;
       shipsContainer.appendChild(shipElement);

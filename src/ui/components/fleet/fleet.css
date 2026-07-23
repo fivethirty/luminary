@@ -206,28 +206,9 @@
   flex: 0 1 calc(50% - var(--space-sm));
 }
 
-calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
-  align-items: stretch;
-  flex-direction: column;
-}
-
 @media (width > 64rem) {
   .fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
     flex-basis: calc(25% - var(--space-sm));
-  }
-}
-
-/* Stats-only ships share the narrower blueprint-card columns in Ship tiles
-   mode. Keep each stat group full-width so its cubes stay inside the card. */
-@media (width > 48rem) {
-  calc-ship-type.ship-blueprint-card .ship-type .stats {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: none;
-  }
-
-  calc-ship-type.ship-blueprint-card .ship-type .stat-group {
-    grid-area: auto;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
