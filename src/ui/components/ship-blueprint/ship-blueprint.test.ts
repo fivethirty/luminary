@@ -182,13 +182,16 @@ describe('ShipBlueprint', () => {
 
   test('lays out blueprint cards four, two, and one per row', () => {
     expect(fleetStyles).toMatch(
-      /\.fleet-ships:has\(> calc-ship-blueprint\)\s*{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+      /\.fleet-ships:has\(> \.ship-blueprint-card\)\s*{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap[^}]*justify-content:\s*center/
     );
     expect(fleetStyles).toMatch(
-      /@media \(min-width: 60\.0625rem\)[\s\S]*\.fleet-ships:has\(> calc-ship-blueprint\)\s*{[^}]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/
+      /\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex:\s*0 1 calc\(50% - var\(--space-sm\)\)/
     );
     expect(fleetStyles).toMatch(
-      /@media \(max-width: 42rem\)[\s\S]*\.fleet-ships:has\(> calc-ship-blueprint\)\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/
+      /@media \(min-width: 60\.0625rem\)[\s\S]*\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex-basis:\s*calc\(25% - var\(--space-sm\)\)/
+    );
+    expect(fleetStyles).toMatch(
+      /@media \(max-width: 42rem\)[\s\S]*\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex-basis:\s*100%/
     );
     expect(blueprintStyles).toMatch(
       /\.blueprint-header\s*{[^}]*display:\s*flex[^}]*justify-content:\s*flex-end/
@@ -197,6 +200,24 @@ describe('ShipBlueprint', () => {
       /\.blueprint-canvas-wrap\s*{[^}]*border:\s*1px solid var\(--color-border\)/
     );
     expect(blueprintStyles).not.toMatch(/\.blueprint-controls/);
+  });
+
+  test('keeps stats-only ships inside compact blueprint columns', () => {
+    expect(fleetStyles).toMatch(
+      /\.ship-blueprint-card\s*{[^}]*height:\s*100%[^}]*overflow:\s*hidden[^}]*border:\s*1px solid var\(--color-border\)[^}]*border-radius:\s*var\(--radius-sm\)[^}]*background:\s*color-mix/
+    );
+    expect(fleetStyles).toMatch(
+      /\.ship-blueprint-card\s*>\s*:is\(\.ship-blueprint, \.ship-type\)\s*{[^}]*height:\s*100%[^}]*margin:\s*0[^}]*border:\s*0[^}]*background:\s*transparent/
+    );
+    expect(fleetStyles).toMatch(
+      /calc-ship-type\.ship-blueprint-card\s+\.stats-blueprint-offer\s*{[^}]*align-items:\s*stretch[^}]*flex-direction:\s*column/
+    );
+    expect(fleetStyles).toMatch(
+      /@media \(min-width: 52\.0625rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stats\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*grid-template-areas:\s*none/
+    );
+    expect(fleetStyles).toMatch(
+      /@media \(min-width: 52\.0625rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stat-group\s*{[^}]*grid-area:\s*auto[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/
+    );
   });
 
   test('keeps Muon Source visible in the workbench', () => {

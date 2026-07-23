@@ -218,16 +218,63 @@
   border-top: none;
 }
 
-.fleet-ships:has(> calc-ship-blueprint) {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.ship-blueprint-card {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(
+    in srgb,
+    var(--color-bg-secondary) 88%,
+    var(--color-bg-primary)
+  );
+}
+
+.ship-blueprint-card > :is(.ship-blueprint, .ship-type) {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.fleet-ships:has(> .ship-blueprint-card) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
 }
 
+.fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
+  flex: 0 1 calc(50% - var(--space-sm));
+}
+
+calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
+  align-items: stretch;
+  flex-direction: column;
+}
+
 @media (min-width: 60.0625rem) {
-  .fleet-ships:has(> calc-ship-blueprint) {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
+    flex-basis: calc(25% - var(--space-sm));
+  }
+}
+
+/* Stats-only ships share the narrower blueprint-card columns in Ship tiles
+   mode. Keep each stat group full-width so its cubes stay inside the card. */
+@media (min-width: 52.0625rem) {
+  calc-ship-type.ship-blueprint-card .ship-type .stats {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+
+  calc-ship-type.ship-blueprint-card .ship-type .stat-group {
+    grid-area: auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -453,9 +500,12 @@
     min-width: 0;
   }
 
-  .fleet-ships:has(> calc-ship-blueprint) {
-    grid-template-columns: minmax(0, 1fr);
+  .fleet-ships:has(> .ship-blueprint-card) {
     padding: var(--space-sm);
+  }
+
+  .fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
+    flex-basis: 100%;
   }
 
   .fleet-add-row {

@@ -246,7 +246,8 @@ describe('Fleet', () => {
     ) as HTMLSelectElement;
     shipSelect.value = 'interceptor';
     shipSelect.dispatchEvent(new Event('change'));
-    expect(player.querySelector('calc-ship-blueprint')).not.toBeNull();
+    const blueprint = player.querySelector('calc-ship-blueprint')!;
+    expect(blueprint.classList.contains('ship-blueprint-card')).toBe(true);
     expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
 
     document.body.innerHTML = '';
@@ -263,6 +264,7 @@ describe('Fleet', () => {
     document.body.appendChild(npc);
     const ancient = npc.querySelector('calc-ship-type') as HTMLElement;
     expect(ancient).not.toBeNull();
+    expect(ancient.classList.contains('ship-blueprint-card')).toBe(false);
     expect(npc.querySelector('calc-ship-blueprint')).toBeNull();
     expect(
       (ancient.querySelector('.ship-tile-image') as HTMLImageElement).src
@@ -287,6 +289,7 @@ describe('Fleet', () => {
 
     const stats = element.querySelector('calc-ship-type') as HTMLElement;
     expect(stats).not.toBeNull();
+    expect(stats.classList.contains('ship-blueprint-card')).toBe(true);
     expect(element.querySelector('calc-ship-blueprint')).toBeNull();
     expect(
       (stats.querySelector('.stats-blueprint-offer') as HTMLElement).hidden
@@ -295,7 +298,11 @@ describe('Fleet', () => {
     (stats.querySelector('.start-blueprint-btn') as HTMLButtonElement).click();
     expect(state.fleets[0].shipTypes[0].blueprint).toBeDefined();
     expect(element.querySelector('calc-ship-type')).toBeNull();
-    expect(element.querySelector('calc-ship-blueprint')).not.toBeNull();
+    expect(
+      element
+        .querySelector('calc-ship-blueprint')
+        ?.classList.contains('ship-blueprint-card')
+    ).toBe(true);
   });
 
   test('shows the starting blueprint for matching aggregate stats without a warning', () => {

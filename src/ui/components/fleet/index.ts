@@ -330,15 +330,17 @@ export class FleetElement extends HTMLElement {
     shipsContainer.innerHTML = '';
 
     this.fleet.shipTypes.forEach((shipType) => {
+      const useBlueprintCard =
+        this.controlMode === 'ships' && isPlayerShipType(shipType.type);
       const showBlueprint =
-        this.controlMode === 'ships' &&
-        isPlayerShipType(shipType.type) &&
+        useBlueprintCard &&
         (Boolean(shipType.blueprint) ||
           ensureShipBlueprint(this.fleet.id, shipType.id));
       if (showBlueprint) {
         const blueprintElement = document.createElement(
           'calc-ship-blueprint'
         ) as ShipBlueprintElement;
+        blueprintElement.classList.add('ship-blueprint-card');
         blueprintElement.shipType = shipType;
         blueprintElement.fleetId = this.fleet.id;
         blueprintElement.factionId = this.fleet.factionId;
@@ -352,8 +354,8 @@ export class FleetElement extends HTMLElement {
       shipElement.fleetId = this.fleet.id;
       shipElement.factionId = this.fleet.factionId;
       shipElement.tileMode = this.controlMode === 'ships';
-      shipElement.offerBlueprintReplacement =
-        this.controlMode === 'ships' && isPlayerShipType(shipType.type);
+      shipElement.classList.toggle('ship-blueprint-card', useBlueprintCard);
+      shipElement.offerBlueprintReplacement = useBlueprintCard;
       shipsContainer.appendChild(shipElement);
     });
   }
