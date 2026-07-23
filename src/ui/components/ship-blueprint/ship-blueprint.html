@@ -1,67 +1,43 @@
 <article class="ship-blueprint">
-  <header class="blueprint-header flex-center gap-sm">
-    <span class="ship-type-name text-bold"></span>
-    <div class="quantity"><calc-selector></calc-selector></div>
+  <header class="blueprint-header">
+    <button class="clear-blueprint-btn" type="button" hidden>Clear</button>
+    <div class="blueprint-quantity">
+      <calc-selector></calc-selector>
+    </div>
     <button class="remove-btn btn-icon" type="button">×</button>
   </header>
 
   <div class="blueprint-editor" hidden>
-    <div class="blueprint-workbench">
-      <div class="blueprint-visual">
-        <div class="blueprint-canvas-wrap">
-          <div class="blueprint-canvas">
-            <img class="blueprint-background" alt="" />
-            <div class="blueprint-slots"></div>
-            <div class="blueprint-readouts" role="group">
-              <span data-blueprint-stat="initiative"></span>
-              <span data-blueprint-stat="energy"></span>
-              <span data-blueprint-stat="movement"></span>
-              <span data-blueprint-stat="computer"></span>
-              <span data-blueprint-stat="hull"></span>
-              <span data-blueprint-stat="shield"></span>
-            </div>
+    <div class="blueprint-visual">
+      <div class="blueprint-canvas-wrap">
+        <div class="blueprint-canvas">
+          <img class="blueprint-background" alt="" />
+          <div class="blueprint-slots"></div>
+          <div class="blueprint-readouts" role="group">
+            <span data-blueprint-stat="initiative"></span>
+            <span data-blueprint-stat="energy"></span>
+            <span data-blueprint-stat="movement"></span>
+            <span data-blueprint-stat="computer"></span>
+            <span data-blueprint-stat="hull"></span>
+            <span data-blueprint-stat="shield"></span>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="blueprint-controls">
-        <div class="slot-actions">
-          <div class="slot-action-buttons">
-            <button class="edit-part-btn" type="button" disabled>
-              Edit
-            </button>
-            <button class="remove-part-btn" type="button" disabled>
-              Remove
-            </button>
-          </div>
-          <span class="selected-part-name" aria-live="polite" hidden></span>
-          <div class="drive-warning" aria-live="polite" hidden>
-            ⚠ No drive installed
-          </div>
-        </div>
-
-        <div class="recent-parts" hidden>
-          <div class="recent-parts-label">Recent</div>
-          <div class="recent-parts-list"></div>
-        </div>
-
-        <section
-          class="external-section"
-          aria-label="External bonuses and Muon Source"
-        >
-          <label class="muon-control">
-            <input class="muon-checkbox" type="checkbox" />
-            <img class="muon-image" alt="" />
-            <span>
-              <strong>Muon Source</strong>
-            </span>
-          </label>
-          <div class="external-heading">
-            <span class="external-title">EXT</span>
-            <div class="external-bonuses"></div>
-          </div>
-        </section>
+    <div class="blueprint-details">
+      <div class="drive-warning" aria-live="polite" hidden>
+        ⚠ No drive installed
       </div>
+      <section class="external-section" aria-label="Muon Source">
+        <label class="muon-control">
+          <input class="muon-checkbox" type="checkbox" />
+          <img class="muon-image" alt="" />
+          <span>
+            <strong>Muon Source</strong>
+          </span>
+        </label>
+      </section>
     </div>
   </div>
 
@@ -85,6 +61,9 @@
           autocomplete="off"
         />
       </label>
+      <div class="part-dialog-actions">
+        <button class="remove-part-btn" type="button" hidden></button>
+      </div>
       <div class="part-buckets"></div>
       <div class="part-search-empty" hidden>No matching parts</div>
     </div>

@@ -218,6 +218,19 @@
   border-top: none;
 }
 
+.fleet-ships:has(> calc-ship-blueprint) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+@media (min-width: 60.0625rem) {
+  .fleet-ships:has(> calc-ship-blueprint) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .ship-selector-control {
   position: relative;
   display: inline-flex;
@@ -438,6 +451,11 @@
   .fleet-add-row .ship-selector-control {
     width: 100%;
     min-width: 0;
+  }
+
+  .fleet-ships:has(> calc-ship-blueprint) {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-sm);
   }
 
   .fleet-add-row {

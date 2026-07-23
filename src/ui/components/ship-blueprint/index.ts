@@ -14,6 +14,7 @@ import {
   findBlueprintPartUse,
   removeShipType,
   replaceBlueprintPart,
+  resetShipBlueprint,
   setBlueprintMuonSource,
   updateShipType,
   type ShipTypeConfig,
@@ -22,7 +23,6 @@ import {
   BLUEPRINT_LAYOUTS,
   calculateBlueprint,
   createStartingBlueprint,
-  externalBonusLabels,
   isBlueprintSlotBlocked,
   isBlueprintShipType,
   isDiscoveryPart,
@@ -103,7 +103,7 @@ export class ShipBlueprintElement extends HTMLElement {
   fleetId!: string;
   factionId?: FactionId;
 
-  private selectedSlot: number | null = 0;
+  private selectedSlot: number | null = null;
   private shipName = '';
 
   connectedCallback() {
@@ -112,9 +112,6 @@ export class ShipBlueprintElement extends HTMLElement {
 
     this.shipName =
       SHIP_NAMES[matchShipPreset(this.shipType.type, this.shipType.config)];
-    const name = this.querySelector('.ship-type-name') as HTMLElement;
-    name.textContent = this.shipName;
-
     const remove = this.querySelector('.remove-btn') as HTMLButtonElement;
     remove.setAttribute('aria-label', `Remove ${this.shipName}`);
     remove.addEventListener('click', () => {
@@ -134,9 +131,18 @@ export class ShipBlueprintElement extends HTMLElement {
       });
     });
 
-    this.querySelector('.edit-part-btn')?.addEventListener('click', () =>
-      this.openPartDialog()
+    const clear = this.querySelector(
+      '.clear-blueprint-btn'
+    ) as HTMLButtonElement;
+    clear.setAttribute(
+      'aria-label',
+      `Reset ${this.shipName} to starting parts`
     );
+    clear.addEventListener('click', () => {
+      if (!resetShipBlueprint(this.fleetId, this.shipType.id)) return;
+      this.clearSelectedSlot();
+      this.renderEditor();
+    });
     this.querySelector('.remove-part-btn')?.addEventListener('click', () =>
       this.removeSelectedPart()
     );
@@ -155,19 +161,39 @@ export class ShipBlueprintElement extends HTMLElement {
       return;
     }
     editor.hidden = false;
+    this.renderClearButton();
     this.renderCanvas();
     this.renderExternalSection();
-    this.renderSelection();
+  }
+
+  private renderClearButton() {
+    const blueprint = this.shipType.blueprint!;
+    const startingBlueprint = createStartingBlueprint(
+      this.blueprintType,
+      this.factionId
+    );
+    const clear = this.querySelector(
+      '.clear-blueprint-btn'
+    ) as HTMLButtonElement;
+    clear.hidden =
+      blueprint.muonSource === startingBlueprint.muonSource &&
+      blueprint.slots.length === startingBlueprint.slots.length &&
+      blueprint.slots.every(
+        (partId, index) => partId === startingBlueprint.slots[index]
+      );
   }
 
   private renderCanvas() {
     const layout = BLUEPRINT_LAYOUTS[this.blueprintType];
+    const dreadnoughtAspectRatio =
+      BLUEPRINT_LAYOUTS[ShipType.Dreadnought].aspectRatio;
     const canvas = this.querySelector('.blueprint-canvas') as HTMLElement;
     canvas.classList.toggle(
       'blueprint-canvas-dreadnought',
       this.blueprintType === ShipType.Dreadnought
     );
     canvas.style.aspectRatio = String(layout.aspectRatio);
+    canvas.style.width = `${(layout.aspectRatio / dreadnoughtAspectRatio) * 100}%`;
     const background = this.querySelector(
       '.blueprint-background'
     ) as HTMLImageElement;
@@ -237,115 +263,28 @@ export class ShipBlueprintElement extends HTMLElement {
           slot.classList.toggle('selected', selected);
           slot.setAttribute('aria-pressed', String(selected));
         });
-        this.renderSelection();
+        this.openPartDialog();
       });
       slots.appendChild(button);
     });
   }
 
-  private renderSelection() {
-    const replace = this.querySelector('.edit-part-btn') as HTMLButtonElement;
-    const remove = this.querySelector('.remove-part-btn') as HTMLButtonElement;
-    const selectedPartName = this.querySelector(
-      '.selected-part-name'
-    ) as HTMLElement;
-    if (this.selectedSlot === null || !this.shipType.blueprint) {
-      replace.setAttribute('aria-label', 'Select a ship slot to edit');
-      replace.disabled = true;
-      remove.disabled = true;
-      selectedPartName.textContent = '';
-      selectedPartName.hidden = true;
-      this.renderRecentParts();
-      return;
-    }
+  private canRemoveSelectedPart(): boolean {
+    if (this.selectedSlot === null || !this.shipType.blueprint) return false;
     const partId = this.shipType.blueprint.slots[this.selectedSlot];
-    const entry = PART_BY_ID.get(partId ?? '');
-    replace.setAttribute(
-      'aria-label',
-      entry ? `Edit ${entry.name}` : 'Fill empty slot'
+    return (
+      partId !== null &&
+      partId !==
+        createStartingBlueprint(this.blueprintType, this.factionId).slots[
+          this.selectedSlot
+        ]
     );
-    replace.disabled = false;
-    selectedPartName.textContent = entry?.name ?? '';
-    selectedPartName.hidden = !entry;
-    const canRemove = this.canRemoveSelectedPart();
-    remove.disabled = !canRemove;
-    this.renderRecentParts();
   }
 
   private startingPartId(slot: number): string | null {
     return createStartingBlueprint(this.blueprintType, this.factionId).slots[
       slot
     ];
-  }
-
-  private canRemoveSelectedPart(): boolean {
-    if (this.selectedSlot === null || !this.shipType.blueprint) return false;
-    return (
-      this.shipType.blueprint.slots[this.selectedSlot] !==
-      this.startingPartId(this.selectedSlot)
-    );
-  }
-
-  private renderRecentParts() {
-    const section = this.querySelector('.recent-parts') as HTMLElement;
-    const target = this.querySelector('.recent-parts-list') as HTMLElement;
-    const partIds = recentPartIds(this.fleetId);
-    section.hidden = partIds.length === 0;
-    target.innerHTML = '';
-    partIds.forEach((partId) => {
-      const entry = PART_BY_ID.get(partId);
-      if (!entry) return;
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'quick-part-btn';
-      button.dataset.partId = partId;
-
-      const currentPartId =
-        this.selectedSlot === null
-          ? undefined
-          : this.shipType.blueprint?.slots[this.selectedSlot];
-      const use =
-        this.selectedSlot !== null && isDiscoveryPart(partId)
-          ? findBlueprintPartUse(this.fleetId, partId, {
-              shipId: this.shipType.id,
-              slot: this.selectedSlot,
-            })
-          : undefined;
-      const disallowed = !partAllowedInSlot(this.blueprintType, entry);
-      const noSelection = this.selectedSlot === null;
-      const alreadyInstalled = currentPartId === partId;
-      button.disabled =
-        noSelection || disallowed || alreadyInstalled || Boolean(use);
-      const unavailableReason = noSelection
-        ? 'Select a ship slot first'
-        : disallowed
-          ? 'Cannot be installed on this ship'
-          : alreadyInstalled
-            ? 'Already installed in this slot'
-            : use
-              ? 'This discovery tile is already installed'
-              : undefined;
-      if (unavailableReason) button.title = unavailableReason;
-      button.setAttribute(
-        'aria-label',
-        unavailableReason
-          ? `${entry.name}. ${unavailableReason}`
-          : `Replace slot ${this.selectedSlot! + 1} with ${entry.name}`
-      );
-
-      const image = document.createElement('img');
-      image.src = entry.image;
-      image.alt = '';
-      image.width = 128;
-      image.height = 128;
-      image.loading = 'lazy';
-      image.decoding = 'async';
-      const name = document.createElement('span');
-      name.textContent = entry.name;
-      button.append(image, name);
-      button.addEventListener('click', () => this.installSelectedPart(partId));
-      target.appendChild(button);
-    });
   }
 
   private renderExternalSection() {
@@ -355,16 +294,6 @@ export class ShipBlueprintElement extends HTMLElement {
       blueprint,
       this.factionId
     );
-    const bonuses = this.querySelector('.external-bonuses') as HTMLElement;
-    bonuses.innerHTML = '';
-    const bonusLabels = externalBonusLabels(this.blueprintType, this.factionId);
-    bonusLabels.forEach((label) => {
-      const chip = document.createElement('span');
-      chip.textContent = label;
-      bonuses.appendChild(chip);
-    });
-    const heading = this.querySelector('.external-heading') as HTMLElement;
-    heading.hidden = bonusLabels.length === 0;
 
     const muon = this.querySelector('.muon-checkbox') as HTMLInputElement;
     const muonPart = PART_BY_ID.get('mus')!;
@@ -386,8 +315,9 @@ export class ShipBlueprintElement extends HTMLElement {
       ) {
         muon.checked = blueprint.muonSource;
       }
-      this.renderExternalSection();
+      this.refreshFleetMuonControls();
       this.renderBlueprintReadouts();
+      this.renderClearButton();
     };
     const muonImage = this.querySelector('.muon-image') as HTMLImageElement;
     muonImage.src = muonPart.image;
@@ -401,6 +331,16 @@ export class ShipBlueprintElement extends HTMLElement {
       this.blueprintType === ShipType.Starbase ||
       this.blueprintType === ShipType.Orbital;
     driveWarning.hidden = stationary || readout.hasDrive;
+  }
+
+  private refreshFleetMuonControls() {
+    document
+      .querySelectorAll<ShipBlueprintElement>('calc-ship-blueprint')
+      .forEach((blueprint) => {
+        if (blueprint.fleetId === this.fleetId) {
+          blueprint.renderExternalSection();
+        }
+      });
   }
 
   private renderBlueprintReadouts() {
@@ -467,12 +407,17 @@ export class ShipBlueprintElement extends HTMLElement {
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) this.closeDialog();
     });
+    dialog.addEventListener('close', () => {
+      const selectedSlot = this.clearSelectedSlot();
+      this.focusSlot(selectedSlot);
+    });
     const search = this.querySelector('.part-search') as HTMLInputElement;
     search.addEventListener('input', () => this.filterParts(search.value));
   }
 
   private removeSelectedPart() {
     if (!this.canRemoveSelectedPart() || this.selectedSlot === null) return;
+    const editedSlot = this.selectedSlot;
     if (
       replaceBlueprintPart(
         this.fleetId,
@@ -481,13 +426,15 @@ export class ShipBlueprintElement extends HTMLElement {
         this.startingPartId(this.selectedSlot)
       )
     ) {
+      this.closeDialog();
       this.renderEditor();
-      this.focusSelectedSlot();
+      this.focusSlot(editedSlot);
     }
   }
 
   private installSelectedPart(partId: string) {
     if (this.selectedSlot === null) return;
+    const editedSlot = this.selectedSlot;
     if (
       replaceBlueprintPart(
         this.fleetId,
@@ -499,25 +446,14 @@ export class ShipBlueprintElement extends HTMLElement {
       rememberRecentPart(this.fleetId, partId);
       this.closeDialog();
       this.renderEditor();
-      this.refreshFleetRecentParts();
-      this.focusSelectedSlot();
+      this.focusSlot(editedSlot);
     }
   }
 
-  private refreshFleetRecentParts() {
-    document
-      .querySelectorAll<ShipBlueprintElement>('calc-ship-blueprint')
-      .forEach((blueprint) => {
-        if (blueprint !== this && blueprint.fleetId === this.fleetId) {
-          blueprint.renderRecentParts();
-        }
-      });
-  }
-
-  private focusSelectedSlot() {
-    if (this.selectedSlot === null) return;
+  private focusSlot(slot: number | null) {
+    if (slot === null) return;
     this.querySelector<HTMLButtonElement>(
-      `.blueprint-slot[data-slot="${this.selectedSlot}"]`
+      `.blueprint-slot[data-slot="${slot}"]`
     )?.focus();
   }
 
@@ -527,6 +463,10 @@ export class ShipBlueprintElement extends HTMLElement {
     const partName = partId ? PART_BY_ID.get(partId)?.name : undefined;
     const title = this.querySelector('.part-dialog-title') as HTMLElement;
     title.textContent = partName ? `Replace ${partName}` : 'Fill empty slot';
+    const remove = this.querySelector('.remove-part-btn') as HTMLButtonElement;
+    const canRemove = this.canRemoveSelectedPart();
+    remove.hidden = !canRemove;
+    remove.textContent = canRemove && partName ? `Remove ${partName}` : '';
     const search = this.querySelector('.part-search') as HTMLInputElement;
     search.value = '';
     this.renderPartBuckets();
@@ -537,34 +477,67 @@ export class ShipBlueprintElement extends HTMLElement {
   }
 
   private closeDialog() {
+    const selectedSlot = this.clearSelectedSlot();
     const dialog = this.querySelector('.part-dialog') as HTMLDialogElement;
     if (typeof dialog.close === 'function' && dialog.open) dialog.close();
     else dialog.removeAttribute('open');
+    this.focusSlot(selectedSlot);
+  }
+
+  private clearSelectedSlot(): number | null {
+    const selectedSlot = this.selectedSlot;
+    this.selectedSlot = null;
+    this.querySelectorAll('.blueprint-slot').forEach((slot) => {
+      slot.classList.remove('selected');
+      slot.setAttribute('aria-pressed', 'false');
+    });
+    return selectedSlot;
   }
 
   private renderPartBuckets() {
     const target = this.querySelector('.part-buckets') as HTMLElement;
     target.innerHTML = '';
+    const recentParts = recentPartIds(this.fleetId)
+      .map((partId) => PART_BY_ID.get(partId))
+      .filter((entry): entry is ShipPart => Boolean(entry))
+      .filter((entry) => partAllowedInSlot(this.blueprintType, entry));
+    if (recentParts.length > 0) {
+      target.appendChild(
+        this.partBucket('recently-used', 'Recently used', recentParts, true)
+      );
+    }
     partBuckets(this.blueprintType).forEach((bucket) => {
-      const section = document.createElement('details');
-      section.className = 'part-bucket';
-      section.dataset.bucket = bucket.id;
-      const summary = document.createElement('summary');
-      summary.className = 'disclosure-summary';
-      const heading = document.createElement('h4');
-      heading.textContent = bucket.label;
-      summary.appendChild(heading);
-      section.appendChild(summary);
-      const grid = document.createElement('div');
-      grid.className = 'part-grid';
-      bucket.parts.forEach((entry) => grid.appendChild(this.partButton(entry)));
-      section.appendChild(grid);
-      section.addEventListener('toggle', () => {
-        if (section.open) this.loadVisiblePartImages(section);
-      });
-      target.appendChild(section);
+      target.appendChild(
+        this.partBucket(bucket.id, bucket.label, bucket.parts)
+      );
     });
     this.filterParts('');
+  }
+
+  private partBucket(
+    id: string,
+    label: string,
+    parts: readonly ShipPart[],
+    open = false
+  ): HTMLDetailsElement {
+    const section = document.createElement('details');
+    section.className = 'part-bucket';
+    section.dataset.bucket = id;
+    section.open = open;
+    const summary = document.createElement('summary');
+    summary.className = 'disclosure-summary';
+    const heading = document.createElement('h4');
+    heading.textContent = label;
+    summary.appendChild(heading);
+    section.appendChild(summary);
+    const grid = document.createElement('div');
+    grid.className = 'part-grid';
+    parts.forEach((entry) => grid.appendChild(this.partButton(entry)));
+    section.appendChild(grid);
+    section.addEventListener('toggle', () => {
+      if (section.open) this.loadVisiblePartImages(section);
+    });
+    return section;
   }
 
   private partButton(entry: ShipPart): HTMLButtonElement {
@@ -580,8 +553,14 @@ export class ShipBlueprintElement extends HTMLElement {
             slot: this.selectedSlot,
           })
         : undefined;
-    button.disabled = Boolean(use);
+    const currentPartId =
+      this.selectedSlot === null
+        ? undefined
+        : this.shipType.blueprint?.slots[this.selectedSlot];
+    const alreadyInstalled = currentPartId === entry.id;
+    button.disabled = Boolean(use) || alreadyInstalled;
     if (use) button.title = 'This discovery tile is already installed';
+    else if (alreadyInstalled) button.title = 'Already installed in this slot';
 
     const image = document.createElement('img');
     image.dataset.src = entry.image;

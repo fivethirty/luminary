@@ -11,6 +11,9 @@ import {
 const blueprintStyles = await Bun.file(
   new URL('./ship-blueprint.css', import.meta.url)
 ).text();
+const fleetStyles = await Bun.file(
+  new URL('../fleet/fleet.css', import.meta.url)
+).text();
 
 function render(shipId: string, fleetId = 'fleet-0'): ShipBlueprintElement {
   const fleet = state.fleets.find((candidate) => candidate.id === fleetId)!;
@@ -56,32 +59,69 @@ describe('ShipBlueprint', () => {
     ).toBe('1');
     expect(element.querySelector('.blueprint-summary')).toBeNull();
     expect(element.querySelector('calc-ship-type')).toBeNull();
-    expect(element.querySelector('.ship-type-name')?.textContent).toBe(
-      'Interceptor'
-    );
+    expect(element.querySelector('.ship-type-name')).toBeNull();
+    expect(element.querySelector('.blueprint-controls')).toBeNull();
     expect(
-      Array.from(element.querySelector('.blueprint-workbench')!.children).map(
+      Array.from(element.querySelector('.blueprint-editor')!.children).map(
         (child) => child.className
       )
-    ).toEqual(['blueprint-visual', 'blueprint-controls']);
-    const controls = element.querySelector('.blueprint-controls')!;
+    ).toEqual(['blueprint-visual', 'blueprint-details']);
     const header = element.querySelector('.blueprint-header')!;
-    expect(controls.querySelector('.blueprint-header')).toBeNull();
     expect(Array.from(header.children).map((child) => child.className)).toEqual(
-      ['ship-type-name text-bold', 'quantity', 'remove-btn btn-icon']
+      ['clear-blueprint-btn', 'blueprint-quantity', 'remove-btn btn-icon']
     );
+    const clear = header.querySelector(
+      '.clear-blueprint-btn'
+    ) as HTMLButtonElement;
+    expect(clear.textContent).toBe('Clear');
+    expect(clear.getAttribute('aria-label')).toBe(
+      'Reset Interceptor to starting parts'
+    );
+    expect(clear.hidden).toBe(true);
+    const quantity = header.querySelector('.blueprint-quantity')!;
+    expect(quantity.querySelector('calc-selector')).not.toBeNull();
     expect(
       header.querySelector('.remove-btn')?.getAttribute('aria-label')
     ).toBe('Remove Interceptor');
-    expect(
-      Array.from(controls.querySelector('.slot-actions')!.children).map(
-        (child) => child.className
-      )
-    ).toEqual(['slot-action-buttons', 'selected-part-name', 'drive-warning']);
+    expect(element.querySelector('.blueprint-footer')).toBeNull();
     const driveWarning = element.querySelector('.drive-warning')!;
-    expect(driveWarning.parentElement?.className).toBe('slot-actions');
+    expect(driveWarning.parentElement?.className).toBe('blueprint-details');
     expect(driveWarning.closest('.blueprint-canvas-wrap')).toBeNull();
     expect(driveWarning.closest('.external-section')).toBeNull();
+  });
+
+  test('clears custom parts and Muon Source back to the starting blueprint', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+    const clear = element.querySelector(
+      '.clear-blueprint-btn'
+    ) as HTMLButtonElement;
+
+    (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
+    (
+      element.querySelector(
+        '.part-option[data-part-id="plc"]'
+      ) as HTMLButtonElement
+    ).click();
+    const muon = element.querySelector('.muon-checkbox') as HTMLInputElement;
+    muon.checked = true;
+    muon.dispatchEvent(new Event('change'));
+    expect(clear.hidden).toBe(false);
+
+    clear.click();
+
+    expect(ship.blueprint).toEqual({
+      slots: ['nus', 'ioc', null, 'nud'],
+      muonSource: false,
+    });
+    expect(ship.config.cannons?.plasma).toBe(0);
+    expect(
+      (element.querySelector('.muon-checkbox') as HTMLInputElement).checked
+    ).toBe(false);
+    expect(element.querySelector('.blueprint-slot.selected')).toBeNull();
+    expect(clear.hidden).toBe(true);
   });
 
   test('positions hull and computer values over their matching header symbols', () => {
@@ -109,40 +149,57 @@ describe('ShipBlueprint', () => {
     );
   });
 
-  test('uses a compact, unified desktop workbench', () => {
-    expect(blueprintStyles).toMatch(
-      /@media \(min-width: 60\.0625rem\)[\s\S]*grid-template-columns:\s*max-content minmax\(0, 1fr\)/
+  test('matches canvas heights to the dreadnought and centers narrower hulls', () => {
+    const interceptor = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const dreadnought = addOrSwapShipPreset('fleet-0', 'dreadnought', {
+      withBlueprint: true,
+    })!;
+    const interceptorCanvas = render(interceptor.id).querySelector(
+      '.blueprint-canvas'
+    ) as HTMLElement;
+    const dreadnoughtCanvas = render(dreadnought.id).querySelector(
+      '.blueprint-canvas'
+    ) as HTMLElement;
+    const interceptorWidth = Number.parseFloat(interceptorCanvas.style.width);
+    const dreadnoughtWidth = Number.parseFloat(dreadnoughtCanvas.style.width);
+    const interceptorAspectRatio = Number.parseFloat(
+      interceptorCanvas.style.aspectRatio
+    );
+    const dreadnoughtAspectRatio = Number.parseFloat(
+      dreadnoughtCanvas.style.aspectRatio
+    );
+
+    expect(interceptorWidth).toBeLessThan(dreadnoughtWidth);
+    expect(interceptorWidth / interceptorAspectRatio).toBeCloseTo(
+      dreadnoughtWidth / dreadnoughtAspectRatio
     );
     expect(blueprintStyles).toMatch(
-      /\.blueprint-controls\s*{[^}]*grid-template-areas:\s*'actions actions'\s*'recent external'/
-    );
-    expect(blueprintStyles).toMatch(
-      /\.blueprint-controls\s*{[^}]*border:\s*1px solid var\(--color-border\)/
-    );
-    expect(blueprintStyles).toMatch(
-      /\.slot-actions\s*{[^}]*display:\s*grid[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto[^}]*grid-template-areas:\s*'buttons name warning'/
-    );
-    expect(blueprintStyles).toMatch(
-      /\.slot-action-buttons button\s*{[^}]*min-width:\s*5rem[^}]*min-height:\s*2\.5rem/
-    );
-    expect(blueprintStyles).toMatch(
-      /\.remove-part-btn:not\(:disabled\)\s*{[^}]*border-color:\s*var\(--color-danger\)[^}]*color:\s*var\(--color-danger\)/
-    );
-    expect(blueprintStyles).toMatch(
-      /\.slot-action-buttons button:disabled\s*{[^}]*cursor:\s*not-allowed[^}]*opacity:\s*0\.45/
-    );
-    expect(blueprintStyles).toMatch(
-      /\.selected-part-name\s*{[^}]*padding-left:\s*var\(--space-md\)[^}]*border-left:\s*1px solid var\(--color-border\)[^}]*text-align:\s*left/
-    );
-    expect(blueprintStyles).toMatch(
-      /@container blueprint-controls \(max-width: 34rem\)\s*{[\s\S]*\.slot-actions\s*{[^}]*grid-template-rows:\s*auto 1rem[^}]*grid-template-areas:\s*'buttons buttons'\s*'name warning'/
-    );
-    expect(blueprintStyles).toMatch(
-      /@container blueprint-controls \(max-width: 23rem\)\s*{[\s\S]*\.slot-action-buttons\s*{[^}]*width:\s*100%[^}]*}[\s\S]*\.slot-action-buttons button\s*{[^}]*flex:\s*1 1 50%/
+      /\.blueprint-canvas\s*{[^}]*margin-inline:\s*auto/
     );
   });
 
-  test('keeps external bonuses and Muon Source visible in the workbench', () => {
+  test('lays out blueprint cards four, two, and one per row', () => {
+    expect(fleetStyles).toMatch(
+      /\.fleet-ships:has\(> calc-ship-blueprint\)\s*{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+    );
+    expect(fleetStyles).toMatch(
+      /@media \(min-width: 60\.0625rem\)[\s\S]*\.fleet-ships:has\(> calc-ship-blueprint\)\s*{[^}]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/
+    );
+    expect(fleetStyles).toMatch(
+      /@media \(max-width: 42rem\)[\s\S]*\.fleet-ships:has\(> calc-ship-blueprint\)\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.blueprint-header\s*{[^}]*display:\s*flex[^}]*justify-content:\s*flex-end/
+    );
+    expect(blueprintStyles).toMatch(
+      /\.blueprint-canvas-wrap\s*{[^}]*border:\s*1px solid var\(--color-border\)/
+    );
+    expect(blueprintStyles).not.toMatch(/\.blueprint-controls/);
+  });
+
+  test('keeps Muon Source visible in the workbench', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
@@ -151,17 +208,11 @@ describe('ShipBlueprint', () => {
 
     expect(external.tagName).toBe('SECTION');
     expect(element.querySelector('.external-summary')).toBeNull();
-    expect(external.getAttribute('aria-label')).toBe(
-      'External bonuses and Muon Source'
-    );
+    expect(external.getAttribute('aria-label')).toBe('Muon Source');
     expect(
       Array.from(external.children).map((child) => child.className)
-    ).toEqual(['muon-control', 'external-heading']);
-    expect(
-      Array.from(external.querySelectorAll('.external-bonuses span')).map(
-        (bonus) => bonus.textContent
-      )
-    ).toEqual(['+2 Init']);
+    ).toEqual(['muon-control']);
+    expect(element.querySelector('.external-heading')).toBeNull();
 
     const muon = element.querySelector('.muon-checkbox') as HTMLInputElement;
     expect(muon.type).toBe('checkbox');
@@ -171,20 +222,6 @@ describe('ShipBlueprint', () => {
     expect(ship.blueprint?.muonSource).toBe(true);
     expect(muon.checked).toBe(true);
 
-    const dreadnought = addOrSwapShipPreset('fleet-0', 'dreadnought', {
-      withBlueprint: true,
-    })!;
-    const dreadnoughtElement = render(dreadnought.id);
-    expect(
-      (dreadnoughtElement.querySelector('.external-heading') as HTMLElement)
-        .hidden
-    ).toBe(true);
-    expect(
-      dreadnoughtElement.querySelectorAll('.external-bonuses span')
-    ).toHaveLength(0);
-    expect(blueprintStyles).toMatch(
-      /\.external-heading\s*{[^}]*margin-left:\s*auto/
-    );
     expect(blueprintStyles).toMatch(
       /\.muon-control \.muon-checkbox\s*{[^}]*position:\s*absolute[^}]*clip-path:\s*inset\(50%\)[^}]*opacity:\s*0/
     );
@@ -192,11 +229,40 @@ describe('ShipBlueprint', () => {
       /\.muon-control:has\(\.muon-checkbox:checked\)\s*{[^}]*border-color:\s*var\(--color-info\)/
     );
     expect(blueprintStyles).toMatch(
-      /@container blueprint-controls \(max-width: 52rem\)[\s\S]*\.external-bonuses\s*{[^}]*flex-direction:\s*column[^}]*align-items:\s*flex-end/
+      /\.external-section\s*{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap/
     );
     expect(blueprintStyles).toMatch(
       /\.muon-control strong\s*{[^}]*font-size:\s*0\.68rem[^}]*font-weight:\s*600/
     );
+  });
+
+  test('immediately disables Muon Source for the other ships in its fleet', () => {
+    const interceptorShip = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const cruiserShip = addOrSwapShipPreset('fleet-0', 'cruiser', {
+      withBlueprint: true,
+    })!;
+    const interceptor = render(interceptorShip.id);
+    const cruiser = render(cruiserShip.id);
+    const interceptorMuon = interceptor.querySelector(
+      '.muon-checkbox'
+    ) as HTMLInputElement;
+    const cruiserMuon = cruiser.querySelector(
+      '.muon-checkbox'
+    ) as HTMLInputElement;
+
+    interceptorMuon.checked = true;
+    interceptorMuon.dispatchEvent(new Event('change'));
+
+    expect(cruiserMuon.disabled).toBe(true);
+    expect(cruiserMuon.title).toBe('Muon Source is installed on another ship');
+
+    interceptorMuon.checked = false;
+    interceptorMuon.dispatchEvent(new Event('change'));
+
+    expect(cruiserMuon.disabled).toBe(false);
+    expect(cruiserMuon.title).toBe('');
   });
 
   test('renders hull without a plus sign', () => {
@@ -222,7 +288,7 @@ describe('ShipBlueprint', () => {
     })!;
     const element = render(ship.id);
 
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
 
     expect(element.querySelector('.part-dialog-title')?.textContent).toBe(
       'Replace Electron Computer'
@@ -234,29 +300,15 @@ describe('ShipBlueprint', () => {
       withBlueprint: true,
     })!;
     const element = render(ship.id);
-    const replace = element.querySelector(
-      '.edit-part-btn'
-    ) as HTMLButtonElement;
     const firstSlot = element.querySelector(
       '[data-slot="0"]'
     ) as HTMLButtonElement;
-    expect(firstSlot.classList.contains('selected')).toBe(true);
-    expect(firstSlot.getAttribute('aria-pressed')).toBe('true');
-    expect(replace.disabled).toBe(false);
-    const selectedPartName = element.querySelector(
-      '.selected-part-name'
-    ) as HTMLElement;
-    expect(selectedPartName.textContent).toBe('Electron Computer');
-    expect(selectedPartName.hidden).toBe(false);
-    expect(replace.getAttribute('aria-label')).toBe('Edit Electron Computer');
+    expect(firstSlot.classList.contains('selected')).toBe(false);
+    expect(firstSlot.getAttribute('aria-pressed')).toBe('false');
 
     (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
     expect(firstSlot.classList.contains('selected')).toBe(false);
     expect(firstSlot.getAttribute('aria-pressed')).toBe('false');
-    expect(replace.getAttribute('aria-label')).toBe('Fill empty slot');
-    expect(selectedPartName.textContent).toBe('');
-    expect(selectedPartName.hidden).toBe(true);
-    replace.click();
 
     const dialog = element.querySelector('.part-dialog') as HTMLDialogElement;
     expect(dialog.open).toBe(true);
@@ -264,6 +316,9 @@ describe('ShipBlueprint', () => {
       'Fill empty slot'
     );
     expect(element.querySelector('.empty-part-btn')).toBeNull();
+    expect(
+      (element.querySelector('.remove-part-btn') as HTMLButtonElement).hidden
+    ).toBe(true);
     expect(
       Array.from(element.querySelectorAll('.part-bucket h4')).map(
         (heading) => heading.textContent
@@ -306,13 +361,40 @@ describe('ShipBlueprint', () => {
     expect(element.querySelector('.part-option-copy small')).toBeNull();
   });
 
+  test('clears the slot highlight when editing ends', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'cruiser', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+    let slot = element.querySelector('[data-slot="2"]') as HTMLButtonElement;
+
+    slot.click();
+    expect(slot.classList.contains('selected')).toBe(true);
+    expect(slot.getAttribute('aria-pressed')).toBe('true');
+    (element.querySelector('.dialog-close') as HTMLButtonElement).click();
+    expect(element.querySelector('.blueprint-slot.selected')).toBeNull();
+    expect(slot.getAttribute('aria-pressed')).toBe('false');
+    expect(document.activeElement).toBe(slot);
+
+    slot.click();
+    (
+      element.querySelector(
+        '.part-option[data-part-id="plc"]'
+      ) as HTMLButtonElement
+    ).click();
+    slot = element.querySelector('[data-slot="2"]') as HTMLButtonElement;
+    expect(element.querySelector('.blueprint-slot.selected')).toBeNull();
+    expect(slot.getAttribute('aria-pressed')).toBe('false');
+    expect(document.activeElement).toBe(slot);
+  });
+
   test('searches only tile names, not headings or stats', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
     const element = render(ship.id);
 
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
     const search = element.querySelector('.part-search') as HTMLInputElement;
     search.value = 'initiative';
     search.dispatchEvent(new Event('input'));
@@ -341,7 +423,7 @@ describe('ShipBlueprint', () => {
     })!;
     const element = render(ship.id);
 
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
     const sections = Array.from(
       element.querySelectorAll<HTMLDetailsElement>('.part-bucket')
     );
@@ -380,7 +462,7 @@ describe('ShipBlueprint', () => {
     })!;
     const element = render(ship.id);
 
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
     const search = element.querySelector('.part-search') as HTMLInputElement;
     search.value = 'sentient hull';
     search.dispatchEvent(new Event('input'));
@@ -428,7 +510,7 @@ describe('ShipBlueprint', () => {
       /\.part-buckets\s*{[^}]*padding:\s*var\(--space-md\)/
     );
     expect(blueprintStyles).toMatch(
-      /@media \(max-width: 28rem\)\s*{[\s\S]*\.part-dialog-header,\s*\.part-search-label,\s*\.part-buckets\s*{[^}]*padding-inline:\s*var\(--space-sm\)/
+      /@media \(max-width: 28rem\)\s*{[\s\S]*\.part-dialog-header,\s*\.part-search-label,\s*\.part-dialog-actions,\s*\.part-buckets\s*{[^}]*padding-inline:\s*var\(--space-sm\)/
     );
   });
 
@@ -445,7 +527,6 @@ describe('ShipBlueprint', () => {
     const element = render(ship.id);
 
     (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
 
     const search = element.querySelector('.part-search') as HTMLInputElement;
     search.value = 'ion';
@@ -466,14 +547,13 @@ describe('ShipBlueprint', () => {
     }
   });
 
-  test('only removes replacement parts and reveals the starting part', () => {
+  test('only removes replacement parts and restores the starting part', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
     const element = render(ship.id);
 
     (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
     const antimatter = Array.from(
       element.querySelectorAll<HTMLButtonElement>('.part-option')
     ).find((option) => option.dataset.search?.startsWith('antimatter cannon'))!;
@@ -492,47 +572,40 @@ describe('ShipBlueprint', () => {
     const remove = element.querySelector(
       '.remove-part-btn'
     ) as HTMLButtonElement;
-    expect(remove.hidden).toBe(false);
-    expect(remove.disabled).toBe(true);
-
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
-    (
-      element.querySelector(
-        '.part-option[data-part-id="anc"]'
-      ) as HTMLButtonElement
-    ).click();
-    expect(remove.hidden).toBe(false);
-    expect(remove.disabled).toBe(false);
-    expect(
-      (element.querySelector('.drive-warning') as HTMLElement).hidden
-    ).toBe(false);
-
-    remove.click();
+    expect(remove.hidden).toBe(true);
     expect(
       (element.querySelector('.drive-warning') as HTMLElement).hidden
     ).toBe(true);
     expect(ship.blueprint?.slots[3]).toBe('nud');
+    (element.querySelector('.dialog-close') as HTMLButtonElement).click();
+
+    (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
     expect(remove.hidden).toBe(false);
-    expect(remove.disabled).toBe(true);
+    expect(remove.textContent).toBe('Remove Antimatter Cannon');
+    remove.click();
+    expect(ship.blueprint?.slots[0]).toBe('nus');
+    expect(energyReadout.textContent).toBe('2/3');
+    expect(energyReadout.classList.contains('invalid')).toBe(false);
+    expect(
+      (element.querySelector('.part-dialog') as HTMLDialogElement).open
+    ).toBe(false);
 
     (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
-    expect(remove.hidden).toBe(false);
-    expect(remove.disabled).toBe(true);
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    expect(remove.hidden).toBe(true);
     (
       element.querySelector(
         '.part-option[data-part-id="plc"]'
       ) as HTMLButtonElement
     ).click();
+    expect(ship.blueprint?.slots[2]).toBe('plc');
+    (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
     expect(remove.hidden).toBe(false);
-    expect(remove.disabled).toBe(false);
+    expect(remove.textContent).toBe('Remove Plasma Cannon');
     remove.click();
     expect(ship.blueprint?.slots[2]).toBeNull();
-    expect(remove.hidden).toBe(false);
-    expect(remove.disabled).toBe(true);
   });
 
-  test('offers the three most recently added parts as direct replacements', () => {
+  test('shows three recently used parts first in an expanded picker section', () => {
     const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
@@ -542,7 +615,6 @@ describe('ShipBlueprint', () => {
       (
         element.querySelector(`[data-slot="${slot}"]`) as HTMLButtonElement
       ).click();
-      (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
       (
         element.querySelector(
           `.part-option[data-part-id="${partId}"]`
@@ -553,29 +625,49 @@ describe('ShipBlueprint', () => {
     installFromDialog(2, 'anc');
     installFromDialog(1, 'plc');
     installFromDialog(0, 'fus');
-    expect(
-      Array.from(
-        element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
-      ).map((button) => button.dataset.partId)
-    ).toEqual(['fus', 'plc', 'anc']);
-
     (element.querySelector('[data-slot="3"]') as HTMLButtonElement).click();
-    (
-      element.querySelector(
-        '.quick-part-btn[data-part-id="anc"]'
-      ) as HTMLButtonElement
-    ).click();
+    const recentSection = element.querySelector<HTMLDetailsElement>(
+      '.part-bucket[data-bucket="recently-used"]'
+    )!;
+    const recentPartIds = () =>
+      Array.from(
+        recentSection.querySelectorAll<HTMLButtonElement>('.part-option')
+      ).map((button) => button.dataset.partId);
+    expect(element.querySelector('.part-buckets')?.firstElementChild).toBe(
+      recentSection
+    );
+    expect(recentSection.querySelector('h4')?.textContent).toBe(
+      'Recently used'
+    );
+    expect(recentSection.open).toBe(true);
+    expect(recentPartIds()).toEqual(['fus', 'plc', 'anc']);
+
+    expect(
+      recentSection.querySelector<HTMLButtonElement>(
+        '.part-option[data-part-id="anc"]'
+      )
+    ).not.toBeNull();
+    recentSection
+      .querySelector<HTMLButtonElement>('.part-option[data-part-id="anc"]')!
+      .click();
     expect(ship.blueprint?.slots[3]).toBe('anc');
+
+    (element.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
     expect(
       Array.from(
-        element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
+        element.querySelectorAll<HTMLButtonElement>(
+          '.part-bucket[data-bucket="recently-used"] .part-option'
+        )
       ).map((button) => button.dataset.partId)
     ).toEqual(['anc', 'fus', 'plc']);
-
+    (element.querySelector('.dialog-close') as HTMLButtonElement).click();
     installFromDialog(0, 'axc');
+    (element.querySelector('[data-slot="1"]') as HTMLButtonElement).click();
     expect(
       Array.from(
-        element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
+        element.querySelectorAll<HTMLButtonElement>(
+          '.part-bucket[data-bucket="recently-used"] .part-option'
+        )
       ).map((button) => button.dataset.partId)
     ).toEqual(['anc', 'fus', 'plc']);
   });
@@ -636,7 +728,6 @@ describe('ShipBlueprint', () => {
     })!;
     const defender = render(defenderShip.id);
     (defender.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
-    (defender.querySelector('.edit-part-btn') as HTMLButtonElement).click();
     (
       defender.querySelector(
         '.part-option[data-part-id="anc"]'
@@ -647,29 +738,37 @@ describe('ShipBlueprint', () => {
       withBlueprint: true,
     })!;
     const attacker = render(attackerShip.id, 'fleet-1');
-    expect(attacker.querySelectorAll('.quick-part-btn')).toHaveLength(0);
 
     (attacker.querySelector('[data-slot="1"]') as HTMLButtonElement).click();
-    (attacker.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    expect(
+      attacker.querySelector('.part-bucket[data-bucket="recently-used"]')
+    ).toBeNull();
     (
       attacker.querySelector(
         '.part-option[data-part-id="plc"]'
       ) as HTMLButtonElement
     ).click();
 
+    (defender.querySelector('[data-slot="1"]') as HTMLButtonElement).click();
     expect(
       Array.from(
-        defender.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
+        defender.querySelectorAll<HTMLButtonElement>(
+          '.part-bucket[data-bucket="recently-used"] .part-option'
+        )
       ).map((button) => button.dataset.partId)
     ).toEqual(['anc']);
+    (defender.querySelector('.dialog-close') as HTMLButtonElement).click();
+    (attacker.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
     expect(
       Array.from(
-        attacker.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
+        attacker.querySelectorAll<HTMLButtonElement>(
+          '.part-bucket[data-bucket="recently-used"] .part-option'
+        )
       ).map((button) => button.dataset.partId)
     ).toEqual(['plc']);
   });
 
-  test('updates recent parts across blueprints in the same fleet', () => {
+  test('shows fleet recent parts in every blueprint picker', () => {
     const interceptorShip = addOrSwapShipPreset('fleet-0', 'interceptor', {
       withBlueprint: true,
     })!;
@@ -680,7 +779,9 @@ describe('ShipBlueprint', () => {
     const cruiser = render(cruiserShip.id);
     const recentPartIds = (element: ShipBlueprintElement) =>
       Array.from(
-        element.querySelectorAll<HTMLButtonElement>('.quick-part-btn')
+        element.querySelectorAll<HTMLButtonElement>(
+          '.part-bucket[data-bucket="recently-used"] .part-option'
+        )
       ).map((button) => button.dataset.partId);
     const installFromDialog = (
       element: ShipBlueprintElement,
@@ -690,7 +791,6 @@ describe('ShipBlueprint', () => {
       (
         element.querySelector(`[data-slot="${slot}"]`) as HTMLButtonElement
       ).click();
-      (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
       (
         element.querySelector(
           `.part-option[data-part-id="${partId}"]`
@@ -699,11 +799,17 @@ describe('ShipBlueprint', () => {
     };
 
     installFromDialog(interceptor, 2, 'anc');
-    expect(recentPartIds(interceptor)).toEqual(['anc']);
+    (cruiser.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
     expect(recentPartIds(cruiser)).toEqual(['anc']);
-
-    installFromDialog(cruiser, 2, 'plc');
+    (
+      cruiser.querySelector(
+        '.part-option[data-part-id="plc"]'
+      ) as HTMLButtonElement
+    ).click();
+    (interceptor.querySelector('[data-slot="1"]') as HTMLButtonElement).click();
     expect(recentPartIds(interceptor)).toEqual(['plc', 'anc']);
+    (interceptor.querySelector('.dialog-close') as HTMLButtonElement).click();
+    (cruiser.querySelector('[data-slot="0"]') as HTMLButtonElement).click();
     expect(recentPartIds(cruiser)).toEqual(['plc', 'anc']);
   });
 
@@ -714,7 +820,6 @@ describe('ShipBlueprint', () => {
     })!;
     const element = render(starbase.id);
     (element.querySelector('[data-slot="1"]') as HTMLButtonElement).click();
-    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
 
     expect(
       Array.from(element.querySelectorAll<HTMLElement>('.part-option')).some(

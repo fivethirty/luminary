@@ -23,6 +23,7 @@ import {
   ensureShipBlueprint,
   findBlueprintPartUse,
   replaceBlueprintPart,
+  resetShipBlueprint,
   setBlueprintMuonSource,
 } from './state';
 import { monteCarloResults } from './test-helpers';
@@ -373,6 +374,29 @@ describe('State', () => {
         true
       );
       expect(setBlueprintMuonSource('fleet-0', cruiser.id, true)).toBe(false);
+    });
+
+    test('resets a ship to its faction-aware starting blueprint once', () => {
+      setFleetFaction('fleet-0', 'planta');
+      const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+        withBlueprint: true,
+      })!;
+      replaceBlueprintPart('fleet-0', ship.id, 0, 'anc');
+      setBlueprintMuonSource('fleet-0', ship.id, true);
+      let changes = 0;
+      const unsubscribe = onFleetsChanged(() => changes++);
+
+      expect(resetShipBlueprint('fleet-0', ship.id)).toBe(true);
+      expect(ship.blueprint).toEqual({
+        slots: ['nus', 'ioc', 'nud', null],
+        muonSource: false,
+      });
+      expect(ship.config.cannons?.antimatter).toBe(0);
+      expect(changes).toBe(1);
+
+      expect(resetShipBlueprint('fleet-0', ship.id)).toBe(true);
+      expect(changes).toBe(1);
+      unsubscribe();
     });
 
     test('free-form stats detach only the edited ship from its blueprint', () => {

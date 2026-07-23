@@ -529,6 +529,23 @@ export function setBlueprintMuonSource(
   return true;
 }
 
+export function resetShipBlueprint(fleetId: string, shipId: string): boolean {
+  const fleet = getFleetById(fleetId);
+  const ship = fleet.shipTypes.find((candidate) => candidate.id === shipId);
+  if (!ship?.blueprint || !isBlueprintShipType(ship.type)) return false;
+  const startingBlueprint = createStartingBlueprint(ship.type, fleet.factionId);
+  if (shipBlueprintsEqual(ship.blueprint, startingBlueprint)) return true;
+
+  ship.blueprint = startingBlueprint;
+  ship.config = calculateBlueprint(
+    ship.type,
+    ship.blueprint,
+    fleet.factionId
+  ).config;
+  notifyFleetsChanged();
+  return true;
+}
+
 export function ensureShipBlueprint(
   fleetId: string,
   shipId: string,

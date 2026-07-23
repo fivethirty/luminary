@@ -116,8 +116,10 @@ battle format. Preset add, swap, and repeat-increment behavior goes through the 
 
 Player ship rows may additionally own a slot-ordered `blueprint`. While it exists, the row's
 combat `config` is a derived mirror of its parts, Muon Source checkbox, and faction/chassis
-bonuses. Tile mutations update both values in one state command. Control mode is only a local view
-preference except that Ship tiles mode may rehydrate an absent canonical blueprint when the
+bonuses. Tile mutations update both values in one state command. Removing a replacement part
+restores that slot's faction-aware starting part; a starting part cannot itself be removed.
+Faction-blocked slots remain unavailable. Control mode is only a local view preference except that
+Ship tiles mode may rehydrate an absent canonical blueprint when the
 aggregate config exactly matches its faction-aware starting stats. A direct aggregate-stat edit
 deletes only that ship's blueprint after the stat UI explains the one-way transition. Other
 aggregate configs cannot be reverse-engineered reliably; in Ship tiles mode those rows retain their
