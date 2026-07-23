@@ -324,6 +324,87 @@ describe('ShipBlueprint', () => {
     expect(visibleOptions[0].dataset.partId).toBe('nus');
   });
 
+  test('loads picker images only for expanded sections', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+
+    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    const sections = Array.from(
+      element.querySelectorAll<HTMLDetailsElement>('.part-bucket')
+    );
+    const images = Array.from(
+      element.querySelectorAll<HTMLImageElement>('.part-option img')
+    );
+
+    expect(images.every((image) => !image.hasAttribute('src'))).toBe(true);
+    expect(images.every((image) => image.dataset.src?.endsWith('.webp'))).toBe(
+      true
+    );
+
+    sections[0].open = true;
+    sections[0].dispatchEvent(new Event('toggle'));
+
+    expect(
+      Array.from(
+        sections[0].querySelectorAll<HTMLImageElement>('.part-option img')
+      ).every((image) => image.hasAttribute('src'))
+    ).toBe(true);
+    expect(
+      sections
+        .slice(1)
+        .flatMap((section) =>
+          Array.from(
+            section.querySelectorAll<HTMLImageElement>('.part-option img')
+          )
+        )
+        .every((image) => !image.hasAttribute('src'))
+    ).toBe(true);
+  });
+
+  test('loads only matching picker images while searching', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+
+    (element.querySelector('.edit-part-btn') as HTMLButtonElement).click();
+    const search = element.querySelector('.part-search') as HTMLInputElement;
+    search.value = 'sentient hull';
+    search.dispatchEvent(new Event('input'));
+
+    const options = Array.from(
+      element.querySelectorAll<HTMLButtonElement>('.part-option')
+    );
+    const matching = options.filter((option) => !option.hidden);
+    const hidden = options.filter((option) => option.hidden);
+    expect(matching).toHaveLength(2);
+    expect(
+      matching.every((option) =>
+        option.querySelector('img')?.hasAttribute('src')
+      )
+    ).toBe(true);
+    expect(
+      hidden.every(
+        (option) => !option.querySelector('img')?.hasAttribute('src')
+      )
+    ).toBe(true);
+
+    search.value = '';
+    search.dispatchEvent(new Event('input'));
+    expect(
+      Array.from(
+        element.querySelectorAll<HTMLDetailsElement>('.part-bucket')
+      ).every((section) => !section.open)
+    ).toBe(true);
+    expect(
+      options.filter((option) =>
+        option.querySelector('img')?.hasAttribute('src')
+      )
+    ).toHaveLength(2);
+  });
+
   test('keeps the scrolling picker content in its own paint layer', () => {
     expect(blueprintStyles).toMatch(
       /\.part-buckets\s*{[^}]*contain:\s*paint[^}]*isolation:\s*isolate/

@@ -3,15 +3,15 @@ import './ship-type.css';
 import '../selector';
 import '../stat-cube';
 
-import ancientTileImage from '../../../assets/ship-tiles/ai-anc.png';
-import advancedAncientTileImage from '../../../assets/ship-tiles/ai-ancadv.png';
-import worldsAfarAncientTileImage from '../../../assets/ship-tiles/ai-ancwa.png';
-import guardianTileImage from '../../../assets/ship-tiles/ai-grd.png';
-import advancedGuardianTileImage from '../../../assets/ship-tiles/ai-grdadv.png';
-import worldsAfarGuardianTileImage from '../../../assets/ship-tiles/ai-grdwa.png';
-import gcdsTileImage from '../../../assets/ship-tiles/ai-gcds.png';
-import advancedGcdsTileImage from '../../../assets/ship-tiles/ai-gcdsadv.png';
-import worldsAfarGcdsTileImage from '../../../assets/ship-tiles/ai-gcdswa.png';
+import ancientTileImage from '../../../assets/ship-tiles/ai-anc.webp';
+import advancedAncientTileImage from '../../../assets/ship-tiles/ai-ancadv.webp';
+import worldsAfarAncientTileImage from '../../../assets/ship-tiles/ai-ancwa.webp';
+import guardianTileImage from '../../../assets/ship-tiles/ai-grd.webp';
+import advancedGuardianTileImage from '../../../assets/ship-tiles/ai-grdadv.webp';
+import worldsAfarGuardianTileImage from '../../../assets/ship-tiles/ai-grdwa.webp';
+import gcdsTileImage from '../../../assets/ship-tiles/ai-gcds.webp';
+import advancedGcdsTileImage from '../../../assets/ship-tiles/ai-gcdsadv.webp';
+import worldsAfarGcdsTileImage from '../../../assets/ship-tiles/ai-gcdswa.webp';
 
 import type { SelectorElement } from '../selector';
 import type { StatCubeElement } from '../stat-cube';
@@ -111,6 +111,10 @@ export class ShipTypeElement extends HTMLElement {
     const image = tile.querySelector('img') as HTMLImageElement;
     image.src = imageUrl;
     image.alt = `${shipName} ship tile`;
+    image.width = 256;
+    image.height = 256;
+    image.loading = 'lazy';
+    image.decoding = 'async';
   }
 
   private bindSelectors(shipName: string) {

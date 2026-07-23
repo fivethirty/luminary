@@ -2,11 +2,11 @@ import html from './ship-blueprint.html' with { type: 'text' };
 import './ship-blueprint.css';
 import '../selector';
 
-import interceptorBlueprintImage from '../../../assets/ship-blueprints/blueprint_interceptor.png';
-import cruiserBlueprintImage from '../../../assets/ship-blueprints/blueprint_cruiser.png';
-import dreadnoughtBlueprintImage from '../../../assets/ship-blueprints/blueprint_dreadnought.png';
-import starbaseBlueprintImage from '../../../assets/ship-blueprints/blueprint_starbase.png';
-import orbitalBlueprintImage from '../../../assets/ship-blueprints/blueprint_orbital.png';
+import interceptorBlueprintImage from '../../../assets/ship-blueprints/blueprint_interceptor.webp';
+import cruiserBlueprintImage from '../../../assets/ship-blueprints/blueprint_cruiser.webp';
+import dreadnoughtBlueprintImage from '../../../assets/ship-blueprints/blueprint_dreadnought.webp';
+import starbaseBlueprintImage from '../../../assets/ship-blueprints/blueprint_starbase.webp';
+import orbitalBlueprintImage from '../../../assets/ship-blueprints/blueprint_orbital.webp';
 
 import { ShipType } from '@calc/ship';
 import type { FactionId } from '@ui/fleet-metadata';
@@ -173,6 +173,8 @@ export class ShipBlueprintElement extends HTMLElement {
     ) as HTMLImageElement;
     background.src = BLUEPRINT_IMAGES[this.blueprintType];
     background.alt = `${this.shipName} blueprint layout`;
+    background.loading = 'lazy';
+    background.decoding = 'async';
     this.renderBlueprintReadouts();
 
     const slots = this.querySelector('.blueprint-slots') as HTMLElement;
@@ -217,6 +219,10 @@ export class ShipBlueprintElement extends HTMLElement {
         const image = document.createElement('img');
         image.src = entry.image;
         image.alt = '';
+        image.width = 128;
+        image.height = 128;
+        image.loading = 'lazy';
+        image.decoding = 'async';
         button.appendChild(image);
       } else {
         const empty = document.createElement('span');
@@ -330,6 +336,10 @@ export class ShipBlueprintElement extends HTMLElement {
       const image = document.createElement('img');
       image.src = entry.image;
       image.alt = '';
+      image.width = 128;
+      image.height = 128;
+      image.loading = 'lazy';
+      image.decoding = 'async';
       const name = document.createElement('span');
       name.textContent = entry.name;
       button.append(image, name);
@@ -381,6 +391,10 @@ export class ShipBlueprintElement extends HTMLElement {
     };
     const muonImage = this.querySelector('.muon-image') as HTMLImageElement;
     muonImage.src = muonPart.image;
+    muonImage.width = 128;
+    muonImage.height = 128;
+    muonImage.loading = 'lazy';
+    muonImage.decoding = 'async';
 
     const driveWarning = this.querySelector('.drive-warning') as HTMLElement;
     const stationary =
@@ -545,6 +559,9 @@ export class ShipBlueprintElement extends HTMLElement {
       grid.className = 'part-grid';
       bucket.parts.forEach((entry) => grid.appendChild(this.partButton(entry)));
       section.appendChild(grid);
+      section.addEventListener('toggle', () => {
+        if (section.open) this.loadVisiblePartImages(section);
+      });
       target.appendChild(section);
     });
     this.filterParts('');
@@ -567,8 +584,12 @@ export class ShipBlueprintElement extends HTMLElement {
     if (use) button.title = 'This discovery tile is already installed';
 
     const image = document.createElement('img');
-    image.src = entry.image;
+    image.dataset.src = entry.image;
     image.alt = '';
+    image.width = 128;
+    image.height = 128;
+    image.loading = 'lazy';
+    image.decoding = 'async';
     const copy = document.createElement('span');
     copy.className = 'part-option-copy';
     const name = document.createElement('strong');
@@ -581,12 +602,21 @@ export class ShipBlueprintElement extends HTMLElement {
     return button;
   }
 
+  private loadVisiblePartImages(section: ParentNode) {
+    section
+      .querySelectorAll<HTMLImageElement>('img[data-src]')
+      .forEach((image) => {
+        if (image.closest<HTMLElement>('.part-option')?.hidden) return;
+        image.src = image.dataset.src!;
+        delete image.dataset.src;
+      });
+  }
+
   private filterParts(rawQuery: string) {
     const query = rawQuery.trim().toLowerCase();
     let totalVisible = 0;
     this.querySelectorAll<HTMLDetailsElement>('.part-bucket').forEach(
       (section) => {
-        if (query) section.open = true;
         let sectionVisible = 0;
         section
           .querySelectorAll<HTMLElement>('.part-option')
@@ -598,6 +628,14 @@ export class ShipBlueprintElement extends HTMLElement {
           });
         section.hidden = sectionVisible === 0;
         totalVisible += sectionVisible;
+        if (query && !section.open) {
+          section.dataset.searchOpened = '';
+          section.open = true;
+        } else if (!query && 'searchOpened' in section.dataset) {
+          section.open = false;
+          delete section.dataset.searchOpened;
+        }
+        if (section.open) this.loadVisiblePartImages(section);
       }
     );
     const empty = this.querySelector('.part-search-empty') as HTMLElement;
