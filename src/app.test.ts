@@ -263,6 +263,29 @@ describe('App', () => {
     expect(liveBar.hidden).toBe(false);
   });
 
+  test('uses shortened faction names in live odds', () => {
+    setFleetFaction(state.fleets[1].id, 'eridani');
+    setSimulationResults(
+      monteCarloResults({
+        victoryProbability: {
+          [state.fleets[0].id]: 0.1,
+          [state.fleets[1].id]: 0.9,
+        },
+      })
+    );
+
+    (document.querySelector('a[href="/about"]') as HTMLAnchorElement).click();
+    (document.querySelector('a[href="/"]') as HTMLAnchorElement).click();
+
+    const liveBar = document.getElementById('live-bar')!;
+    expect(liveBar.querySelector('.live-verdict')!.textContent).toBe(
+      'Eridani 90.0%'
+    );
+    expect(liveBar.getAttribute('aria-label')).toContain(
+      'Eridani 90.0 percent'
+    );
+  });
+
   test('auto-simulates three fleets with exact combat', async () => {
     const addBtn = document.getElementById(
       'add-fleet-btn'

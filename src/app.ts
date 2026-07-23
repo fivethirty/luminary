@@ -15,7 +15,12 @@ import {
 } from '@ui/state';
 import type { PlannerType, SurvivorDistributionEntry } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
-import { deriveFleetNames, fleetColor, MAX_FLEETS } from '@ui/fleet-metadata';
+import {
+  deriveFleetNames,
+  deriveShortFleetNames,
+  fleetColor,
+  MAX_FLEETS,
+} from '@ui/fleet-metadata';
 import {
   applyControlMode,
   applyThemePreference,
@@ -271,6 +276,7 @@ function renderLiveBar() {
     return;
   }
 
+  const shortFleetNames = deriveShortFleetNames(state.fleets);
   const outcomes: Array<{
     label: string;
     probability: number;
@@ -280,7 +286,7 @@ function renderLiveBar() {
   }> = state.fleets.map((fleet, index) => {
     const color = fleetColor(fleet.colorId, index);
     return {
-      label: fleet.name,
+      label: shortFleetNames[index],
       probability: results.victoryProbability[fleet.id] ?? 0,
       className: resultClassNameForFleet(index),
       color: color.color,
