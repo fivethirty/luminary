@@ -43,6 +43,11 @@ describe('ShipBlueprint', () => {
 
     expect(element.querySelectorAll('.blueprint-slot')).toHaveLength(4);
     expect(element.querySelector('.slot-number')).toBeNull();
+    const emptySlot = element.querySelector(
+      '.blueprint-slot[data-slot="2"]'
+    ) as HTMLButtonElement;
+    expect(emptySlot.textContent).toBe('');
+    expect(emptySlot.getAttribute('aria-label')).toBe('Slot 3: empty');
     expect(
       (element.querySelector('.blueprint-background') as HTMLImageElement).src
     ).toContain('blueprint_interceptor');

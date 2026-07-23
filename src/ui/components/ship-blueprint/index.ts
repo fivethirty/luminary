@@ -251,11 +251,6 @@ export class ShipBlueprintElement extends HTMLElement {
         image.loading = 'lazy';
         image.decoding = 'async';
         button.appendChild(image);
-      } else {
-        const empty = document.createElement('span');
-        empty.className = 'slot-empty';
-        empty.textContent = 'Empty';
-        button.appendChild(empty);
       }
       button.addEventListener('click', () => {
         this.selectedSlot = index;
