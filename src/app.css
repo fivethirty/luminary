@@ -1,3 +1,6 @@
+/* Canonical viewport scale: mobile 40rem, tablet 48rem, laptop 64rem,
+   and extra-large desktop 80rem. Keep media-query literals aligned with
+   ui/breakpoints.ts; custom properties cannot be used in media conditions. */
 :root {
   color-scheme: dark;
 
@@ -555,7 +558,7 @@ select {
   width: 7.5rem;
 }
 
-@media (max-width: 42rem) {
+@media (max-width: 40rem) {
   body {
     padding: var(--space-sm)
       max(var(--space-sm), env(safe-area-inset-right, 0rem)) var(--space-md)

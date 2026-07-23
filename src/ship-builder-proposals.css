@@ -2734,7 +2734,7 @@
   color: var(--color-text-secondary);
 }
 
-@media (max-width: 74rem) {
+@media (max-width: 80rem) {
   #workbench-prototype {
     display: none;
   }
@@ -2779,7 +2779,7 @@
   }
 }
 
-@media (max-width: 62rem) {
+@media (max-width: 64rem) {
   .builder-toolbar {
     grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 1.6fr);
   }
@@ -2822,7 +2822,7 @@
   }
 }
 
-@media (max-width: 52rem) {
+@media (max-width: 48rem) {
   .study-header {
     min-height: 3rem;
     padding: 0.55rem 1rem;
@@ -3106,7 +3106,7 @@
   }
 }
 
-@media (max-width: 28rem) {
+@media (max-width: 40rem) {
   .study-shell {
     padding-inline: 0.75rem;
   }

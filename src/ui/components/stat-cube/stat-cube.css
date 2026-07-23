@@ -103,7 +103,7 @@ calc-stat-cube {
   }
 }
 
-@media (max-width: 42rem) {
+@media (max-width: 40rem) {
   .stat-cube {
     min-height: 2.75rem;
     padding-top: 0.1875rem;
@@ -121,7 +121,7 @@ calc-stat-cube {
   }
 }
 
-@media (max-width: 27rem) {
+@media (max-width: 40rem) {
   body:not(.no-steppers) calc-stat-cube:not([disabled]) .stat-step {
     flex: 0 0 1.5rem;
     width: 1.5rem;
@@ -205,7 +205,7 @@ calc-stat-cube[disabled] .stat-step {
   margin: auto 0;
 }
 
-@media (min-width: 74rem) {
+@media (width > 80rem) {
   .stat-cube input {
     padding: 0;
   }

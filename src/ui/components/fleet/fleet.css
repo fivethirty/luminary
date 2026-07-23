@@ -258,7 +258,7 @@ calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
   flex-direction: column;
 }
 
-@media (min-width: 60.0625rem) {
+@media (width > 64rem) {
   .fleet-ships:has(> .ship-blueprint-card) > .ship-blueprint-card {
     flex-basis: calc(25% - var(--space-sm));
   }
@@ -266,7 +266,7 @@ calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
 
 /* Stats-only ships share the narrower blueprint-card columns in Ship tiles
    mode. Keep each stat group full-width so its cubes stay inside the card. */
-@media (min-width: 52.0625rem) {
+@media (width > 48rem) {
   calc-ship-type.ship-blueprint-card .ship-type .stats {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: none;
@@ -455,7 +455,7 @@ calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
 /* Ship headers switch to the compact inline inset at tablet width. Keep the
    containing fleet header on that same column instead of waiting for the
    narrower phone layout below. */
-@media (max-width: 52rem) {
+@media (max-width: 48rem) {
   .fleet.card > .fleet-header {
     padding-inline: var(--space-sm);
   }
@@ -463,7 +463,7 @@ calc-ship-type.ship-blueprint-card .stats-blueprint-offer {
 
 /* On phones the row can't hold both controls plus the planner select, so stack
    them and let the select take the full width. */
-@media (max-width: 42rem) {
+@media (max-width: 40rem) {
   .fleet.card {
     margin-bottom: calc(var(--space-sm) * 1.5);
   }

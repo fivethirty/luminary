@@ -124,7 +124,7 @@ calc-ship-type.summary-only .ship-type .stats {
   text-transform: uppercase;
 }
 
-@media (max-width: 52rem) {
+@media (max-width: 48rem) {
   .ship-type .stats {
     grid-template-columns: 1fr;
     gap: var(--space-sm);
@@ -149,7 +149,7 @@ calc-ship-type.summary-only .ship-type .stats {
   }
 }
 
-@media (max-width: 42rem) {
+@media (max-width: 40rem) {
   .ship-type .stats {
     gap: var(--space-xs);
   }
@@ -171,7 +171,7 @@ calc-ship-type.summary-only .ship-type .stats {
 /* Five cubes fit at 360px, but the Stepper layout uses wider controls. Use
    balanced 3 + 2 rows for Systems/Cannons and four columns for Missiles on
    narrow phones. Read-only NPC layouts still match the selected view. */
-@media (max-width: 27rem) {
+@media (max-width: 40rem) {
   body:not(.no-steppers) :is(.stat-group-core, .stat-group-weapons) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -181,7 +181,7 @@ calc-ship-type.summary-only .ship-type .stats {
   }
 }
 
-@media (min-width: 52.0625rem) {
+@media (width > 48rem) {
   .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
   }
@@ -217,7 +217,7 @@ calc-ship-type.summary-only .ship-type .stats {
 /* Wide screens have enough room for all fourteen stats without splitting the
    ship editor into two rows. Explicit zero minimums let the groups share the
    available width instead of inheriting the narrower-layout cube minimum. */
-@media (min-width: 74rem) {
+@media (width > 80rem) {
   body:not(.no-steppers) .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
     grid-template-areas: none;
@@ -247,7 +247,7 @@ body.no-steppers .stat-group {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-@media (min-width: 52.0625rem) {
+@media (width > 48rem) {
   body.no-steppers .ship-type .stats {
     grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(0, 4fr);
     gap: var(--space-sm);

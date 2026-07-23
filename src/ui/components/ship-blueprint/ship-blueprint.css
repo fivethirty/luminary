@@ -521,7 +521,7 @@ calc-ship-blueprint {
   text-align: center;
 }
 
-@media (max-width: 46rem) {
+@media (max-width: 48rem) {
   .part-dialog {
     width: 100vw;
     height: 100dvh;
@@ -536,7 +536,7 @@ calc-ship-blueprint {
   }
 }
 
-@media (max-width: 28rem) {
+@media (max-width: 40rem) {
   .part-dialog-header,
   .part-search-label,
   .part-dialog-actions,
