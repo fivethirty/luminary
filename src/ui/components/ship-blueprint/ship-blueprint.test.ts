@@ -197,10 +197,10 @@ describe('ShipBlueprint', () => {
       /\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex:\s*0 1 calc\(50% - var\(--space-sm\)\)/
     );
     expect(fleetStyles).toMatch(
-      /@media \(min-width: 60\.0625rem\)[\s\S]*\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex-basis:\s*calc\(25% - var\(--space-sm\)\)/
+      /@media \(width > 64rem\)[\s\S]*\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex-basis:\s*calc\(25% - var\(--space-sm\)\)/
     );
     expect(fleetStyles).toMatch(
-      /@media \(max-width: 42rem\)[\s\S]*\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex-basis:\s*100%/
+      /@media \(max-width: 40rem\)[\s\S]*\.fleet-ships:has\(> \.ship-blueprint-card\)\s*>\s*\.ship-blueprint-card\s*{[^}]*flex-basis:\s*100%/
     );
     expect(blueprintStyles).toMatch(
       /\.blueprint-header\s*{[^}]*display:\s*flex[^}]*justify-content:\s*flex-end/
@@ -222,10 +222,10 @@ describe('ShipBlueprint', () => {
       /calc-ship-type\.ship-blueprint-card\s+\.stats-blueprint-offer\s*{[^}]*align-items:\s*stretch[^}]*flex-direction:\s*column/
     );
     expect(fleetStyles).toMatch(
-      /@media \(min-width: 52\.0625rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stats\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*grid-template-areas:\s*none/
+      /@media \(width > 48rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stats\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*grid-template-areas:\s*none/
     );
     expect(fleetStyles).toMatch(
-      /@media \(min-width: 52\.0625rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stat-group\s*{[^}]*grid-area:\s*auto[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/
+      /@media \(width > 48rem\)[\s\S]*calc-ship-type\.ship-blueprint-card\s+\.ship-type\s+\.stat-group\s*{[^}]*grid-area:\s*auto[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/
     );
   });
 
@@ -540,7 +540,7 @@ describe('ShipBlueprint', () => {
       /\.part-buckets\s*{[^}]*padding:\s*var\(--space-md\)/
     );
     expect(blueprintStyles).toMatch(
-      /@media \(max-width: 28rem\)\s*{[\s\S]*\.part-dialog-header,\s*\.part-search-label,\s*\.part-dialog-actions,\s*\.part-buckets\s*{[^}]*padding-inline:\s*var\(--space-sm\)/
+      /@media \(max-width: 40rem\)\s*{[\s\S]*\.part-dialog-header,\s*\.part-search-label,\s*\.part-dialog-actions,\s*\.part-buckets\s*{[^}]*padding-inline:\s*var\(--space-sm\)/
     );
   });
 

@@ -13,9 +13,9 @@ export type Matchup = {
   noHeal: boolean;
 };
 
-export function buildShips(groups: ShipGroup[]): Ship[] {
+export function buildShips(groups: ShipGroup[], rollD6?: () => number): Ship[] {
   return groups.flatMap(({ type, config = {}, count = 1 }) =>
-    Array.from({ length: count }, () => new Ship(type, config))
+    Array.from({ length: count }, () => new Ship(type, config, rollD6))
   );
 }
 

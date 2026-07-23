@@ -21,6 +21,7 @@ import {
   type ShipKind,
   type ShipPart,
 } from '@ui/ship-builder-proposals/model';
+import { viewportMaxWidthQuery } from '@ui/breakpoints';
 
 type ProposalKey = 'slot' | 'palette' | 'workbench';
 type TierFilter = 'all' | PartTier;
@@ -1338,7 +1339,7 @@ slotContainer.addEventListener('click', (event) => {
     if (
       moveOrPlacePart('slot', slotUi.ship, slotUi.target, element.dataset.part)
     ) {
-      if (window.matchMedia('(max-width: 52rem)').matches) {
+      if (window.matchMedia(viewportMaxWidthQuery('tablet')).matches) {
         slotUi.pickerOpen = false;
       }
       renderSlotFirst();
