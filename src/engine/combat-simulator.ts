@@ -1,4 +1,3 @@
-import { BattleOutcome } from './battle';
 import { Fleet } from './fleet';
 import { ShipType } from './ship';
 import { MultiBattle } from './multi-battle';
@@ -6,13 +5,6 @@ import type {
   CombatOutcomeSummary,
   DestroyedShipsCreditedToFleet,
 } from './combat-result';
-
-export interface SimulationStatistics {
-  totalBattles: number;
-  outcomeDistribution: Record<BattleOutcome, number>;
-  averageSurvivors: number;
-  winRateByFleetName: Record<string, number>;
-}
 
 export type CombatSimulationResult = CombatOutcomeSummary & {
   iterations: number;

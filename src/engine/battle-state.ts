@@ -17,7 +17,7 @@ export type { Terminal } from './battle-rules';
 // A slot in the fixed battle schedule (fact 1): missile slots first (initiative
 // descending, defender before attacker on ties), then cannon slots in the same
 // order. Missile slots are consumed once; cannon slots repeat cyclically.
-export type Slot = { role: Role; initiative: number; missile: boolean };
+type Slot = { role: Role; initiative: number; missile: boolean };
 
 // HP aligned to each fleet's original roster order (0 = dead) plus the schedule
 // position. Roster order is preserved so heuristic materialization matches the
@@ -35,7 +35,7 @@ export type Successor =
   | { terminal: Terminal; hpA: number[]; hpB: number[] }
   | { state: WorkingState };
 
-export type Expansion =
+type Expansion =
   | { kind: 'terminal'; outcome: Terminal }
   | { kind: 'move'; decisionRole: Role | null; edges: MoveEdge[] }
   | { kind: 'fail'; reason: 'expand cap exceeded' | 'time budget exceeded' };
@@ -43,7 +43,7 @@ export type Expansion =
 // One dice outcome. For a heuristic slot `options` has length 1 (deterministic
 // assignment); for an optimal-mode player slot it holds the candidate
 // successors that slot's owner chooses among.
-export type MoveEdge = { prob: number; options: Successor[] };
+type MoveEdge = { prob: number; options: Successor[] };
 
 export type ExpandContext = {
   decisionRoles: readonly Role[];

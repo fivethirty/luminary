@@ -5,7 +5,7 @@ export const VIEWPORT_BREAKPOINTS = {
   extraLargeDesktop: '80rem',
 } as const;
 
-export type ViewportBreakpoint = keyof typeof VIEWPORT_BREAKPOINTS;
+type ViewportBreakpoint = keyof typeof VIEWPORT_BREAKPOINTS;
 
 export function viewportMaxWidthQuery(breakpoint: ViewportBreakpoint): string {
   return `(max-width: ${VIEWPORT_BREAKPOINTS[breakpoint]})`;

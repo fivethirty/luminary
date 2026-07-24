@@ -2,7 +2,7 @@ import { ShipType } from '@calc/ship';
 import type { FactionId } from '@ui/fleet-metadata';
 import type { FleetState, SurvivorDistributionEntry } from '@ui/state';
 
-export const STANDARD_SHIP_RESOURCE_COSTS: Readonly<
+const STANDARD_SHIP_RESOURCE_COSTS: Readonly<
   Partial<Record<ShipType, number>>
 > = {
   [ShipType.Interceptor]: 3,
@@ -45,13 +45,13 @@ export const SHIP_REPUTATION_VALUES: Readonly<Record<ShipType, number>> = {
   [ShipType.GCDS]: 3,
 };
 
-export type ShipResourceCosts = Readonly<Partial<Record<ShipType, number>>>;
+type ShipResourceCosts = Readonly<Partial<Record<ShipType, number>>>;
 
-export type FactionShipResourceCostOverrides = Readonly<
+type FactionShipResourceCostOverrides = Readonly<
   Partial<Record<FactionId, ShipResourceCosts>>
 >;
 
-export interface MaterialLossOptions {
+interface MaterialLossOptions {
   /**
    * Overrides only the listed hulls for a faction. Other hulls retain their
    * standard costs, and the override never changes which hulls are legal.
@@ -59,7 +59,7 @@ export interface MaterialLossOptions {
   factionCostOverrides?: FactionShipResourceCostOverrides;
 }
 
-export interface MaterialLossDistributionEntry {
+interface MaterialLossDistributionEntry {
   resourcesLost: number;
   probability: number;
 }
@@ -144,16 +144,13 @@ export function calculateMaterialLosses(
   return summaries;
 }
 
-export type ReputationDrawCount = 0 | 1 | 2 | 3 | 4 | 5;
+type ReputationDrawCount = 0 | 1 | 2 | 3 | 4 | 5;
 type PositiveReputationDrawCount = Exclude<ReputationDrawCount, 0>;
 
-export type ReputationDrawProbabilities = Record<
-  PositiveReputationDrawCount,
-  number
-> &
+type ReputationDrawProbabilities = Record<PositiveReputationDrawCount, number> &
   Partial<Record<0, number>>;
 
-export interface FleetReputationDrawSummary {
+interface FleetReputationDrawSummary {
   probabilityByDrawCount: ReputationDrawProbabilities;
   expectedDraws: number;
 }

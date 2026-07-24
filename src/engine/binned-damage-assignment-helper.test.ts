@@ -8,7 +8,7 @@ class CountingDamagePlanner extends AbstractDamagePlanner {
   evaluations = 0;
 
   evaluate(
-    ships: Ship[],
+    _ships: Ship[],
     remainingHp: number[],
     damageAssignments: number[]
   ): Plan {

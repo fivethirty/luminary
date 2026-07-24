@@ -9,7 +9,7 @@ export type ShipCountByType = Partial<Record<ShipType, number>>;
  */
 export type DestroyedShipsCreditedToFleet = Record<string, ShipCountByType>;
 
-export type CombatSurvivorDistributionEntry = {
+type CombatSurvivorDistributionEntry = {
   probability: number;
   /** Fleet that retained the sector; null means no fleet remained. */
   lastFleetStanding?: string | null;

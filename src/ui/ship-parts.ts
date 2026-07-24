@@ -46,8 +46,8 @@ import tachyonSourceImage from '../assets/ship-parts/tachyon_source.webp';
 import transitionDriveImage from '../assets/ship-parts/transition_drive.webp';
 import zeroPointSourceImage from '../assets/ship-parts/zero_point_source.webp';
 
-export type PartTier = 'standard' | 'technology' | 'discovery' | 'chassis';
-export type DieColor = 'yellow' | 'orange' | 'blue' | 'red' | 'pink';
+type PartTier = 'standard' | 'technology' | 'discovery' | 'chassis';
+type DieColor = 'yellow' | 'orange' | 'blue' | 'red' | 'pink';
 
 export interface ShipPart {
   id: string;
@@ -260,7 +260,7 @@ export const SHIP_PARTS: readonly ShipPart[] = [
 ];
 
 export const PART_BY_ID = new Map(SHIP_PARTS.map((entry) => [entry.id, entry]));
-export type ShipPartId = string;
+type ShipPartId = string;
 
 export type BlueprintShipType =
   | typeof ShipType.Interceptor
@@ -286,7 +286,7 @@ export interface ShipBlueprint {
   muonSource: boolean;
 }
 
-export interface SlotPosition {
+interface SlotPosition {
   left: number;
   top: number;
   width: number;
@@ -295,7 +295,7 @@ export interface SlotPosition {
   column: number;
 }
 
-export interface BlueprintLayout {
+interface BlueprintLayout {
   slots: number;
   aspectRatio: number;
   positions: readonly SlotPosition[];
@@ -476,7 +476,7 @@ export function normalizeShipBlueprint(
   return { slots, muonSource: candidate.muonSource === true };
 }
 
-export interface ChassisStats {
+interface ChassisStats {
   initiative: number;
   energy: number;
   computers: number;
@@ -484,7 +484,7 @@ export interface ChassisStats {
   hull: number;
 }
 
-export function chassisStats(
+function chassisStats(
   type: BlueprintShipType,
   factionId: FactionId | undefined = ''
 ): ChassisStats {
@@ -555,7 +555,7 @@ function weaponForColor(color: Exclude<DieColor, 'pink'>): WeaponType {
         : 'antimatter';
 }
 
-export interface BlueprintReadout {
+interface BlueprintReadout {
   config: Required<ShipConfig>;
   energySource: number;
   energyUse: number;
@@ -640,7 +640,7 @@ type PartBucketId =
   | 'cannon'
   | 'missile';
 
-export interface PartBucket {
+interface PartBucket {
   id: PartBucketId;
   label: string;
   parts: readonly ShipPart[];
@@ -798,22 +798,6 @@ export function partBuckets(type: BlueprintShipType): PartBucket[] {
 
 export function isDiscoveryPart(partId: string): boolean {
   return PART_BY_ID.get(partId)?.tier === 'discovery';
-}
-
-export function describePart(entry: ShipPart): string {
-  const stats: string[] = [];
-  if (entry.energySource) stats.push(`+${entry.energySource} energy`);
-  if (entry.energyUse) stats.push(`−${entry.energyUse} energy`);
-  if (entry.movement) stats.push(`move ${entry.movement}`);
-  if (entry.initiative) stats.push(`+${entry.initiative} init`);
-  if (entry.computer) stats.push(`+${entry.computer} comp`);
-  if (entry.shield) stats.push(`−${entry.shield} shield`);
-  if (entry.hull) stats.push(`+${entry.hull} hull`);
-  if (entry.repair) stats.push(`+${entry.repair} repair`);
-  if (entry.cannons?.length) stats.push(`${entry.cannons.length} cannon die`);
-  if (entry.missiles?.length)
-    stats.push(`${entry.missiles.length} missile die`);
-  return stats.join(' · ');
 }
 
 export function externalBonusLabels(

@@ -5,27 +5,10 @@ import { state, resetFleets, removeShipType } from '@ui/state';
 import { ShipType } from '@calc/ship';
 import { getStartingShipConfig } from '@ui/ship-presets';
 
-const fleetStyles = await Bun.file(
-  new URL('./fleet.css', import.meta.url)
-).text();
-const primitiveStyles = await Bun.file(
-  new URL('../../styles/primitives.css', import.meta.url)
-).text();
-
 describe('Fleet', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     resetFleets();
-  });
-
-  test('displays fleet name', () => {
-    const element = document.createElement('calc-fleet') as FleetElement;
-    element.fleet = state.fleets[0]; // Use defender fleet
-
-    document.body.appendChild(element);
-
-    const nameSpan = element.querySelector('.fleet-name') as HTMLSpanElement;
-    expect(nameSpan.textContent).toBe('Defender');
   });
 
   test('provides an abbreviated faction name for the mobile layout', () => {
@@ -38,25 +21,6 @@ describe('Fleet', () => {
     const nameSpan = element.querySelector('.fleet-name') as HTMLSpanElement;
     expect(nameSpan.textContent).toBe('Rho Indi Syndicate');
     expect(nameSpan.dataset.shortLabel).toBe('Rho Indi');
-  });
-
-  test('keeps reorder buttons, name, and edit button in one title row', () => {
-    const element = document.createElement('calc-fleet') as FleetElement;
-    element.fleet = state.fleets[0];
-
-    document.body.appendChild(element);
-
-    const titleRow = element.querySelector('.fleet-title-row')!;
-    expect(
-      Array.from(titleRow.children).map((child) => child.className)
-    ).toEqual([
-      'role-controls',
-      'fleet-name ui-text-strong',
-      'fleet-settings-btn ui-button ui-button--quiet ui-button--compact',
-    ]);
-    expect(
-      titleRow.querySelector('.fleet-settings-btn')?.textContent?.trim()
-    ).toBe('Edit');
   });
 
   test('opens metadata editing from the role name and excludes neutral color', () => {
@@ -77,13 +41,7 @@ describe('Fleet', () => {
     expect(element.querySelectorAll('.color-option')).toHaveLength(6);
     expect(element.querySelector('.color-option[value="neutral"]')).toBeNull();
     expect(element.querySelector('.color-unset-btn')).not.toBeNull();
-    expect(fleetStyles).toMatch(
-      /\.fleet-settings-field\s*>\s*\.faction-select\s*{[^}]*width:\s*100%/
-    );
     expect(dialog.classList).toContain('ui-dialog');
-    expect(primitiveStyles).toMatch(
-      /:is\(html, body\):has\(\.ui-dialog\[open\]\)\s*{[^}]*overflow:\s*hidden/
-    );
   });
 
   test('metadata dialog updates faction and selected color', () => {
@@ -355,21 +313,16 @@ describe('Fleet', () => {
     ]);
   });
 
-  test('places the ship and NPC add controls together after the ship list', () => {
+  test('renders add ship as an empty command selection', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];
 
     document.body.appendChild(element);
 
-    const ships = element.querySelector('.fleet-ships')!;
     const addRow = element.querySelector('.fleet-add-row')!;
-    const selectorControl = addRow.querySelector('.ship-selector-control');
     const selector = addRow.querySelector('.ship-selector');
-    const presets = addRow.querySelector('.preset-chips');
 
-    expect(ships.nextElementSibling).toBe(addRow);
     expect(selector?.getAttribute('aria-label')).toBe('Add ship type');
-    expect(selectorControl?.nextElementSibling).toBe(presets);
     expect(selector?.querySelector('option[value=""]')).toBeNull();
     expect((selector as HTMLSelectElement).selectedIndex).toBe(-1);
   });

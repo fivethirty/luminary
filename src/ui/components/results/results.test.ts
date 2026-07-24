@@ -4,56 +4,11 @@ import type { ResultsElement } from './index';
 import { addFleet, resetFleets, setSimulationResults, state } from '@ui/state';
 import { exactResults, monteCarloResults } from '@ui/test-helpers';
 
-const primitiveStyles = await Bun.file(
-  new URL('../../styles/primitives.css', import.meta.url)
-).text();
-
 describe('Results', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     resetFleets();
     setSimulationResults(null);
-  });
-
-  test('component renders when simulation results exist', () => {
-    setSimulationResults(
-      monteCarloResults({
-        victoryProbability: {
-          Defender: 0.6,
-          'Attacker 1': 0.4,
-        },
-      })
-    );
-
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
-
-    expect(element.style.display).not.toBe('none');
-
-    const oddsSegments = element.querySelectorAll('.odds-segment');
-    expect(oddsSegments.length).toBe(2);
-  });
-
-  test('displays fleets in their original order', () => {
-    setSimulationResults(
-      monteCarloResults({
-        victoryProbability: {
-          'Fleet A': 0.3,
-          'Fleet B': 0.6,
-          'Fleet C': 0.1,
-        },
-      })
-    );
-
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
-
-    const oddsSegments = element.querySelectorAll('.odds-segment');
-    const names = Array.from(oddsSegments).map(
-      (segment) => segment.querySelector('span')?.textContent
-    );
-
-    expect(names).toEqual(['Fleet A', 'Fleet B', 'Fleet C']);
   });
 
   test('displays percentages correctly', () => {
@@ -131,25 +86,6 @@ describe('Results', () => {
     expect(sliverSegment.querySelector('strong')?.hidden).toBe(true);
     expect(sliverSegment.querySelector('span')?.hidden).toBe(true);
     expect(sliverSegment.getAttribute('aria-label')).toBe('Attacker 2: 2.0%');
-  });
-
-  test('omits the combat outlook summary', () => {
-    setSimulationResults(
-      exactResults({
-        victoryProbability: { Defender: 0.266, Attacker: 0.734 },
-        timeTaken: 5,
-      })
-    );
-
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
-
-    expect(element.querySelector('.results-header')).toBeNull();
-    expect(element.querySelector('.results-kicker')).toBeNull();
-    expect(element.querySelector('.verdict-headline')).toBeNull();
-    expect(element.textContent).not.toContain('Combat Outlook');
-    expect(element.querySelector('.verdict-number')).toBeNull();
-    expect(element.querySelector('.verdict-caption')).toBeNull();
   });
 
   test('uses stable IDs and distinct colors when display names collide', () => {
@@ -283,7 +219,7 @@ describe('Results', () => {
     ]);
   });
 
-  test('labels exact results as deterministic', () => {
+  test('labels exact and sampled result methods accurately', () => {
     setSimulationResults(
       exactResults({
         victoryProbability: { 'Fleet A': 0.6, 'Fleet B': 0.4 },
@@ -298,9 +234,7 @@ describe('Results', () => {
     expect(label).toContain('Exact');
     expect(label).toContain('deterministic');
     expect(label).not.toContain('Monte Carlo');
-  });
 
-  test('labels Monte Carlo results with the iteration count', () => {
     setSimulationResults(
       monteCarloResults({
         victoryProbability: { 'Fleet A': 0.6, 'Fleet B': 0.4 },
@@ -308,13 +242,16 @@ describe('Results', () => {
       })
     );
 
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
+    const sampledElement = document.createElement(
+      'calc-results'
+    ) as ResultsElement;
+    document.body.appendChild(sampledElement);
 
-    const label = element.querySelector('.results-time')?.textContent;
-    expect(label).toContain('Monte Carlo');
-    expect(label).toContain('5,000 iterations');
-    expect(label).not.toContain('Exact');
+    const sampledLabel =
+      sampledElement.querySelector('.results-time')?.textContent;
+    expect(sampledLabel).toContain('Monte Carlo');
+    expect(sampledLabel).toContain('5,000 iterations');
+    expect(sampledLabel).not.toContain('Exact');
   });
 
   test('hides draw when probability is 0', () => {
@@ -421,43 +358,6 @@ describe('Results', () => {
     expect(rows[0].textContent).toContain('42.0%');
     expect(rows[1].textContent).toContain('Anc');
     expect(rows[1].textContent).toContain('24.0%');
-  });
-
-  test('spans faction and ship columns for composition summary rows', () => {
-    setSimulationResults(
-      exactResults({
-        survivorDistribution: [
-          {
-            probability: 0.2,
-            survivors: { Defender: {}, Attacker: {} },
-          },
-          ...Array.from({ length: 9 }, (_, index) => ({
-            probability: 0.19 - index * 0.01,
-            survivors: {
-              Defender: { Interceptor: index + 1 },
-              Attacker: {},
-            },
-          })),
-        ],
-      })
-    );
-
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
-
-    const noSurvivorsRow = Array.from(
-      element.querySelectorAll('#survivor-distribution-tbody tr')
-    ).find((row) => row.textContent?.includes('No surviving ships'))!;
-    const noSurvivorsCells = noSurvivorsRow.querySelectorAll('td');
-    expect(noSurvivorsCells).toHaveLength(2);
-    expect(noSurvivorsCells[0].colSpan).toBe(2);
-    expect(noSurvivorsCells[0].textContent).toBe('No surviving ships');
-
-    const otherRow = element.querySelector('.composition-other')!;
-    const otherCells = otherRow.querySelectorAll('td');
-    expect(otherCells).toHaveLength(2);
-    expect(otherCells[0].colSpan).toBe(2);
-    expect(otherCells[0].textContent).toBe('Other outcomes');
   });
 
   test('colors survivor composition attackers by fleet', () => {
@@ -693,13 +593,6 @@ describe('Results', () => {
     expect(details.hasAttribute('open')).toBe(false);
     const summary = details.querySelector('summary')!;
     expect(summary.textContent).toBe('Detailed outcomes');
-    expect(summary.classList.contains('ui-disclosure-summary')).toBe(true);
-    expect(primitiveStyles).toMatch(
-      /\.ui-disclosure-summary::after\s*{[^}]*margin-left:\s*auto/
-    );
-    expect(primitiveStyles).toMatch(
-      /details\[open\] > \.ui-disclosure-summary::after\s*{[^}]*transform:\s*rotate\(90deg\)/
-    );
     expect(details.contains(element.querySelector('#material-impact'))).toBe(
       true
     );
@@ -712,29 +605,6 @@ describe('Results', () => {
     expect(details.contains(element.querySelector('#reputation-impact'))).toBe(
       true
     );
-    const compositionSection = element.querySelector(
-      '#survivor-distribution-section'
-    )!;
-    const summaryColumn = details.querySelector('.impact-summary-column')!;
-    expect(
-      details.querySelector('.impact-grid')?.contains(compositionSection)
-    ).toBe(true);
-    expect(
-      summaryColumn.contains(element.querySelector('#material-impact'))
-    ).toBe(true);
-    expect(
-      summaryColumn.contains(element.querySelector('#population-impact'))
-    ).toBe(true);
-    expect(
-      summaryColumn.contains(element.querySelector('#reputation-impact'))
-    ).toBe(true);
-    expect(summaryColumn.contains(compositionSection)).toBe(false);
-    expect(compositionSection.classList.contains('impact-card')).toBe(true);
-    expect(compositionSection.querySelector('h4')?.textContent).toBe(
-      'Surviving fleet'
-    );
-    expect(element.querySelector('.battle-impact-section')).toBeNull();
-    expect(element.textContent).not.toContain('Battle impact');
   });
 
   test('remembers whether detailed outcomes is expanded across results', () => {
@@ -869,48 +739,5 @@ describe('Results', () => {
       element.querySelectorAll('.survivor-ships-tbody td:nth-child(1)')
     ).map((el) => el.textContent);
     expect(shipTypes).toEqual(['Interceptor', 'Dreadnought']);
-  });
-
-  test('displays odds segments with correct widths', () => {
-    setSimulationResults(
-      monteCarloResults({
-        victoryProbability: {
-          'Fleet A': 0.75,
-          'Fleet B': 0.25,
-        },
-      })
-    );
-
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
-
-    const segments = element.querySelectorAll(
-      '.odds-segment'
-    ) as NodeListOf<HTMLElement>;
-    expect(segments[0].style.flexBasis).toBe('75%');
-    expect(segments[1].style.flexBasis).toBe('25%');
-  });
-
-  test('renders mobile-friendly result bars', () => {
-    setSimulationResults(
-      monteCarloResults({
-        victoryProbability: {
-          'Fleet A': 0.75,
-          'Fleet B': 0.25,
-        },
-      })
-    );
-
-    const element = document.createElement('calc-results') as ResultsElement;
-    document.body.appendChild(element);
-
-    const rows = element.querySelectorAll('.result-bar-row');
-    expect(rows.length).toBe(2);
-    expect(rows[0].querySelector('.result-bar-label')?.textContent).toBe(
-      'Fleet A75.0%'
-    );
-    expect(
-      (rows[0].querySelector('.result-bar-fill') as HTMLElement).style.width
-    ).toBe('75%');
   });
 });

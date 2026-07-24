@@ -19,7 +19,7 @@ export type PopulationBombardmentResult = {
   byAttacker: Record<string, PopulationDamageBucket[]>;
 };
 
-export type PopulationBombardmentOptions = {
+type PopulationBombardmentOptions = {
   /**
    * Stable ID of the sector defender. Defaults to the first engine fleet, but
    * may name an omitted empty fleet when the caller filters engine inputs.

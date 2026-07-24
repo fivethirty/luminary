@@ -41,7 +41,7 @@ const SHIP_TILE_IMAGES: Partial<Record<ShipDropdownOption, string>> = {
   'gcds-wa': worldsAfarGcdsTileImage,
 };
 
-export type StatsLayout = 'steppers' | 'compact' | 'card';
+type StatsLayout = 'steppers' | 'compact' | 'card';
 
 export class ShipTypeElement extends HTMLElement {
   shipType!: ShipTypeConfig;
