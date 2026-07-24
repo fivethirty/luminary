@@ -1,12 +1,12 @@
 import { Ship, ShipConfig, ShipType } from '../src/engine/ship';
 
-export type ShipGroup = {
+type ShipGroup = {
   type: ShipType;
   config?: ShipConfig;
   count?: number;
 };
 
-export type Matchup = {
+type Matchup = {
   name: string;
   player: ShipGroup[];
   enemy: ShipGroup[];

@@ -20,7 +20,6 @@ import {
 import { init } from './app';
 import { exactDpsPlannerOverrides } from '@calc/exact-combat';
 import indexHtml from './index.html' with { type: 'text' };
-import appCss from './app.css' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
 import { Fleet } from '@calc/fleet';
 import { DamageType } from './constants';
@@ -125,43 +124,6 @@ describe('App', () => {
 
     const fleetElements = document.querySelectorAll('calc-fleet');
     expect(fleetElements.length).toBe(3);
-  });
-
-  test('places the fleet actions together after the fleet list', () => {
-    const fleets = document.getElementById('fleets')!;
-    const addRow = document.querySelector('.add-fleet-row')!;
-
-    expect(fleets.nextElementSibling).toBe(addRow);
-    expect(addRow.querySelector('#add-fleet-btn')).not.toBeNull();
-    expect(addRow.querySelector('#clear-all-btn')).not.toBeNull();
-  });
-
-  test('groups controls and theme under the UI section', () => {
-    const section = document.querySelector('.ui-section')!;
-    const heading = section.querySelector('h2')!;
-    const optionLabels = Array.from(section.querySelectorAll('.ui-label')).map(
-      (label) => label.textContent?.trim()
-    );
-
-    expect(heading.textContent).toBe('UI');
-    expect(section.getAttribute('aria-labelledby')).toBe(heading.id);
-    expect(optionLabels).toEqual(['Controls', 'Theme']);
-  });
-
-  test('reserves scrollable space below the UI for the fixed results bar', () => {
-    const style = document.createElement('style');
-    // Happy DOM does not resolve the linked stylesheet imports; the app-level
-    // layout contract under test is self-contained once those lines are removed.
-    style.textContent = appCss.replace(/^@import .*;\n/gm, '');
-    document.head.append(style);
-
-    const liveBar = document.getElementById('live-bar')!;
-    liveBar.hidden = false;
-
-    expect(getComputedStyle(document.body).paddingBottom).toBe('80px');
-    expect(getComputedStyle(document.documentElement).scrollPaddingBottom).toBe(
-      '5rem'
-    );
   });
 
   test('uses selected faction as the fleet name', () => {

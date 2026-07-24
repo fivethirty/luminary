@@ -19,13 +19,13 @@ export type BattleContext = { attacker: Fleet; defender: Fleet };
 // Interactive budget: cap the one-time solve so a large fleet falls back to the
 // heuristic quickly instead of freezing. The solve is per-matchup and cached,
 // so this bounds the worst-case stall, not steady-state cost.
-export const DEFAULT_PLANNER_SOLVE_CAPS: SolverCaps = {
+const DEFAULT_PLANNER_SOLVE_CAPS: SolverCaps = {
   ...DEFAULT_CAPS,
   maxMillis: 2_000,
   maxStates: 250_000,
 };
 
-export type FallbackAssign = (
+type FallbackAssign = (
   shots: Shot[],
   ships: Ship[],
   upcomingPhases: Phase[]

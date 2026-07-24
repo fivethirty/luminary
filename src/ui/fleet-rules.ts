@@ -11,7 +11,7 @@ import {
   SHIP_QUANTITY_LIMITS,
 } from '@ui/ship-presets';
 
-export interface FleetShip {
+interface FleetShip {
   type: ShipTypeValue;
 }
 

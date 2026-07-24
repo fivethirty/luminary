@@ -63,7 +63,6 @@
   --font-size-2xl: 1.375rem;
 
   --font-weight-normal: 400;
-  --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
@@ -74,12 +73,9 @@
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
-  --radius-lg: 0.625rem;
   --radius-full: 9999px;
 
   --transition-fast: 150ms ease;
-  --transition-base: 300ms ease;
-  --transition-slow: 500ms ease;
 
   --control-height-compact: 2rem;
   --control-height: 2.25rem;

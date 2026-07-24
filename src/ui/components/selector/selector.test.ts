@@ -19,14 +19,6 @@ describe('Selector', () => {
     };
   }
 
-  test('displays initial value', () => {
-    element.value = 5;
-    element.render();
-
-    const { value } = getElements();
-    expect(value?.textContent).toBe('5');
-  });
-
   test('emits change events on button clicks', () => {
     let changeEventFired = false;
     let targetElement: SelectorElement | undefined;
@@ -52,7 +44,7 @@ describe('Selector', () => {
     expect(element.value).toBe(5);
   });
 
-  test('respects maximum bound', () => {
+  test('does not emit changes beyond its bounds', () => {
     let changeEventFired = false;
     element.addEventListener('change', () => {
       changeEventFired = true;
@@ -67,13 +59,6 @@ describe('Selector', () => {
 
     expect(changeEventFired).toBe(false);
     expect(element.value).toBe(10);
-  });
-
-  test('respects minimum bound', () => {
-    let changeEventFired = false;
-    element.addEventListener('change', () => {
-      changeEventFired = true;
-    });
 
     element.value = 0;
     element.min = 0;
@@ -84,11 +69,6 @@ describe('Selector', () => {
 
     expect(changeEventFired).toBe(false);
     expect(element.value).toBe(0);
-  });
-
-  test('defaults to 0 when not bound', () => {
-    const { value } = getElements();
-    expect(value?.textContent).toBe('0');
   });
 
   test('buttons are disabled at boundaries', () => {

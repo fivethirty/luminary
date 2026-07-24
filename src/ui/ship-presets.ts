@@ -21,7 +21,7 @@ export type ShipDropdownOption =
   | 'gcds-adv'
   | 'gcds-wa';
 
-export interface ShipVariantData {
+interface ShipVariantData {
   type: ShipType;
   config: Required<ShipConfig>;
 }
@@ -219,9 +219,7 @@ const GENERIC_STARTING_PLAYER_CONFIGS: Partial<
   },
 };
 
-export const SHIP_PRESET_KEYS = Object.keys(
-  SHIP_PRESETS
-) as ShipDropdownOption[];
+const SHIP_PRESET_KEYS = Object.keys(SHIP_PRESETS) as ShipDropdownOption[];
 
 export function isShipPresetKey(key: string): key is ShipDropdownOption {
   return key in SHIP_PRESETS;

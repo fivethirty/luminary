@@ -73,7 +73,7 @@ export interface FleetState {
   plannerType: PlannerType;
 }
 
-export interface CachedShipTypeConfig {
+interface CachedShipTypeConfig {
   quantity: number;
   config: Partial<ShipConfig>;
   blueprint?: ShipBlueprint;
@@ -90,9 +90,7 @@ export interface SurvivorDistributionEntry {
   >;
 }
 
-export type SimulationMethod = 'exact' | 'monte-carlo';
-
-export const DEFAULT_SECTOR_POPULATION = 2;
+const DEFAULT_SECTOR_POPULATION = 2;
 
 interface BaseSimulationResults {
   // All fleet-keyed result maps use FleetState.id. Names are presentation and
@@ -127,7 +125,7 @@ export type SimulationResults =
   | ExactSimulationResults
   | MonteCarloSimulationResults;
 
-export interface State {
+interface State {
   fleets: FleetState[];
   simulationResults: SimulationResults | null;
   sectorPopulation: number;
@@ -275,7 +273,7 @@ export function addShipType(
   return newShip;
 }
 
-export interface AddOrSwapShipPresetOptions {
+interface AddOrSwapShipPresetOptions {
   // NPC pill pickers increment a matching layout; ordinary selectors only add
   // or replace a layout.
   incrementMatching?: boolean;
@@ -362,7 +360,7 @@ export function addOrSwapShipPreset(
   return newShip;
 }
 
-export interface ShipTypeUpdates {
+interface ShipTypeUpdates {
   quantity?: number;
   config?: Partial<ShipConfig>;
 }
@@ -439,7 +437,7 @@ export function getCachedShipType(
   };
 }
 
-export interface BlueprintPartUse {
+interface BlueprintPartUse {
   shipId: string;
   shipType: ShipType;
   slot: number | 'muon';
@@ -807,7 +805,7 @@ export function makeFleetDefender(fleetId: string) {
   moveFleet(fleetId, 0);
 }
 
-export function enforceFleetRoleRestrictions(fleets: FleetState[]) {
+function enforceFleetRoleRestrictions(fleets: FleetState[]) {
   fleets.forEach((fleet, index) => {
     fleet.shipTypes = reconcileFactionStructure(
       fleet.shipTypes,

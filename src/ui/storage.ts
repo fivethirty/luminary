@@ -16,7 +16,7 @@ const MAX_RECENTS = 8;
 // a burst of tweaks reads as one battle, not eight.
 const RECENT_MERGE_WINDOW_MS = 120_000;
 
-export interface RecentBattle {
+interface RecentBattle {
   query: string;
   label: string;
   updatedAt: number;

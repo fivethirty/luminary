@@ -7,7 +7,6 @@ import { BattleContext, OptimalDamagePlanner } from './optimal-damage-planner';
 export class Fleet {
   private readonly ships: Ship[];
   private readonly startsWithMissiles: boolean;
-  private readonly startsWithMixedTypes: boolean;
   private readonly startsWithMixedShields: boolean;
   private readonly minShields: number;
   private readonly initiatives: Set<number>;
@@ -24,8 +23,6 @@ export class Fleet {
   ) {
     this.ships = Array.from(ships);
     this.startsWithMissiles = this.ships.some((ship) => ship.hasMissiles());
-    const types = new Set(this.ships.map((ship) => ship.type));
-    this.startsWithMixedTypes = types.size > 1;
     const shields = new Set(this.ships.map((ship) => ship.shields));
     this.startsWithMixedShields = shields.size > 1;
     this.minShields = Math.min(...this.ships.map((ship) => ship.shields));

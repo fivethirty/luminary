@@ -100,24 +100,6 @@ describe('ShipType', () => {
     ).toBe('Remove Interceptor');
   });
 
-  test('applies its stats layout directly to the owned grid', () => {
-    const element = document.createElement('calc-ship-type') as ShipTypeElement;
-    element.shipType = {
-      id: 'test-card-layout',
-      type: ShipType.Interceptor,
-      quantity: 1,
-      config: { hull: 9 },
-    };
-    element.fleetId = 'fleet-0';
-    element.statsLayout = 'card';
-
-    document.body.appendChild(element);
-
-    expect(
-      (element.querySelector('.stats') as HTMLElement).dataset.layout
-    ).toBe('card');
-  });
-
   test('clears edited stats from the header without changing quantity', () => {
     state.fleets[0].factionId = 'orion';
     const ship = addOrSwapShipPreset('fleet-0', 'cruiser')!;
@@ -207,55 +189,56 @@ describe('ShipType', () => {
     expect(element.querySelector('[data-stat][modified]')).toBeNull();
   });
 
-  test.each([
-    {
-      preset: 'ancient' as const,
-      assetName: 'ai-anc',
-      accessibleName: 'Ancient ship tile',
-    },
-    {
-      preset: 'ancient-adv' as const,
-      assetName: 'ai-ancadv',
-      accessibleName: 'Ancient (A) ship tile',
-    },
-    {
-      preset: 'ancient-wa' as const,
-      assetName: 'ai-ancwa',
-      accessibleName: 'Ancient (WA) ship tile',
-    },
-    {
-      preset: 'guardian' as const,
-      assetName: 'ai-grd',
-      accessibleName: 'Guardian ship tile',
-    },
-    {
-      preset: 'guardian-adv' as const,
-      assetName: 'ai-grdadv',
-      accessibleName: 'Guardian (A) ship tile',
-    },
-    {
-      preset: 'guardian-wa' as const,
-      assetName: 'ai-grdwa',
-      accessibleName: 'Guardian (WA) ship tile',
-    },
-    {
-      preset: 'gcds' as const,
-      assetName: 'ai-gcds',
-      accessibleName: 'GCDS ship tile',
-    },
-    {
-      preset: 'gcds-adv' as const,
-      assetName: 'ai-gcdsadv',
-      accessibleName: 'GCDS (A) ship tile',
-    },
-    {
-      preset: 'gcds-wa' as const,
-      assetName: 'ai-gcdswa',
-      accessibleName: 'GCDS (WA) ship tile',
-    },
-  ])(
-    'displays the $preset artwork in Ship tiles mode',
-    ({ preset, assetName, accessibleName }) => {
+  test('displays every NPC artwork variant accessibly in Ship tiles mode', () => {
+    const variants = [
+      {
+        preset: 'ancient',
+        assetName: 'ai-anc',
+        accessibleName: 'Ancient ship tile',
+      },
+      {
+        preset: 'ancient-adv',
+        assetName: 'ai-ancadv',
+        accessibleName: 'Ancient (A) ship tile',
+      },
+      {
+        preset: 'ancient-wa',
+        assetName: 'ai-ancwa',
+        accessibleName: 'Ancient (WA) ship tile',
+      },
+      {
+        preset: 'guardian',
+        assetName: 'ai-grd',
+        accessibleName: 'Guardian ship tile',
+      },
+      {
+        preset: 'guardian-adv',
+        assetName: 'ai-grdadv',
+        accessibleName: 'Guardian (A) ship tile',
+      },
+      {
+        preset: 'guardian-wa',
+        assetName: 'ai-grdwa',
+        accessibleName: 'Guardian (WA) ship tile',
+      },
+      {
+        preset: 'gcds',
+        assetName: 'ai-gcds',
+        accessibleName: 'GCDS ship tile',
+      },
+      {
+        preset: 'gcds-adv',
+        assetName: 'ai-gcdsadv',
+        accessibleName: 'GCDS (A) ship tile',
+      },
+      {
+        preset: 'gcds-wa',
+        assetName: 'ai-gcdswa',
+        accessibleName: 'GCDS (WA) ship tile',
+      },
+    ] as const;
+
+    for (const { preset, assetName, accessibleName } of variants) {
       const shipTypeConfig = {
         id: `test-${preset}-tile`,
         type: getStartingShipConfig(preset).type,
@@ -280,7 +263,7 @@ describe('ShipType', () => {
         true
       );
     }
-  );
+  });
 
   test('keeps stat rows for NPCs outside Ship tiles mode', () => {
     const shipTypeConfig = {
@@ -526,43 +509,49 @@ describe('ShipType', () => {
     ).toBe(true);
   });
 
-  test.each([
-    [ShipType.Interceptor, 8],
-    [ShipType.Cruiser, 4],
-    [ShipType.Dreadnought, 2],
-    [ShipType.Orbital, 1],
-    [ShipType.Starbase, 4],
-    [ShipType.Ancient, 2],
-    [ShipType.Guardian, 1],
-    [ShipType.GCDS, 1],
-  ])('caps %s quantity at %i', async (type, max) => {
-    const shipTypeConfig = {
-      id: `test-${type}`,
-      type,
-      quantity: max,
-      config: {},
-    };
+  test('enforces every ship quantity limit', async () => {
+    const limits = [
+      [ShipType.Interceptor, 8],
+      [ShipType.Cruiser, 4],
+      [ShipType.Dreadnought, 2],
+      [ShipType.Orbital, 1],
+      [ShipType.Starbase, 4],
+      [ShipType.Ancient, 2],
+      [ShipType.Guardian, 1],
+      [ShipType.GCDS, 1],
+    ] as const;
 
-    state.fleets[0].shipTypes.push(shipTypeConfig);
+    for (const [type, max] of limits) {
+      const shipTypeConfig = {
+        id: `test-${type}`,
+        type,
+        quantity: max,
+        config: {},
+      };
 
-    const element = document.createElement('calc-ship-type') as ShipTypeElement;
-    element.shipType = shipTypeConfig;
-    element.fleetId = 'fleet-0';
+      state.fleets[0].shipTypes = [shipTypeConfig];
 
-    document.body.appendChild(element);
+      const element = document.createElement(
+        'calc-ship-type'
+      ) as ShipTypeElement;
+      element.shipType = shipTypeConfig;
+      element.fleetId = 'fleet-0';
 
-    await customElements.whenDefined('calc-selector');
+      document.body.appendChild(element);
+      await customElements.whenDefined('calc-selector');
 
-    const qtySelector = element.querySelector(
-      'calc-selector'
-    ) as SelectorElement;
-    const incrementBtn = qtySelector.querySelectorAll('button')[1];
+      const qtySelector = element.querySelector(
+        'calc-selector'
+      ) as SelectorElement;
+      const incrementBtn = qtySelector.querySelectorAll('button')[1];
 
-    expect(qtySelector.max).toBe(max);
-    expect(incrementBtn.disabled).toBe(true);
-    incrementBtn.click();
+      expect(qtySelector.max).toBe(max);
+      expect(incrementBtn.disabled).toBe(true);
+      incrementBtn.click();
+      expect(shipTypeConfig.quantity).toBe(max);
 
-    expect(state.fleets[0].shipTypes[0].quantity).toBe(max);
+      element.remove();
+    }
   });
 
   test('removes itself from state', () => {

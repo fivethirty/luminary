@@ -31,7 +31,7 @@ export const DEFAULT_CAPS: SolverCaps = {
   maxMillis: Infinity,
 };
 
-export type SolverOptions = {
+type SolverOptions = {
   // The fleet whose win event solve() reports. This does not control decisions.
   perspective: Role;
   // 'policy' uses DPS/NPC assignments; 'minimax' optimizes selected player fleets.
@@ -73,7 +73,7 @@ export type SolveResult = {
   reason?: string;
 };
 
-export type OutcomeResult = {
+type OutcomeResult = {
   ok: boolean;
   reason?: string;
   // Exact probabilities of each battle outcome. pDefender includes the
@@ -90,7 +90,7 @@ export type OutcomeResult = {
   states: number;
 };
 
-export type TerminalDistributionEntry = {
+type TerminalDistributionEntry = {
   probability: number;
   outcome: Terminal;
   hpA: number[];
@@ -105,7 +105,7 @@ export type TerminalDistributionResult = {
   states: number;
 };
 
-export type SurvivorComposition = {
+type SurvivorComposition = {
   probability: number;
   attackerSurvivors: Partial<Record<string, number>>;
   defenderSurvivors: Partial<Record<string, number>>;
@@ -121,7 +121,7 @@ export type SolverGraphStats = {
   assignmentOptions: number;
 };
 
-export type DecisionExplanation = {
+type DecisionExplanation = {
   role: Role;
   outcomes: {
     probability: number;

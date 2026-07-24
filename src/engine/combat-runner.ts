@@ -19,7 +19,7 @@ import { SolverCaps } from './win-probability-solver';
 
 export type CombatTier = 'exact-optimal' | 'exact-dps' | 'monte-carlo-dps';
 
-export type CombatAttempt = {
+type CombatAttempt = {
   tier: CombatTier;
   status: 'success' | 'failed' | 'skipped';
   budgetMillis: number;
@@ -28,7 +28,7 @@ export type CombatAttempt = {
   exactDiagnostics?: ExactCombatDiagnostics;
 };
 
-export type CombatFallback = {
+type CombatFallback = {
   from: CombatTier;
   to: CombatTier;
   reason: string;
@@ -55,7 +55,7 @@ export type CombatRunResult = CombatOutcomeSummary & {
   diagnostics: CombatRunDiagnostics;
 };
 
-export type CombatRunnerOptions = {
+type CombatRunnerOptions = {
   // One wall-clock budget covers failed exact attempts and sampled fallback.
   maxMillis?: number;
   // An un-preflighted minimax attempt gets only a bounded slice, leaving time

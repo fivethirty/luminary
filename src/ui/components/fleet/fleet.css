@@ -243,13 +243,6 @@
   display: none;
 }
 
-.preset-chips-label {
-  color: var(--color-text-muted);
-  font-size: var(--label-font-size);
-  text-transform: uppercase;
-  letter-spacing: var(--label-letter-spacing);
-}
-
 .preset-chip {
   border-color: var(--color-border-strong);
 }
@@ -363,10 +356,6 @@
 
   .remove-btn {
     flex: 0 0 auto;
-  }
-
-  .preset-chips-label {
-    grid-column: 1 / -1;
   }
 
   .preset-picker-wrap {

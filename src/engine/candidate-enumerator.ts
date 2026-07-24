@@ -1,14 +1,14 @@
 import { Ship, Shot } from './ship';
 import { sortShotsForAssignment } from './abstract-damage-planner';
 
-export type Candidate = {
+type Candidate = {
   // Parallel to the `ships` array passed to enumerateCandidates.
   damageAssignments: number[];
   // Canonical key of the resulting fleet state; equal keys are the same state.
   stateKey: string;
 };
 
-export type EnumerationLimits = {
+type EnumerationLimits = {
   maxCandidates?: number;
   maxNodes?: number;
   // Exact-combat callers use this to share the solver's wall-clock deadline

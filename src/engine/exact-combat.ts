@@ -20,7 +20,7 @@ import {
 // then multiplies by schedule slots. The measured 8-interceptor + 4-cruiser
 // mirror is 72,900 by this estimate and takes seconds in minimax despite its
 // small number of ship types; policy-mode exact resolves it much faster.
-export const OPTIMAL_EXACT_STATE_SPACE_CUTOFF = 50_000;
+const OPTIMAL_EXACT_STATE_SPACE_CUTOFF = 50_000;
 const MULTI_EXACT_RESIDUAL_TOLERANCE = 1e-9;
 
 // Interactive budget for the app: bail out (to Monte Carlo) rather than stall
@@ -53,7 +53,7 @@ export type ExactCombatOptions = {
   plannerPreflight?: boolean;
 };
 
-export type ExactPlannerPreflightReason = 'complexity' | null;
+type ExactPlannerPreflightReason = 'complexity' | null;
 
 export type ExactPlannerPreflight = {
   overrides: (DamageType | undefined)[];

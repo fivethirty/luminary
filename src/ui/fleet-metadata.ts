@@ -5,7 +5,7 @@ export const MAX_FLEETS = 7;
 
 // Physical player colors stay recognizable across themes, while the light
 // result pair is dark enough for text and its tint is safe behind that text.
-export const FLEET_COLORS = [
+const FLEET_COLORS = [
   {
     id: 'red',
     label: 'Red',
@@ -129,7 +129,7 @@ export function factionShortLabel(
   return faction && 'shortLabel' in faction ? faction.shortLabel : null;
 }
 
-export interface FleetNameSource {
+interface FleetNameSource {
   factionId?: FactionId;
   shipTypes: readonly { type: ShipType }[];
 }
