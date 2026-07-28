@@ -151,7 +151,7 @@ Use semantic control tokens instead of reconstructing padding:
 
 A new raw `rem`, `px`, color, radius, or font size in production CSS is presumed to be accidental.
 Geometry tied to source artwork or a safe-area calculation can be an exception, but it needs a
-local semantic custom property or an audit-baseline rationale.
+local semantic custom property or a documented rationale.
 
 ## Agent Workflow
 
@@ -175,10 +175,8 @@ Use this sequence for every UI change:
    and 80rem boundaries. Avoid a new breakpoint; `src/ui/breakpoints.test.ts` enforces the scale.
 8. **Test the contract.** Component tests should assert behavior and accessible state. Avoid
    snapshotting incidental class order unless class composition is the contract under test.
-9. **Run the ratchet.** `bun run audit:ui:strict` rejects increases in likely token bypasses,
-   custom control styling, removed outlines, implicit button types, and inline styles.
-10. **Validate the application.** Run the nearest component test while iterating, then
-    `bun run check`.
+9. **Validate the application.** Run the nearest component test while iterating, then
+   `bun run check`.
 
 When `bun` is not on `PATH`, prefix commands with `mise exec --`.
 
@@ -216,11 +214,7 @@ This review also addressed issues that were not explicit in the original request
 
 The next highest-value improvements are:
 
-1. Add browser screenshot regression coverage for representative empty, populated, results,
-   dialog, light-theme, dark-theme, and 390px layouts.
-2. Add automated contrast/high-contrast checks once a browser accessibility harness is available.
-3. Add reconnect/disconnect lifecycle tests for custom elements that attach listeners to the host.
-4. Introduce CSS cascade layers if global/component ordering becomes a recurring source of
+1. Introduce CSS cascade layers if global/component ordering becomes a recurring source of
    specificity fixes.
-5. Promote prototype code only through a scoped component migration; do not merge the study
+2. Promote prototype code only through a scoped component migration; do not merge the study
    stylesheet into the application bundle.

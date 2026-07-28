@@ -17,6 +17,7 @@ import gluonComputerImage from '../assets/ship-parts/gluon_computer.webp';
 import hullImage from '../assets/ship-parts/hull.webp';
 import hypergridSourceImage from '../assets/ship-parts/hypergrid_source.webp';
 import improvedHullImage from '../assets/ship-parts/improved_hull.webp';
+import improvedHullModImage from '../assets/ship-parts/improved_hull_mod.webp';
 import inversionShieldImage from '../assets/ship-parts/inversion_shield.webp';
 import ionCannonImage from '../assets/ship-parts/ion_cannon.webp';
 import ionDisruptorImage from '../assets/ship-parts/ion_disruptor.webp';
@@ -30,6 +31,7 @@ import nonlinearDriveImage from '../assets/ship-parts/nonlinear_drive.webp';
 import nuclearDriveImage from '../assets/ship-parts/nuclear_drive.webp';
 import nuclearSourceImage from '../assets/ship-parts/nuclear_source.webp';
 import phaseShieldImage from '../assets/ship-parts/phase_shield.webp';
+import phaseShieldModImage from '../assets/ship-parts/phase_shield_mod.webp';
 import plasmaCannonImage from '../assets/ship-parts/plasma_cannon.webp';
 import plasmaMissileImage from '../assets/ship-parts/plasma_missile.webp';
 import plasmaTurretImage from '../assets/ship-parts/plasma_turret.webp';
@@ -46,7 +48,12 @@ import tachyonSourceImage from '../assets/ship-parts/tachyon_source.webp';
 import transitionDriveImage from '../assets/ship-parts/transition_drive.webp';
 import zeroPointSourceImage from '../assets/ship-parts/zero_point_source.webp';
 
-type PartTier = 'standard' | 'technology' | 'discovery' | 'chassis';
+type PartTier =
+  | 'standard'
+  | 'technology'
+  | 'discovery'
+  | 'homebrew'
+  | 'chassis';
 type DieColor = 'yellow' | 'orange' | 'blue' | 'red' | 'pink';
 
 export interface ShipPart {
@@ -79,8 +86,8 @@ function part(
   return { id, name, image, tier, ...stats };
 }
 
-// Curated from AsyncEclipse/DiscordBot data/parts.json. Community balance
-// variants and duplicate aliases are intentionally excluded.
+// Curated from AsyncEclipse/DiscordBot data/parts.json. Duplicate aliases are
+// intentionally excluded; community balance variants are isolated as homebrew.
 export const SHIP_PARTS: readonly ShipPart[] = [
   part('ioc', 'Ion Cannon', ionCannonImage, 'standard', {
     energyUse: 1,
@@ -248,6 +255,16 @@ export const SHIP_PARTS: readonly ShipPart[] = [
   part('plt', 'Plasma Turret', plasmaTurretImage, 'discovery', {
     energyUse: 3,
     cannons: ['orange', 'orange'],
+  }),
+
+  part('imhmod', 'Improved Hull Mod', improvedHullModImage, 'homebrew', {
+    initiative: -1,
+    hull: 2,
+  }),
+  part('phsmod', 'Phase Shield Mod', phaseShieldModImage, 'homebrew', {
+    initiative: 1,
+    energyUse: 1,
+    shield: 2,
   }),
 
   // The Exiles' replaceable starting turret is part of the Orbital chassis,
@@ -638,11 +655,13 @@ type PartBucketId =
   | 'hull'
   | 'repair'
   | 'cannon'
-  | 'missile';
+  | 'missile'
+  | 'homebrew';
 
 interface PartBucket {
   id: PartBucketId;
   label: string;
+  description?: string;
   parts: readonly ShipPart[];
 }
 
@@ -684,6 +703,8 @@ function bucketValue(bucketId: PartBucketId, entry: ShipPart): number {
     case 'cannon':
     case 'missile':
       return damageTypeOrder(entry);
+    case 'homebrew':
+      return 0;
   }
 }
 
@@ -733,7 +754,11 @@ export function partBuckets(type: BlueprintShipType): PartBucket[] {
     (entry) =>
       entry.id !== 'mus' &&
       entry.tier !== 'chassis' &&
+      entry.tier !== 'homebrew' &&
       partAllowedInSlot(type, entry)
+  );
+  const homebrew = SHIP_PARTS.filter(
+    (entry) => entry.tier === 'homebrew' && partAllowedInSlot(type, entry)
   );
   const definitions: Array<{
     id: PartBucketId;
@@ -785,7 +810,7 @@ export function partBuckets(type: BlueprintShipType): PartBucket[] {
   if (type === ShipType.Orbital) {
     available.push(PART_BY_ID.get('iotexile')!);
   }
-  return definitions
+  const buckets: PartBucket[] = definitions
     .map(({ id, label, includes }) => ({
       id,
       label,
@@ -794,6 +819,15 @@ export function partBuckets(type: BlueprintShipType): PartBucket[] {
         .sort((left, right) => comparePartsForBucket(id, left, right)),
     }))
     .filter((bucket) => bucket.parts.length > 0);
+  if (homebrew.length > 0) {
+    buckets.push({
+      id: 'homebrew',
+      label: 'Homebrew',
+      description: 'Community balance variants',
+      parts: homebrew,
+    });
+  }
+  return buckets;
 }
 
 export function isDiscoveryPart(partId: string): boolean {

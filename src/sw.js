@@ -1,11 +1,19 @@
 // Offline support for table play: after the first visit the calculator works
 // with no signal. The app shell (a navigation to any URL — battle state lives
 // in the query string) is served network-first with a cached fallback; hashed
-// build assets are immutable, so they're served cache-first.
-const CACHE_NAME = 'luminary-v2';
+// build assets are covered by a content-versioned precache, so they're served
+// cache-first.
+const CACHE_NAME = 'luminary-__PRECACHE_VERSION__';
+const PRECACHE_URLS = [/* __PRECACHE_ASSETS__ */ '/'];
 
-self.addEventListener('install', () => {
-  self.skipWaiting();
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(PRECACHE_URLS);
+      await self.skipWaiting();
+    })()
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -13,7 +21,9 @@ self.addEventListener('activate', (event) => {
     (async () => {
       const names = await caches.keys();
       await Promise.all(
-        names.filter((name) => name !== CACHE_NAME).map((n) => caches.delete(n))
+        names
+          .filter((name) => name.startsWith('luminary-') && name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
       );
       await self.clients.claim();
     })()
@@ -31,7 +41,7 @@ self.addEventListener('fetch', (event) => {
         const cache = await caches.open(CACHE_NAME);
         try {
           const fresh = await fetch(request);
-          if (fresh.ok) cache.put('/', fresh.clone());
+          if (fresh.ok) await cache.put('/', fresh.clone());
           return fresh;
         } catch {
           const cached = await cache.match('/');
@@ -48,7 +58,7 @@ self.addEventListener('fetch', (event) => {
       const cached = await cache.match(request);
       if (cached) return cached;
       const fresh = await fetch(request);
-      if (fresh.ok) cache.put(request, fresh.clone());
+      if (fresh.ok) await cache.put(request, fresh.clone());
       return fresh;
     })()
   );

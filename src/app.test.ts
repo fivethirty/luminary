@@ -17,23 +17,34 @@ import {
   saveSteppersPreference,
   saveThemePreference,
 } from '@ui/preferences';
-import { init } from './app';
+import { init as initApplication, setCombatClientFactoryForTests } from './app';
 import { exactDpsPlannerOverrides } from '@calc/exact-combat';
 import indexHtml from './index.html' with { type: 'text' };
 import { Ship, ShipType } from '@calc/ship';
 import { Fleet } from '@calc/fleet';
 import { DamageType } from './constants';
 import { getStartingShipConfig } from '@ui/ship-presets';
+import { InlineCombatClient, type CombatClient } from '@ui/combat-client';
+import type { CombatFleetInput } from '@ui/combat-fleets';
+import type { CombatRunResult } from '@calc/combat-runner';
 
 const realSetTimeout = globalThis.setTimeout;
 const realClearTimeout = globalThis.clearTimeout;
 const pendingTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
 let nextTimerId = -1;
+let disposeApp: (() => void) | undefined;
+
+const inlineCombatClientFactory = () => new InlineCombatClient();
+const init = () => {
+  disposeApp = initApplication();
+  return disposeApp;
+};
 
 // The app's auto-simulation is intentionally debounced in production. Capture
 // positive-delay timers so these tests can exercise that boundary without
 // sleeping for the wall clock.
 beforeEach(() => {
+  setCombatClientFactoryForTests(inlineCombatClientFactory);
   pendingTimers.clear();
   globalThis.setTimeout = ((
     handler: TimerHandler,
@@ -58,6 +69,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  disposeApp?.();
+  disposeApp = undefined;
   pendingTimers.clear();
   globalThis.setTimeout = realSetTimeout;
   globalThis.clearTimeout = realClearTimeout;
@@ -69,9 +82,39 @@ const settle = () => {
   callbacks.forEach((callback) => callback());
 };
 
+class DeferredCombatClient implements CombatClient {
+  readonly pending: Array<{
+    result: CombatRunResult;
+    resolve: (result: CombatRunResult) => void;
+  }> = [];
+  private readonly inline = new InlineCombatClient();
+
+  async run(fleets: readonly CombatFleetInput[]): Promise<CombatRunResult> {
+    const result = await this.inline.run(fleets);
+    return new Promise((resolve) => {
+      this.pending.push({ result, resolve });
+    });
+  }
+
+  resolveNext() {
+    const pending = this.pending.shift();
+    if (pending) pending.resolve(pending.result);
+  }
+
+  cancel() {
+    // Leave pending promises resolvable so tests can prove stale worker
+    // responses do not overwrite a newer edit.
+  }
+
+  dispose() {
+    this.cancel();
+  }
+}
+
 describe('App', () => {
   beforeEach(() => {
     localStorage.clear();
+    window.history.replaceState(null, '', '/');
     resetFleets();
     setSimulationResults(null);
     document.documentElement.innerHTML = indexHtml;
@@ -295,6 +338,49 @@ describe('App', () => {
     expect(liveBar.tagName).toBe('BUTTON');
     expect(liveBar.getAttribute('aria-label')).toContain('View full results');
     expect(liveBar.querySelector('.live-verdict')!.textContent).not.toBe('');
+  });
+
+  test('shows pending state while combat runs and ignores a stale response', async () => {
+    const deferredClient = new DeferredCombatClient();
+    setCombatClientFactoryForTests(() => deferredClient);
+    init();
+
+    addShipType(state.fleets[0].id, ShipType.Interceptor, {
+      cannons: { ion: 1 },
+    });
+    const attacker = addShipType(state.fleets[1].id, ShipType.Cruiser, {
+      cannons: { ion: 1 },
+      hull: 1,
+    });
+
+    expect(
+      document.querySelector('.results-section')?.getAttribute('aria-busy')
+    ).toBe('true');
+    expect(document.getElementById('results-status')?.textContent).toBe(
+      'Updating odds…'
+    );
+
+    await settle();
+    expect(deferredClient.pending).toHaveLength(1);
+
+    updateShipType(state.fleets[1].id, attacker.id, { quantity: 2 });
+    await settle();
+    expect(deferredClient.pending).toHaveLength(2);
+
+    deferredClient.resolveNext();
+    await new Promise((resolve) => realSetTimeout(resolve, 0));
+    expect(state.simulationResults).toBeNull();
+    expect(
+      document.querySelector('.results-section')?.getAttribute('aria-busy')
+    ).toBe('true');
+
+    deferredClient.resolveNext();
+    await new Promise((resolve) => realSetTimeout(resolve, 0));
+    expect(state.simulationResults).not.toBeNull();
+    expect(
+      document.querySelector('.results-section')?.getAttribute('aria-busy')
+    ).toBe('false');
+    expect(document.getElementById('results-status')?.hidden).toBe(true);
   });
 
   test('hides live odds on the about page', async () => {

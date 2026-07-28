@@ -1,6 +1,4 @@
-import { CombatRunner } from '@calc/combat-runner';
-import { Fleet } from '@calc/fleet';
-import { Ship } from '@calc/ship';
+import type { CombatRunResult } from '@calc/combat-runner';
 import { calculatePopulationBombardment } from '@calc/population-bombardment';
 import '@ui/components/fleet';
 import type { FleetElement } from '@ui/components/fleet';
@@ -13,7 +11,7 @@ import {
   replaceFleets,
   setSimulationResults,
 } from '@ui/state';
-import type { PlannerType, SurvivorDistributionEntry } from '@ui/state';
+import type { SurvivorDistributionEntry } from '@ui/state';
 import { battleLabel, encodeBattleQuery, parseBattleQuery } from '@ui/share';
 import {
   deriveFleetNames,
@@ -42,18 +40,29 @@ import {
   calculateMaterialLosses,
   calculateReputationDrawDistributions,
 } from '@ui/battle-impact';
-import { DamageType } from 'src/constants';
-
-const PLANNER_TYPE_TO_DAMAGE_TYPE: Record<PlannerType, DamageType> = {
-  npc: DamageType.NPC,
-  dps: DamageType.DPS,
-  optimal: DamageType.OPTIMAL,
-};
+import {
+  BrowserCombatClient,
+  isCombatCancelledError,
+  type CombatClient,
+} from '@ui/combat-client';
+import {
+  buildEngineFleets,
+  snapshotCombatFleets,
+  type CombatFleetInput,
+} from '@ui/combat-fleets';
 
 // Results recompute automatically shortly after the last edit; the pause keeps
 // hold-to-repeat steppers from re-solving on every tick.
 const AUTO_SIMULATE_DELAY_MS = 200;
 let activeControlMode: ControlMode = 'steppers';
+let combatClient: CombatClient | undefined;
+let combatRequestVersion = 0;
+let combatStatus: 'idle' | 'updating' | 'error' = 'idle';
+let combatClientFactory: () => CombatClient = () => new BrowserCombatClient();
+
+function setCombatClientFactoryForTests(factory?: () => CombatClient) {
+  combatClientFactory = factory ?? (() => new BrowserCombatClient());
+}
 
 function renderFleets() {
   const fleetsContainer = document.getElementById('fleets');
@@ -158,24 +167,73 @@ function fleetHasShips(fleet: (typeof state.fleets)[number]): boolean {
 // There is no Simulate button: every fleet change re-solves the battle after a
 // short pause. Empty fleets sit out, and at least two populated fleets are
 // required so stale odds never linger next to a half-edited setup.
+function setCombatStatus(status: typeof combatStatus) {
+  combatStatus = status;
+  const section = document.querySelector('.results-section');
+  const statusElement = document.getElementById('results-status');
+  section?.setAttribute('aria-busy', String(status === 'updating'));
+
+  if (statusElement) {
+    statusElement.hidden = status === 'idle';
+    statusElement.classList.toggle('results-status--error', status === 'error');
+    statusElement.textContent =
+      status === 'updating'
+        ? 'Updating odds…'
+        : status === 'error'
+          ? 'Unable to calculate odds. Change the setup to try again.'
+          : '';
+  }
+
+  renderLiveBar();
+}
+
 function scheduleAutoSimulate() {
   clearTimeout(autoSimulateTimer);
+  combatClient?.cancel();
+  const requestVersion = ++combatRequestVersion;
+  updateFleetNames();
+  const ready = state.fleets.filter(fleetHasShips).length >= 2;
+
+  if (!ready) {
+    setSimulationResults(null);
+    renderResults();
+    setCombatStatus('idle');
+    return;
+  }
+
+  setCombatStatus('updating');
   autoSimulateTimer = setTimeout(() => {
-    updateFleetNames();
-    const ready = state.fleets.filter(fleetHasShips).length >= 2;
-    if (ready) {
-      simulate();
-    } else {
-      setSimulationResults(null);
-      renderResults();
-    }
+    void simulate(requestVersion);
   }, AUTO_SIMULATE_DELAY_MS);
 }
 
-function simulate() {
+async function simulate(requestVersion: number) {
   updateFleetNames();
-  const engineFleets = buildEngineFleets();
-  const result = new CombatRunner().run(engineFleets);
+  const fleetInputs = snapshotCombatFleets(state.fleets);
+
+  try {
+    const result = await combatClient!.run(fleetInputs);
+    if (requestVersion !== combatRequestVersion) return;
+    applySimulationResult(result, fleetInputs);
+    afterSimulate();
+    setCombatStatus('idle');
+  } catch (error) {
+    if (
+      requestVersion !== combatRequestVersion ||
+      isCombatCancelledError(error)
+    ) {
+      return;
+    }
+    console.error('Unable to calculate combat odds', error);
+    setCombatStatus('error');
+  }
+}
+
+function applySimulationResult(
+  result: CombatRunResult,
+  fleetInputs: readonly CombatFleetInput[]
+) {
+  const engineFleets = buildEngineFleets(fleetInputs);
   const participatingFleets = state.fleets.filter(fleetHasShips);
   const survivorDistribution =
     result.survivorDistribution as SurvivorDistributionEntry[];
@@ -224,32 +282,6 @@ function simulate() {
       iterations: result.iterations ?? 0,
     });
   }
-
-  afterSimulate();
-}
-
-function buildEngineFleets(): Fleet[] {
-  return state.fleets.flatMap((fleet) => {
-    const ships: Ship[] = [];
-
-    fleet.shipTypes.forEach((shipType) => {
-      for (let i = 0; i < shipType.quantity; i++) {
-        const ship = new Ship(shipType.type, shipType.config);
-        ships.push(ship);
-      }
-    });
-
-    if (ships.length === 0) return [];
-
-    return [
-      new Fleet(
-        fleet.id,
-        ships,
-        fleet.antimatterSplitter,
-        PLANNER_TYPE_TO_DAMAGE_TYPE[fleet.plannerType]
-      ),
-    ];
-  });
 }
 
 function afterSimulate() {
@@ -324,10 +356,27 @@ function renderLiveBar() {
     '--fleet-result-light-source',
     leader.lightColor ?? ''
   );
-  bar.setAttribute(
-    'aria-label',
-    `View full results. ${leader.label} ${(leader.probability * 100).toFixed(1)} percent`
-  );
+  const resultSummary = `${leader.label} ${(leader.probability * 100).toFixed(1)} percent`;
+  const liveLabel = bar.querySelector('.live-label')!;
+  if (combatStatus === 'updating') {
+    bar.dataset.status = 'updating';
+    liveLabel.textContent = 'Updating odds';
+    bar.setAttribute(
+      'aria-label',
+      `Updating odds. Showing previous result: ${resultSummary}`
+    );
+  } else if (combatStatus === 'error') {
+    bar.dataset.status = 'error';
+    liveLabel.textContent = 'Previous odds';
+    bar.setAttribute(
+      'aria-label',
+      `Calculation failed. View previous result: ${resultSummary}`
+    );
+  } else {
+    delete bar.dataset.status;
+    liveLabel.textContent = 'Live odds';
+    bar.setAttribute('aria-label', `View full results. ${resultSummary}`);
+  }
 
   const odds = bar.querySelector('.live-odds')!;
   odds.innerHTML = '';
@@ -411,6 +460,9 @@ let disposeInit: (() => void) | undefined;
 
 function init(): () => void {
   disposeInit?.();
+  combatClient = combatClientFactory();
+  combatRequestVersion++;
+  setCombatStatus('idle');
   const cleanups: Array<() => void> = [];
   const listen = (
     target: EventTarget,
@@ -527,6 +579,9 @@ function init(): () => void {
     if (disposeInit !== dispose) return;
     clearTimeout(autoSimulateTimer);
     autoSimulateTimer = undefined;
+    combatRequestVersion++;
+    combatClient?.dispose();
+    combatClient = undefined;
     cleanups.splice(0).forEach((cleanup) => cleanup());
     disposeInit = undefined;
   };
@@ -534,4 +589,4 @@ function init(): () => void {
   return dispose;
 }
 
-export { init };
+export { init, setCombatClientFactoryForTests };

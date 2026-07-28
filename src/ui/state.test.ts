@@ -332,6 +332,30 @@ describe('State', () => {
       unsubscribe();
     });
 
+    test('installs repeatable homebrew parts and derives their initiative changes', () => {
+      const ship = addOrSwapShipPreset('fleet-0', 'cruiser', {
+        withBlueprint: true,
+      })!;
+
+      expect(replaceBlueprintPart('fleet-0', ship.id, 1, 'imhmod')).toBe(true);
+      expect(replaceBlueprintPart('fleet-0', ship.id, 2, 'phsmod')).toBe(true);
+
+      expect(ship.blueprint?.slots).toEqual([
+        'elc',
+        'imhmod',
+        'phsmod',
+        'nus',
+        'hul',
+        'nud',
+      ]);
+      expect(ship.config).toMatchObject({
+        hull: 3,
+        shields: 2,
+        initiative: 2,
+        cannons: { ion: 0 },
+      });
+    });
+
     test('does not clear a starting part', () => {
       const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
         withBlueprint: true,

@@ -19,7 +19,9 @@ flowchart LR
   UIState --> ShareCodec
   ShareCodec --> Storage
 
-  App --> CombatRunner
+  App --> CombatClient
+  CombatClient --> CombatWorker
+  CombatWorker --> CombatRunner
   CombatRunner --> CombatSimulator
   CombatRunner --> ExactCombat
   CombatSimulator --> Battle
@@ -71,8 +73,16 @@ composition root between those layers.
 
 - `app.ts`: application startup, routing, render scheduling, persistence wiring, and the boundary
   between editable UI state and engine fleets. It disposes prior bindings when reinitialized and
-  maps engine identities/results to presentation. Combat policy belongs in the engine runner
-  rather than being reproduced here.
+  maps engine identities/results to presentation. It also owns the latest-request-wins combat UI
+  lifecycle, while combat policy belongs in the engine runner rather than being reproduced here.
+- `ui/combat-client.ts` and `ui/combat-fleets.ts`: the asynchronous browser-worker boundary and its
+  serializable fleet snapshot. A new edit terminates the active worker, and app-level request
+  versions prevent a stale response from replacing newer odds.
+- `combat-worker.ts`: reconstructs engine fleets inside a dedicated worker and invokes the same
+  `CombatRunner` used by tests and non-browser callers. It does not duplicate fallback policy.
+- `main.ts`, `sw.js`, and `scripts/build-service-worker.ts`: register offline support immediately
+  and generate a content-versioned first-install precache from the current build graph, including
+  the combat worker and lazily displayed ship artwork.
 - `ui/state.ts`: the only mutable browser setup store. Its atomic commands apply setup changes and
   notify subscribers; subscriptions return a disposer. Components should not reproduce
   fleet-validity rules before calling it.

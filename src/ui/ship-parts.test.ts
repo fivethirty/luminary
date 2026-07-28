@@ -12,7 +12,7 @@ import {
 import { getStartingShipConfig } from './ship-presets';
 
 describe('ship parts', () => {
-  test('exposes the official inventory without community variants', () => {
+  test('keeps the official inventory counts and identifies homebrew variants', () => {
     expect(SHIP_PARTS.filter((part) => part.tier === 'standard')).toHaveLength(
       5
     );
@@ -22,8 +22,30 @@ describe('ship parts', () => {
     expect(SHIP_PARTS.filter((part) => part.tier === 'discovery')).toHaveLength(
       18
     );
-    expect(SHIP_PARTS.some((part) => part.id === 'imhmod')).toBe(false);
-    expect(SHIP_PARTS.some((part) => part.id === 'phsmod')).toBe(false);
+    expect(
+      SHIP_PARTS.filter((part) => part.tier === 'homebrew').map((part) => ({
+        id: part.id,
+        hull: part.hull,
+        shield: part.shield,
+        initiative: part.initiative,
+        energyUse: part.energyUse,
+      }))
+    ).toEqual([
+      {
+        id: 'imhmod',
+        hull: 2,
+        shield: undefined,
+        initiative: -1,
+        energyUse: undefined,
+      },
+      {
+        id: 'phsmod',
+        hull: undefined,
+        shield: 2,
+        initiative: 1,
+        energyUse: 1,
+      },
+    ]);
   });
 
   test('uses the requested slot order for all standard blueprints', () => {
@@ -184,6 +206,24 @@ describe('ship parts', () => {
     expect(buckets.get('hull')).toContain('seh');
     expect(buckets.get('hull')).toContain('ricon');
     expect(buckets.get('cannon')).toContain('ricon');
+  });
+
+  test('isolates homebrew after every official picker bucket', () => {
+    const buckets = partBuckets(ShipType.Cruiser);
+    const homebrew = buckets.at(-1)!;
+
+    expect(homebrew).toMatchObject({
+      id: 'homebrew',
+      label: 'Homebrew',
+      description: 'Community balance variants',
+    });
+    expect(homebrew.parts.map((part) => part.id)).toEqual(['imhmod', 'phsmod']);
+    expect(
+      buckets
+        .slice(0, -1)
+        .flatMap((bucket) => bucket.parts)
+        .some((part) => part.tier === 'homebrew')
+    ).toBe(false);
   });
 
   test('orders picker buckets by their stat and shared tie breakers', () => {

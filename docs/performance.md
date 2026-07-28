@@ -1,9 +1,10 @@
 # Combat Performance
 
-Combat runs synchronously in the browser, so elapsed time is part of the user-facing contract.
-The practical target is to keep a settled edit below one second on the development machine and to
-avoid spending a fresh timeout at every fallback tier. Mobile devices need separate spot checks;
-desktop timing alone is not a mobile guarantee.
+Combat runs in a dedicated browser worker, so elapsed time remains part of the user-facing
+contract without blocking editing, rendering, or status updates on the main thread. The practical
+target is to keep a settled edit below one second on the development machine and to avoid spending
+a fresh timeout at every fallback tier. Mobile devices need separate spot checks; desktop timing
+alone is not a mobile guarantee.
 
 Correctness remains the first constraint. Performance work must preserve the rules in
 [architecture.md](architecture.md), and any new approximation must be named, measured, and
@@ -122,14 +123,13 @@ the user-facing time target locally and spot-check representative mobile hardwar
 5. Re-run the full corpus and mutable/exact parity tests.
 6. Commit only reusable cases, runner changes, tests, and updated methodology—not generated data.
 
-## Web Worker Decision
+## Web Worker Execution
 
-Moving combat to a Web Worker is deliberately deferred. A worker can keep input and rendering
-responsive, but it does not reduce solver work or make an oversized graph finish sooner. It also
-adds serialization, cancellation, bundling, and service-worker/offline considerations.
+The browser application snapshots serializable fleet inputs and runs `CombatRunner` in a dedicated
+worker. A new edit terminates any active worker before the debounced replacement request begins;
+an app-level request version also prevents a late response from replacing newer odds. The previous
+result remains visible but is explicitly labeled as stale while the replacement is pending.
 
-Revisit a worker after the strategy ladder and algorithmic optimizations are measured on mobile.
-Use one when representative supported battles still create unacceptable main-thread stalls, or
-when cancellation/progress becomes a product requirement. A worker implementation must call the
-same combat runner and return the same result contract; it must not grow a second copy of combat
-or fallback policy.
+The worker keeps input and rendering responsive, but it does not reduce solver work or make an
+oversized graph finish sooner. It must continue to call the same combat runner and return the same
+result contract; do not add a second copy of combat or fallback policy to the worker boundary.

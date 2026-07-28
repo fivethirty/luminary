@@ -420,6 +420,27 @@ calc-ship-blueprint {
   text-transform: uppercase;
 }
 
+.part-bucket-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.part-bucket-description {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.25;
+}
+
+.part-bucket[data-bucket='homebrew'] {
+  border-color: color-mix(
+    in srgb,
+    var(--color-warning) 45%,
+    var(--color-border)
+  );
+}
+
 .part-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
@@ -447,6 +468,18 @@ calc-ship-blueprint {
 .part-option:hover:not(:disabled) {
   border-color: var(--color-info);
   background: var(--color-bg-tertiary);
+}
+
+.part-option-homebrew {
+  border-color: color-mix(
+    in srgb,
+    var(--color-warning) 38%,
+    var(--color-border)
+  );
+}
+
+.part-option-homebrew .part-option-copy em {
+  color: var(--color-warning);
 }
 
 .part-option:disabled {

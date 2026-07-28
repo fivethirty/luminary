@@ -217,6 +217,7 @@ describe('ShipBlueprint', () => {
       'Repair',
       'Cannon',
       'Missile',
+      'Homebrew',
     ]);
     const buckets = Array.from(
       element.querySelectorAll<HTMLDetailsElement>('.part-bucket')
@@ -243,6 +244,58 @@ describe('ShipBlueprint', () => {
       )
     ).toHaveLength(2);
     expect(element.querySelector('.part-option-copy small')).toBeNull();
+  });
+
+  test('keeps homebrew in a labeled final section without covering installed artwork', () => {
+    const ship = addOrSwapShipPreset('fleet-0', 'interceptor', {
+      withBlueprint: true,
+    })!;
+    const element = render(ship.id);
+
+    (element.querySelector('[data-slot="2"]') as HTMLButtonElement).click();
+    const sections = Array.from(
+      element.querySelectorAll<HTMLDetailsElement>('.part-bucket')
+    );
+    const homebrew = sections.at(-1)!;
+    expect(homebrew.dataset.bucket).toBe('homebrew');
+    expect(homebrew.open).toBe(false);
+    expect(
+      homebrew.querySelector('.part-bucket-description')?.textContent
+    ).toBe('Community balance variants');
+    expect(
+      Array.from(
+        homebrew.querySelectorAll<HTMLButtonElement>('.part-option')
+      ).map((option) => ({
+        id: option.dataset.partId,
+        tier: option.dataset.partTier,
+      }))
+    ).toEqual([
+      { id: 'imhmod', tier: 'homebrew' },
+      { id: 'phsmod', tier: 'homebrew' },
+    ]);
+    expect(
+      sections
+        .slice(0, -1)
+        .some((section) =>
+          section.querySelector('.part-option[data-part-tier="homebrew"]')
+        )
+    ).toBe(false);
+
+    homebrew
+      .querySelector<HTMLButtonElement>('[data-part-id="imhmod"]')!
+      .click();
+
+    expect(ship.blueprint?.slots[2]).toBe('imhmod');
+    expect(ship.config.hull).toBe(2);
+    expect(ship.config.initiative).toBe(2);
+    const installed = element.querySelector(
+      '.blueprint-slot[data-slot="2"]'
+    ) as HTMLButtonElement;
+    expect(installed.querySelector('img')).not.toBeNull();
+    expect(installed.textContent).toBe('');
+    expect(installed.getAttribute('aria-label')).toBe(
+      'Slot 3: Improved Hull Mod (homebrew)'
+    );
   });
 
   test('clears the slot highlight when editing ends', () => {

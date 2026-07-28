@@ -5,7 +5,7 @@
   "description": "Battle calculator for Eclipse: Second Dawn for the Galaxy",
   "scripts": {
     "dev": "bun --hot src/index.html",
-    "build": "bun build ./src/*.html --outdir ./dist --minify && cp src/sw.js dist/sw.js && cp src/favicons/apple-touch-icon.png dist/apple-touch-icon.png",
+    "build": "bun build ./src/*.html --outdir ./dist --minify && bun build ./src/combat-worker.ts --outfile ./dist/combat-worker.js --minify && cp src/favicons/apple-touch-icon.png src/favicons/web-app-manifest-192x192.png src/favicons/web-app-manifest-512x512.png dist/ && bun run scripts/build-service-worker.ts dist",
     "test": "bun test",
     "test:engine": "bun test src/engine",
     "test:solver": "bun test src/engine/battle-rules.test.ts src/engine/battle-state.test.ts src/engine/dice-distribution.test.ts src/engine/win-probability-solver.test.ts src/engine/win-probability-solver.optimal.test.ts src/engine/win-probability-solver.minimax.test.ts src/engine/exact-combat.test.ts src/engine/optimal-damage-planner.test.ts",

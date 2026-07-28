@@ -8,9 +8,7 @@ const isLocalhost = ['localhost', '127.0.0.1'].includes(
   window.location.hostname
 );
 if ('serviceWorker' in navigator && !isLocalhost) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {
-      // Offline support is best-effort.
-    });
+  navigator.serviceWorker.register('./sw.js').catch(() => {
+    // Offline support is best-effort.
   });
 }

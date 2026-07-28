@@ -239,6 +239,33 @@ describe('encodeBattleQuery', () => {
     );
   });
 
+  test('round-trips homebrew part IDs and their derived combat stats', () => {
+    const fleets = battle();
+    const blueprint = createStartingBlueprint(ShipType.Cruiser);
+    blueprint.slots[1] = 'imhmod';
+    blueprint.slots[2] = 'phsmod';
+    fleets[1].shipTypes[0] = {
+      id: 'homebrew-cruiser',
+      type: ShipType.Cruiser,
+      quantity: 1,
+      blueprint,
+      config: calculateBlueprint(ShipType.Cruiser, blueprint).config,
+    };
+
+    const query = encodeBattleQuery(fleets);
+    expect(query).toContain('a.cruiser.parts=elc-imhmod-phsmod-nus-hul-nud');
+    const decoded = parseBattleQuery(query)![1].shipTypes[0];
+    expect(decoded.blueprint).toEqual(blueprint);
+    expect(decoded.config).toEqual(
+      calculateBlueprint(ShipType.Cruiser, blueprint).config
+    );
+    expect(decoded.config).toMatchObject({
+      hull: 3,
+      shields: 2,
+      initiative: 2,
+    });
+  });
+
   test('omits stale blueprint metadata while preserving aggregate stats', () => {
     const fleets = battle();
     fleets[1].shipTypes[0].blueprint = createStartingBlueprint(

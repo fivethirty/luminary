@@ -401,6 +401,26 @@ html:has(.live-bar:not([hidden])) {
   margin-top: var(--space-lg);
 }
 
-.results-section:not(:has(calc-results)) {
+.results-status {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text-secondary);
+}
+
+.results-status--error {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.results-section:not(:has(calc-results)):not(
+    :has(.results-status:not([hidden]))
+  ) {
   display: none;
+}
+
+.live-bar[data-status='updating'] :is(.live-verdict, .live-odds) {
+  opacity: var(--control-disabled-opacity);
+}
+
+.live-bar[data-status='error'] .live-label {
+  color: var(--color-danger);
 }

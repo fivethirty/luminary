@@ -238,7 +238,7 @@ export class ShipBlueprintElement extends HTMLElement {
       button.setAttribute('aria-pressed', String(index === this.selectedSlot));
       button.setAttribute(
         'aria-label',
-        `Slot ${index + 1}: ${entry?.name ?? 'empty'}`
+        `Slot ${index + 1}: ${entry?.name ?? 'empty'}${entry?.tier === 'homebrew' ? ' (homebrew)' : ''}`
       );
 
       if (entry) {
@@ -503,7 +503,13 @@ export class ShipBlueprintElement extends HTMLElement {
     }
     partBuckets(this.blueprintType).forEach((bucket) => {
       target.appendChild(
-        this.partBucket(bucket.id, bucket.label, bucket.parts)
+        this.partBucket(
+          bucket.id,
+          bucket.label,
+          bucket.parts,
+          false,
+          bucket.description
+        )
       );
     });
     this.filterParts('');
@@ -513,7 +519,8 @@ export class ShipBlueprintElement extends HTMLElement {
     id: string,
     label: string,
     parts: readonly ShipPart[],
-    open = false
+    open = false,
+    description?: string
   ): HTMLDetailsElement {
     const section = document.createElement('details');
     section.className = 'part-bucket';
@@ -521,9 +528,18 @@ export class ShipBlueprintElement extends HTMLElement {
     section.open = open;
     const summary = document.createElement('summary');
     summary.className = 'ui-disclosure-summary';
+    const headingCopy = document.createElement('span');
+    headingCopy.className = 'part-bucket-heading';
     const heading = document.createElement('h4');
     heading.textContent = label;
-    summary.appendChild(heading);
+    headingCopy.appendChild(heading);
+    if (description) {
+      const supportingCopy = document.createElement('span');
+      supportingCopy.className = 'part-bucket-description';
+      supportingCopy.textContent = description;
+      headingCopy.appendChild(supportingCopy);
+    }
+    summary.appendChild(headingCopy);
     section.appendChild(summary);
     const grid = document.createElement('div');
     grid.className = 'part-grid';
@@ -539,7 +555,9 @@ export class ShipBlueprintElement extends HTMLElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'part-option';
+    button.classList.toggle('part-option-homebrew', entry.tier === 'homebrew');
     button.dataset.partId = entry.id;
+    button.dataset.partTier = entry.tier;
     button.dataset.search = entry.name.toLowerCase();
     const use =
       this.selectedSlot !== null && isDiscoveryPart(entry.id)
