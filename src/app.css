@@ -186,9 +186,8 @@ h4 {
 
 @media (max-width: 40rem) {
   body {
-    padding: var(--space-sm)
-      max(var(--space-sm), env(safe-area-inset-right, 0)) var(--space-md)
-      max(var(--space-sm), env(safe-area-inset-left, 0));
+    padding: var(--space-sm) max(var(--space-sm), env(safe-area-inset-right, 0))
+      var(--space-md) max(var(--space-sm), env(safe-area-inset-left, 0));
   }
 
   .main-header {

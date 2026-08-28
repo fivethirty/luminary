@@ -420,9 +420,7 @@ describe('ShipType', () => {
     expect(notice.hidden).toBe(false);
     expect(notice.classList.contains('ui-warning')).toBe(true);
     expect(notice.getAttribute('role')).toBe('alert');
-    expect(notice.textContent?.trim()).toBe(
-      '⚠ Blueprint will be lost on edit'
-    );
+    expect(notice.textContent?.trim()).toBe('⚠ Blueprint will be lost on edit');
 
     const hull = element.querySelector('[data-stat="hull"]') as HTMLElement;
     (hull.querySelector('.stat-inc') as HTMLButtonElement).click();

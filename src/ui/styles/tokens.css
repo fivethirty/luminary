@@ -85,11 +85,7 @@
   --control-padding-inline-wide: var(--space-md);
   --control-disabled-opacity: 0.45;
   --focus-ring-width: 2px;
-  --font-size-blueprint-readout: clamp(
-    var(--font-size-3xs),
-    5cqi,
-    0.9rem
-  );
+  --font-size-blueprint-readout: clamp(var(--font-size-3xs), 5cqi, 0.9rem);
   --select-compact-padding-inline-end: 1.75rem;
 
   --surface-inset: color-mix(

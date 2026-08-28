@@ -137,11 +137,7 @@ calc-stat-cube {
 }
 
 calc-stat-cube[modified] .stat-cube {
-  border-color: color-mix(
-    in srgb,
-    var(--color-info) 20%,
-    var(--color-border)
-  );
+  border-color: color-mix(in srgb, var(--color-info) 20%, var(--color-border));
   background: color-mix(
     in srgb,
     var(--color-info) 5%,
@@ -150,11 +146,7 @@ calc-stat-cube[modified] .stat-cube {
 }
 
 calc-stat-cube[modified] .stat-cube input {
-  color: color-mix(
-    in srgb,
-    var(--color-info) 24%,
-    var(--color-text-primary)
-  );
+  color: color-mix(in srgb, var(--color-info) 24%, var(--color-text-primary));
 }
 
 .stat-cube:has(input:focus-visible) {

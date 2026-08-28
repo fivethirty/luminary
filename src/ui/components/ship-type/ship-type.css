@@ -157,8 +157,7 @@ calc-ship-type.summary-only .ship-type .stats {
    balanced 3 + 2 rows for Systems/Cannons and four columns for Missiles on
    narrow phones. Read-only NPC layouts still match the selected view. */
 @media (max-width: 40rem) {
-  .stats[data-layout='steppers']
-    :is(.stat-group-core, .stat-group-weapons) {
+  .stats[data-layout='steppers'] :is(.stat-group-core, .stat-group-weapons) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
