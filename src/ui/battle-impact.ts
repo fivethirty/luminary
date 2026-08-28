@@ -162,8 +162,7 @@ interface FleetReputationDrawSummary {
  * an engagement on that outcome. Attribution to an individual shot is
  * unnecessary.
  */
-export interface ReputationSurvivorDistributionEntry
-  extends SurvivorDistributionEntry {
+export interface ReputationSurvivorDistributionEntry extends SurvivorDistributionEntry {
   destroyedShipsCreditedToFleet?: Record<
     string,
     Partial<Record<ShipType, number>>

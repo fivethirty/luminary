@@ -11,18 +11,17 @@
     "test:solver": "bun test src/engine/battle-rules.test.ts src/engine/battle-state.test.ts src/engine/dice-distribution.test.ts src/engine/win-probability-solver.test.ts src/engine/win-probability-solver.optimal.test.ts src/engine/win-probability-solver.minimax.test.ts src/engine/exact-combat.test.ts src/engine/optimal-damage-planner.test.ts",
     "benchmark:combat": "bun run scripts/benchmark-combat.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src scripts",
-    "lint:fix": "eslint src scripts --fix",
-    "check": "bun run typecheck && bun run lint && bun test && bun run build"
+    "lint": "oxlint src scripts",
+    "lint:fix": "oxlint src scripts --fix",
+    "format": "oxfmt src scripts",
+    "format:check": "oxfmt src scripts --check",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun test && bun run build"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.0",
     "@happy-dom/global-registrator": "^20.0.0",
     "@types/bun": "latest",
-    "eslint": "^10.0.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.3",
-    "prettier": "^3.6.2",
-    "typescript-eslint": "^8.59.3"
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "typescript": "^7.0.2"
   }
 }
