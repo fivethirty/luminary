@@ -40,6 +40,7 @@ export type CombatRunDiagnostics = {
   preflight: {
     reason: ExactPlannerPreflight['reason'];
     estimatedStates: number;
+    estimatedOptions: number | null;
   };
   attempts: CombatAttempt[];
   fallbacks: CombatFallback[];
@@ -165,7 +166,10 @@ export class CombatRunner {
         status: 'skipped',
         budgetMillis: 0,
         elapsedMillis: 0,
-        reason: `preflight state estimate ${preflight.estimatedStates} exceeds the interactive cutoff`,
+        reason:
+          preflight.estimatedOptions === null
+            ? `preflight state estimate ${preflight.estimatedStates} exceeds the interactive cutoff`
+            : `preflight assignment-option estimate ${preflight.estimatedOptions} exceeds the interactive cutoff`,
       });
       fallbacks.push({
         from: 'exact-optimal',
@@ -358,6 +362,7 @@ export class CombatRunner {
         preflight: {
           reason: preflight.reason,
           estimatedStates: preflight.estimatedStates,
+          estimatedOptions: preflight.estimatedOptions,
         },
         attempts: attempts.map((attempt) => ({ ...attempt })),
         fallbacks: fallbacks.map((fallback) => ({ ...fallback })),

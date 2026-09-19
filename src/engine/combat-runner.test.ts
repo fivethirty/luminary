@@ -54,6 +54,7 @@ describe('CombatRunner', () => {
         overrides: fleets.map(() => undefined),
         reason: null,
         estimatedStates: 12,
+        estimatedOptions: null,
       }),
       computeExact: (fleets, caps) => {
         const targeting = fleets.some(
@@ -156,6 +157,116 @@ describe('CombatRunner', () => {
     ]);
   });
 
+  test('skips optimal exact when the assignment-option estimate exceeds its cutoff', () => {
+    // Two antimatter starbases and a dreadnought against four rift cruisers:
+    // the state bound passes the state cutoff, but each of the attacker's 70
+    // rift outcomes offers several distinct damage assignments against the
+    // heterogeneous defender, so the uncapped minimax graph holds about
+    // 760,000 assignment options and takes about 1.5 s.
+    const starbase = () =>
+      new Ship(ShipType.Starbase, {
+        hull: 4,
+        initiative: 2,
+        cannons: { antimatter: 2 },
+      });
+    const defender = new Fleet(
+      'defender',
+      [
+        starbase(),
+        starbase(),
+        new Ship(ShipType.Dreadnought, {
+          hull: 8,
+          computers: 2,
+          initiative: -3,
+          cannons: { antimatter: 1 },
+        }),
+      ],
+      false,
+      DamageType.OPTIMAL
+    );
+    const attacker = new Fleet(
+      'attacker',
+      Array.from(
+        { length: 4 },
+        () =>
+          new Ship(ShipType.Cruiser, {
+            hull: 3,
+            shields: 3,
+            initiative: 3,
+            rift: 1,
+          })
+      ),
+      false,
+      DamageType.OPTIMAL
+    );
+
+    const preflight = exactPlannerPreflight([defender, attacker]);
+    expect(preflight.estimatedStates).toBe(44_100);
+    expect(preflight.estimatedOptions).toBeGreaterThanOrEqual(200_000);
+    expect(preflight.reason).toBe('complexity');
+    expect(preflight.overrides).toEqual([DamageType.DPS, DamageType.DPS]);
+
+    const calls: DamageType[][] = [];
+    const result = new CombatRunner(
+      {},
+      {
+        computeExact: (attemptFleets) => {
+          calls.push(
+            attemptFleets.map((candidate) => candidate.getDamageType())
+          );
+          return exactResult(true);
+        },
+      }
+    ).run([defender, attacker]);
+
+    expect(calls).toEqual([[DamageType.DPS, DamageType.DPS]]);
+    expect(result.tier).toBe('exact-dps');
+    expect(result.diagnostics.attempts[0]).toMatchObject({
+      tier: 'exact-optimal',
+      status: 'skipped',
+    });
+    expect(result.diagnostics.attempts[0].reason).toContain(
+      'assignment-option estimate'
+    );
+    expect(result.diagnostics.preflight.estimatedOptions).toBe(
+      preflight.estimatedOptions
+    );
+  });
+
+  test('keeps optimal exact for a small heterogeneous mirror', () => {
+    // Four interceptors plus two cruisers per side stay well inside both
+    // cutoffs (3,600 states, tens of thousands of estimated options) and
+    // solve uncapped in under 100 ms.
+    const ships = () => [
+      ...Array.from(
+        { length: 4 },
+        () =>
+          new Ship(ShipType.Interceptor, {
+            initiative: 3,
+            cannons: { ion: 1 },
+          })
+      ),
+      ...Array.from(
+        { length: 2 },
+        () =>
+          new Ship(ShipType.Cruiser, {
+            initiative: 2,
+            hull: 1,
+            cannons: { ion: 1 },
+          })
+      ),
+    ];
+    const preflight = exactPlannerPreflight([
+      new Fleet('defender', ships(), false, DamageType.OPTIMAL),
+      new Fleet('attacker', ships(), false, DamageType.OPTIMAL),
+    ]);
+    expect(preflight.estimatedStates).toBe(3_600);
+    expect(preflight.estimatedOptions).toBeGreaterThan(0);
+    expect(preflight.estimatedOptions!).toBeLessThan(200_000);
+    expect(preflight.reason).toBeNull();
+    expect(preflight.overrides).toEqual([undefined, undefined]);
+  });
+
   test('reports exact optimal when the requested solve succeeds', () => {
     const result = new CombatRunner(
       {},
@@ -164,6 +275,7 @@ describe('CombatRunner', () => {
           overrides: fleets.map(() => undefined),
           reason: null,
           estimatedStates: 4,
+          estimatedOptions: null,
         }),
         computeExact: () => exactResult(true),
       }
@@ -188,6 +300,7 @@ describe('CombatRunner', () => {
           overrides: [DamageType.DPS, DamageType.DPS],
           reason: 'complexity',
           estimatedStates: 100_000,
+          estimatedOptions: null,
         }),
         computeExact: () => {
           exactCalls++;
@@ -222,6 +335,7 @@ describe('CombatRunner', () => {
           overrides: [DamageType.DPS, undefined],
           reason: 'complexity',
           estimatedStates: 100_000,
+          estimatedOptions: null,
         }),
         computeExact: (fleets) => {
           exactDamageTypes.push(fleets.map((fleet) => fleet.getDamageType()));

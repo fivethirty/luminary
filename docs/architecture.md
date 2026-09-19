@@ -266,11 +266,17 @@ damage. Rift dice use their five fixed self/target-damage classes. Antimatter sp
 landed cannon shots, not missiles, and is never flattened into one saturated shot.
 
 The unrestricted defaults cap a solve at 500,000 states, 20,000 outcomes per slot, and 10,000
-value-iteration sweeps with convergence at `1e-10`. Unrestricted analysis has no wall-clock
-limit. Interactive combat uses a single runner-owned deadline across its exact strategy tiers;
-caps, preflights, policy fallbacks, and measurement rules are documented in
-[performance.md](performance.md). The application must not restart an optimal solve after that
-runner chooses a simpler tier.
+value-iteration sweeps with convergence at `1e-10`. The solver evaluates strongly connected
+components successors first. A cyclic component (healing, or a round in which every shot misses)
+without minimax decisions and with at most 256 states is solved exactly as a linear system; any
+other cyclic component is swept on its own, the sweep cap and convergence threshold apply to it,
+and a sweep that moved less than the threshold is accepted at the cap. `sweeps` reports the most
+any one swept component needed. Decision ties within `1e-9` of the best value resolve to the
+lowest option index, in the solver and in the optimal planner, so the survivor mix reported for
+equally optimal lines is deterministic. Unrestricted analysis has no wall-clock limit. Interactive
+combat uses a single runner-owned deadline across its exact strategy tiers; caps, preflights,
+policy fallbacks, and measurement rules are documented in [performance.md](performance.md). The
+application must not restart an optimal solve after that runner chooses a simpler tier.
 
 ## Intentional Model Differences
 

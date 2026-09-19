@@ -112,7 +112,17 @@ describe('WinProbabilitySolver (minimax assignments)', () => {
 
     const result = solver.solve();
     expect(result.ok).toBe(true);
-    expect(result.winProbability).toBeCloseTo(0.478558660068, 9);
+    // Fixed point of the healing cycles. The earlier whole-graph sweep at a
+    // 1e-15 threshold and the component solver agree on it to 1e-14; the
+    // previous fixture value, 0.478558660068, was that sweep's own 1e-9
+    // stopping error at the default threshold. The cycles here hold no
+    // decision nodes, so they are solved exactly and the forward-propagated
+    // attacker mass must match the solved value far inside the tolerance.
+    expect(result.winProbability).toBeCloseTo(0.478558661071, 9);
+    expect(solver.solveOutcome().pAttacker).toBeCloseTo(
+      result.winProbability,
+      12
+    );
     expect(solver.getGraphStats().attackerDecisionStates).toBe(0);
     expect(solver.getGraphStats().defenderDecisionStates).toBe(0);
   });

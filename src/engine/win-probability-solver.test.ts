@@ -37,6 +37,96 @@ describe('WinProbabilitySolver (policy mode)', () => {
     expect(defender.winProbability).toBeCloseTo(6 / 11, 9);
   });
 
+  test('healing plasma duel solves its all-miss cycle exactly: 5/11', () => {
+    // A plasma hit (roll 6 only) kills a 2-HP cruiser outright, so healing
+    // never applies and the only cycle is the round in which both miss. That
+    // decision-free cycle is solved as a linear system, so the value is the
+    // closed form to machine precision rather than to the sweep tolerance.
+    const make = () =>
+      new Ship(ShipType.Cruiser, {
+        initiative: 2,
+        hull: 1,
+        heal: 1,
+        cannons: { plasma: 1 },
+      });
+    const solver = new WinProbabilitySolver(
+      new BattleModel([make()], [make()], false, false),
+      { perspective: 'A', assignments: 'policy' }
+    );
+    const result = solver.solve();
+    expect(result.ok).toBe(true);
+    expect(result.sweeps).toBe(1);
+    expect(result.winProbability).toBeCloseTo(5 / 11, 12);
+    expect(solver.solveOutcome().pAttacker).toBeCloseTo(5 / 11, 12);
+  });
+
+  test('a slow healing cycle is solved exactly instead of failing at the sweep cap', () => {
+    // Six interceptors versus an unarmed dreadnought that heals back to full
+    // every round unless every shot lands: the kill probability per round is
+    // (5/6)(5/6)(4/6)(1/6)^3 = 100/46656. The whole-graph sweep needed about
+    // 7,900 sweeps to get within tolerance and a stricter per-component stop
+    // would exceed the 10,000-sweep cap; the exact solve needs one pass and
+    // returns the least fixed point, in which the attacker eventually wins.
+    const computers = [4, 4, 3, 0, 0, 0];
+    const solver = new WinProbabilitySolver(
+      new BattleModel(
+        computers.map(
+          (c) =>
+            new Ship(ShipType.Interceptor, {
+              initiative: 3,
+              computers: c,
+              cannons: { ion: 1 },
+            })
+        ),
+        [new Ship(ShipType.Dreadnought, { initiative: 1, hull: 5, heal: 5 })],
+        false,
+        false
+      ),
+      { perspective: 'A', assignments: 'policy' }
+    );
+    const result = solver.solve();
+    expect(result.ok).toBe(true);
+    expect(result.sweeps).toBe(1);
+    expect(result.winProbability).toBeCloseTo(1, 9);
+    const outcome = solver.solveOutcome();
+    expect(outcome.ok).toBe(true);
+    expect(outcome.pAttacker).toBeCloseTo(1, 9);
+    expect(outcome.residual).toBeLessThan(1e-9);
+  });
+
+  test('decision ties within the tolerance resolve to the lowest option', () => {
+    // chooseOption is the policy the forward pass and explainDecision follow.
+    // Values that differ by less than DECISION_TIE_EPSILON are iteration
+    // residuals, not preferences, so the first such option must win for both
+    // roles regardless of which one carries the larger value.
+    const make = () =>
+      new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });
+    const solver = new WinProbabilitySolver(
+      new BattleModel([make()], [make()], false, false),
+      { perspective: 'A', assignments: 'minimax' }
+    );
+    type Choosable = {
+      values: Float64Array;
+      chooseOption: (options: number[], role: 'A' | 'D') => number;
+    };
+    const internal = solver as unknown as Choosable;
+    internal.values = Float64Array.of(
+      0.5,
+      0.5 + 5e-10,
+      0.5 + 2e-9,
+      0.5 - 5e-10
+    );
+    // Attacker maximizes: 2e-9 above the rest is a real preference.
+    expect(internal.chooseOption([0, 1, 2, 3], 'A')).toBe(2);
+    // Without option 2, options 0 and 1 tie and the lowest index wins.
+    expect(internal.chooseOption([1, 0, 3], 'A')).toBe(1);
+    expect(internal.chooseOption([0, 1, 3], 'A')).toBe(0);
+    // Defender minimizes: 3 is within the tolerance of 0, so 0 wins when it
+    // comes first, and 3 wins when it comes first.
+    expect(internal.chooseOption([0, 3, 1], 'D')).toBe(0);
+    expect(internal.chooseOption([3, 0, 1], 'D')).toBe(3);
+  });
+
   describe('deadline enforcement', () => {
     const duelModel = () => {
       const make = () =>

@@ -39,11 +39,18 @@ preflight reason and state estimate, every attempt and fallback, and whether the
 exceeded. Exact DPS-policy results are exact for that deterministic targeting policy; they are not
 minimax-optimal results.
 
-Complexity preflights are routing decisions, not combat rules. The current estimate is a
-deterministic upper bound derived from configuration-group HP multisets and schedule size. An
-estimate at or above 50,000 states skips the minimax tier; for example, the tracked 8-interceptor
-plus 4-cruiser mirror estimates 72,900 states. Keep the threshold with the exact preflight, cover
-it with focused tests, and measure whether it still avoids wasted work as the solver changes.
+Complexity preflights are routing decisions, not combat rules. Two estimates gate the minimax
+tier. The state estimate is a deterministic upper bound derived from configuration-group HP
+multisets and schedule size; at or above 50,000 states the tier is skipped, for example the tracked
+8-interceptor plus 4-cruiser mirror estimates 72,900. Below that, an assignment-option estimate
+expands one full-HP state per schedule slot through the real model (bounded by the interactive
+outcome cap and a fixed amount of probe work), multiplies the options each decision slot produced
+by the per-slot share of the state bound, and skips the tier at or above 200,000. Minimax cost is
+dominated by decision outcomes times their candidates rather than by states: two antimatter
+starbases and a dreadnought against four rift cruisers is 44,100 states by the bound but about
+760,000 assignment options and 1.5 s uncapped, and it used to burn the whole 300 ms optimal budget
+before falling back to a 30 ms DPS solve. Keep both thresholds with the exact preflight, cover them
+with focused tests, and measure whether they still avoid wasted work as the solver changes.
 
 Homogeneous targeting is reduced inside the exact state model rather than by the preflight. When
 all living targets share one combat configuration, the slot uses deterministic DPS concentration
@@ -152,12 +159,49 @@ Measured together, as medians of paired runs: uncapped 12-ship graph constructio
 14-ship construction fell from about 9.4 s to 0.9 s. State counts, edge counts, and probabilities
 are identical, including for the mutable engine, and the 14-ship mirror now completes roughly
 1,200 to 1,350 sampled battles in its 350 ms Monte Carlo window instead of about 900. Value
-iteration is untouched by these changes (a faster 14-ship iterate observed in the same runs is a
-garbage-collection side effect of fewer allocations, not a solver change), so the 14-ship case
-still exceeds the interactive exact budget. Its remaining cost is value-iteration order and
-per-state bookkeeping, and the product structure above is the basis for reusing per-side
-transitions across joint states; both were prototyped with exact results but are not part of the
-implementation yet.
+iteration is untouched by these three changes; a faster 14-ship iterate observed in the same runs
+was a garbage-collection side effect of fewer allocations, not a solver change.
+
+Value iteration and forward propagation now follow the graph's strongly connected components (an
+iterative Tarjan pass over every option of every outcome) instead of sweeping all states in index
+order until nothing moves. Components are solved successors first, so an acyclic state is
+evaluated once. A cyclic component (healing, or a round in which every shot misses) that holds no
+minimax decision and has at most 256 states is solved exactly as the linear system `(I - P) v = c`
+by Gaussian elimination with partial pivoting, which removes the sweep tolerance from its value
+entirely. The exact solve is refused, and the component swept instead, when a pivot falls below
+`1e-9` (the component can never shed its mass, and the swept value is the least fixed point) or a
+solved value leaves `[0, 1]`. Every other cyclic component is swept over its own states until the
+estimated remaining error, not only the last change, is inside the convergence threshold; at the
+sweep cap the documented rule (the last sweep moved less than the threshold) still accepts, so no
+input the whole-graph sweep solved is rejected. Mass is pushed through components in topological
+order; a cyclic component circulates until at most its share of the 1e-12 total residual is in
+flight or the 20,000-pass cap is reached, and whatever remains stays with the defender as before.
+`sweeps` reports the most sweeps any one swept component needed, and 1 when every cycle was solved
+exactly.
+
+Decision ties are broken toward the lowest option index among options within `1e-9` of the best
+value, in the solver's own policy and in the mutable optimal planner. Iteration residuals used to
+pick between equally optimal lines, so survivor mixes for minimax fleets could change between
+solver versions while win probabilities did not; they are now a deterministic function of the
+candidate order. Uncapped, on the development machine, with the planner memo already in place:
+
+| case | states | value iteration (before, now) | forward propagation (before, now) |
+| --- | --- | --- | --- |
+| 12-ship exact DPS | 1,056 | 249 sweeps 13 ms, exact 2 ms | 250 steps 11 ms, 3 ms |
+| 14-ship exact DPS | 150,076 | 407 sweeps 22-32 s, exact 0.14 s | 400 steps 4-5 s, 0.07 s |
+| 12-ship minimax | 72,092 | 242 sweeps 27-29 s, 43 sweeps 0.25 s | 0.5 s, 0.01 s |
+
+Outcome probabilities moved by at most 5e-13 on those cases and on the healing, missile,
+self-loop, and 1v1 controls; state and terminal counts are unchanged. Slow healing cycles that
+the sweep solved only to about 5e-8, or not at all within the cap, are now exact (for example six
+interceptors against an unarmed dreadnought that heals to full unless every shot lands). The
+interactive 12-ship exact-DPS tier is about 17 ms. Graph construction (0.9 s for the 14-ship case,
+26 s for the 12-ship minimax case) is now essentially the whole solve, so the 14-ship case still
+exceeds the interactive exact budget; per-state bookkeeping and per-side transition reuse, both
+prototyped with exact results on the product structure above, are the next targets. Reversing the
+sweep direction alone was tried first and only reached 96 sweeps on the 12-ship case, because
+every all-miss round is a cycle whose convergence rate, not the sweep order, bounds a whole-graph
+sweep.
 
 ## Benchmark Assets
 

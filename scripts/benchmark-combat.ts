@@ -373,6 +373,7 @@ for (const scenario of scenarios) {
           groups.reduce((total, group) => total + group.count, 0)
         ),
         preflightStateEstimate: preflight.estimatedStates,
+        preflightOptionEstimate: preflight.estimatedOptions,
         preflightReason: preflight.reason,
       },
       solverProbe: summarizeSolverProbes(

@@ -7,7 +7,7 @@ import type { CombatRunDiagnostics } from '@calc/combat-runner';
 const DEFAULT_DIAGNOSTICS: CombatRunDiagnostics = {
   deadlineMillis: 950,
   elapsedMillis: 0,
-  preflight: { reason: null, estimatedStates: 0 },
+  preflight: { reason: null, estimatedStates: 0, estimatedOptions: null },
   attempts: [],
   fallbacks: [],
   deadlineExceeded: false,
