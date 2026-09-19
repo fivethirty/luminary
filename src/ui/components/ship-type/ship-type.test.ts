@@ -164,6 +164,36 @@ describe('ShipType', () => {
     expect(quantity.hasAttribute('modified')).toBe(false);
   });
 
+  test('lets initiative go negative but floors other stats at zero', () => {
+    const fleet = state.fleets[1];
+    addOrSwapShipPreset(fleet.id, 'cruiser');
+    const shipTypeConfig = fleet.shipTypes[0];
+
+    const element = document.createElement('calc-ship-type') as ShipTypeElement;
+    element.shipType = shipTypeConfig;
+    element.fleetId = fleet.id;
+    document.body.appendChild(element);
+
+    const initiative = element.querySelector(
+      '[data-stat="initiative"]'
+    ) as StatCubeElement;
+    const hull = element.querySelector('[data-stat="hull"]') as StatCubeElement;
+    const initiativeInput = initiative.querySelector(
+      'input'
+    ) as HTMLInputElement;
+
+    initiativeInput.value = '-2';
+    initiativeInput.dispatchEvent(new Event('change'));
+    expect(initiative.value).toBe(-2);
+    expect(fleet.shipTypes[0].config.initiative).toBe(-2);
+
+    const hullInput = hull.querySelector('input') as HTMLInputElement;
+    hullInput.value = '-2';
+    hullInput.dispatchEvent(new Event('change'));
+    expect(hull.value).toBe(0);
+    expect(fleet.shipTypes[0].config.hull).toBe(0);
+  });
+
   test('displays NPC variant names', () => {
     const shipTypeConfig = {
       id: 'test-ancient-wa-name',

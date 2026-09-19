@@ -8,13 +8,14 @@ export class StatCubeElement extends HTMLElement {
   private _accessibleLabel = '';
   private _sign = '';
   private _disabled = false;
+  private _min = 0;
   private _max = 99;
   private _step = 1;
   private input!: HTMLInputElement;
   private originalValue = '';
 
   static get observedAttributes() {
-    return ['disabled', 'max', 'step'];
+    return ['disabled', 'min', 'max', 'step'];
   }
 
   get value(): number {
@@ -44,6 +45,20 @@ export class StatCubeElement extends HTMLElement {
   // digit-only editing while focused, so the sign only appears at rest.
   private displayValue(value = this.value): string {
     return `${this._sign}${value}`;
+  }
+
+  // Lowest allowed value. Defaults to zero; stats that can go negative (e.g.
+  // initiative under homebrew parts) lower it, which also lets the input
+  // accept a leading minus sign.
+  get min(): number {
+    return this._min;
+  }
+
+  set min(val: number) {
+    this._min = Math.floor(val);
+    this.setAttribute('min', String(this._min));
+    this.normalizeCurrentValue();
+    this.applyInputConstraints();
   }
 
   get max(): number {
@@ -86,6 +101,11 @@ export class StatCubeElement extends HTMLElement {
     }
 
     const value = parseInt(this.getAttribute(name) || '', 10);
+    if (name === 'min' && Number.isFinite(value)) {
+      this._min = Math.floor(value);
+      this.normalizeCurrentValue();
+      this.applyInputConstraints();
+    }
     if (name === 'max' && Number.isFinite(value)) {
       this._max = Math.max(0, Math.floor(value));
       this.normalizeCurrentValue();
@@ -135,7 +155,9 @@ export class StatCubeElement extends HTMLElement {
     });
 
     this.input.addEventListener('beforeinput', (e) => {
-      if (e.data && !/^[0-9]+$/.test(e.data)) {
+      if (!e.data) return;
+      const allowed = this.allowsNegative() ? /^-?[0-9]*$/ : /^[0-9]+$/;
+      if (!allowed.test(e.data)) {
         e.preventDefault();
       }
     });
@@ -147,11 +169,10 @@ export class StatCubeElement extends HTMLElement {
     });
 
     this.input.addEventListener('input', () => {
-      this.input.value = this.input.value.replace(/[^0-9]/g, '');
-
-      if (this.input.value.length > 2) {
-        this.input.value = this.input.value.slice(0, 2);
-      }
+      const raw = this.input.value;
+      const negative = this.allowsNegative() && raw.startsWith('-');
+      const digits = raw.replace(/[^0-9]/g, '').slice(0, 2);
+      this.input.value = `${negative ? '-' : ''}${digits}`;
     });
 
     this.input.addEventListener('change', () => {
@@ -176,12 +197,21 @@ export class StatCubeElement extends HTMLElement {
   }
 
   private normalizeValue(value: number): number {
-    const max = Math.floor(this.max / this.step) * this.step;
-    const clamped = Math.max(0, Math.min(max, Math.floor(value)));
+    const min = this.effectiveMin();
+    const max = this.effectiveMax();
+    const clamped = Math.max(min, Math.min(max, Math.floor(value)));
     return Math.max(
-      0,
+      min,
       Math.min(max, Math.round(clamped / this.step) * this.step)
     );
+  }
+
+  private allowsNegative(): boolean {
+    return this.effectiveMin() < 0;
+  }
+
+  private effectiveMin(): number {
+    return Math.ceil(this.min / this.step) * this.step;
   }
 
   private normalizeCurrentValue() {
@@ -200,8 +230,10 @@ export class StatCubeElement extends HTMLElement {
 
   private applyInputConstraints() {
     if (!this.input) return;
+    this.input.min = String(this.effectiveMin());
     this.input.max = String(this.effectiveMax());
     this.input.step = String(this.step);
+    this.input.pattern = this.allowsNegative() ? '-?[0-9]*' : '[0-9]*';
   }
 
   private applyDisabledState() {
@@ -215,10 +247,10 @@ export class StatCubeElement extends HTMLElement {
     const inc = this.querySelector('.stat-inc') as HTMLButtonElement | null;
     if (!dec || !inc) return;
 
-    dec.disabled = this.disabled || this.value <= 0;
+    dec.disabled = this.disabled || this.value <= this.effectiveMin();
     inc.disabled = this.disabled || this.value >= this.effectiveMax();
     if (this.input) {
-      this.input.setAttribute('aria-valuemin', '0');
+      this.input.setAttribute('aria-valuemin', String(this.effectiveMin()));
       this.input.setAttribute('aria-valuemax', String(this.effectiveMax()));
       this.input.setAttribute('aria-valuenow', String(this.value));
       this.input.setAttribute('aria-disabled', String(this.disabled));

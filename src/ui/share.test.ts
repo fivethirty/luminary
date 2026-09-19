@@ -324,6 +324,27 @@ describe('parseBattleQuery', () => {
     expect(decoded[0].shipTypes[0].quantity).toBe(1);
   });
 
+  test('accepts negative initiative but floors other stats at zero', () => {
+    const decoded = parseBattleQuery(
+      'v=2&a.cruiser=1&a.cruiser.init=-2&a.cruiser.hull=-2'
+    )!;
+    const config = decoded[1].shipTypes[0].config;
+
+    expect(config.initiative).toBe(-2);
+    expect(config.hull).toBe(0);
+
+    const tooLow = parseBattleQuery('v=2&a.cruiser=1&a.cruiser.init=-500')!;
+    expect(tooLow[1].shipTypes[0].config.initiative).toBe(-99);
+  });
+
+  test('round-trips negative initiative', () => {
+    const fleets = parseBattleQuery('v=2&a.cruiser=1&a.cruiser.init=-1')!;
+    const query = encodeBattleQuery(fleets);
+
+    expect(query).toContain('a.cruiser.init=-1');
+    expect(parseBattleQuery(query)![1].shipTypes[0].config.initiative).toBe(-1);
+  });
+
   test('requires the version param', () => {
     expect(parseBattleQuery('d.guardian=1')).toBeNull();
     expect(parseBattleQuery('v=3&d.guardian=1')).toBeNull();

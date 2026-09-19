@@ -1,5 +1,13 @@
 import type { ShipConfig, WeaponType } from '@calc/ship';
 
+/** Upper bound for every editable ship stat in the UI and share links. */
+export const MAX_STAT = 99;
+/**
+ * Lower bound for initiative. Other stats floor at zero, but initiative can
+ * go negative: homebrew parts such as the Improved Hull Mod subtract from it.
+ */
+export const MIN_INITIATIVE = -MAX_STAT;
+
 const WEAPON_TYPES: readonly WeaponType[] = [
   'ion',
   'plasma',

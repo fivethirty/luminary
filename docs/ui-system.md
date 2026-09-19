@@ -44,8 +44,9 @@ The visual similarity between two controls is not, by itself, a reason to merge 
 - NPC preset pills retain their add/increment/swap behavior. They share the native overlay and
   focus treatment, not a state-select component.
 - `calc-selector` changes a bounded quantity with two buttons. `calc-stat-cube` is an editable
-  spinbutton with signs, defaults, keyboard arrows, and press-and-hold behavior. They share sizing
-  tokens but remain separate components.
+  spinbutton with signs, defaults, keyboard arrows, and press-and-hold behavior. Its floor is
+  zero unless `min` lowers it (initiative, which homebrew parts can push negative). They share
+  sizing tokens but remain separate components.
 - Blueprint slots and part tiles are artwork-aligned, domain-specific controls. Their geometry
   belongs in the blueprint component, while their colors, focus, and typography use shared tokens.
 

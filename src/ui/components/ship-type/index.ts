@@ -19,7 +19,11 @@ import type { ShipTypeConfig } from '@ui/state';
 import type { FactionId } from '@ui/fleet-metadata';
 import { ensureShipBlueprint, removeShipType, updateShipType } from '@ui/state';
 import { isPlayerShipType, type ShipConfig, type WeaponType } from '@calc/ship';
-import { cloneShipConfig, shipConfigsEqual } from '@ui/ship-config';
+import {
+  MIN_INITIATIVE,
+  cloneShipConfig,
+  shipConfigsEqual,
+} from '@ui/ship-config';
 import { createStartingBlueprint, isBlueprintShipType } from '@ui/ship-parts';
 import {
   getStartingShipConfig,
@@ -196,6 +200,7 @@ export class ShipTypeElement extends HTMLElement {
       label: string;
       accessibleLabel?: string;
       sign?: string;
+      min?: number;
       getValue: (config: Partial<ShipConfig>) => number;
       setValue: (config: Partial<ShipConfig>, value: number) => void;
     }> = [
@@ -203,6 +208,8 @@ export class ShipTypeElement extends HTMLElement {
         stat: 'initiative',
         label: 'Init',
         accessibleLabel: 'initiative',
+        // Homebrew parts can push initiative below zero.
+        min: MIN_INITIATIVE,
         getValue: (config) => config.initiative || 0,
         setValue: (config, value) => {
           config.initiative = value;
@@ -307,7 +314,7 @@ export class ShipTypeElement extends HTMLElement {
 
     // Bind all stat cubes
     statConfigs.forEach(
-      ({ stat, label, accessibleLabel, sign, getValue, setValue }) => {
+      ({ stat, label, accessibleLabel, sign, min, getValue, setValue }) => {
         const cube = this.querySelector(
           `[data-stat="${stat}"]`
         ) as StatCubeElement;
@@ -315,6 +322,7 @@ export class ShipTypeElement extends HTMLElement {
           cube.label = label;
           cube.accessibleLabel = `${shipName} ${accessibleLabel ?? label.toLowerCase()}`;
           if (sign) cube.sign = sign;
+          if (min !== undefined) cube.min = min;
           if (stat === 'plasma-missile') cube.step = 2;
           if (stat === 'soliton-missile' || stat === 'antimatter-missile') {
             cube.max = 1;
