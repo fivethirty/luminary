@@ -17,10 +17,13 @@ import {
 
 // A deliberately conservative upper bound for interactive minimax. It counts
 // HP multisets for each interchangeable ship configuration across both fleets,
-// then multiplies by schedule slots. The measured 8-interceptor + 4-cruiser
-// mirror is 72,900 by this estimate and takes seconds in minimax despite its
-// small number of ship types; policy-mode exact resolves it much faster.
-const OPTIMAL_EXACT_STATE_SPACE_CUTOFF = 50_000;
+// then multiplies by schedule slots. At or above this bound the option probe
+// below is not even run; below it the probe's estimate, and the runner's
+// time prediction from it, decide. The 8-interceptor + 4-cruiser mirror is
+// 72,900 by this bound and still skipped: its probe estimates millions of
+// assignment options (about 1.9 s uncapped), while a 4-interceptor, 2-cruiser,
+// 1-dreadnought mirror at 86,400 solves in about 0.23 s and is admitted.
+const OPTIMAL_EXACT_STATE_SPACE_CUTOFF = 100_000;
 // Interactive minimax cost is dominated by decision outcomes times their
 // assignment candidates, not by states: two antimatter starbases and a
 // dreadnought against four rift cruisers is 44,100 states by the bound above
@@ -56,6 +59,11 @@ export type ExactCombatDiagnostics = {
   engagementSolves: number;
   // Every successful cache hit avoids one otherwise identical engagement solve.
   engagementCacheHits: number;
+  // Work actually done by the engagements solved in this call (cache hits
+  // excluded): graph states and enumerated dice outcomes. Deterministic for a
+  // given input, so elapsed time over these counters measures the device.
+  states: number;
+  chanceOutcomes: number;
 };
 
 export type ExactCombatOptions = {
@@ -223,6 +231,8 @@ export function computeExactCombat(
     engagementRequests: 0,
     engagementSolves: 0,
     engagementCacheHits: 0,
+    states: 0,
+    chanceOutcomes: 0,
   };
   const engagementCache = new Map<string, TerminalDistributionResult>();
   const fail = (reason: string): ExactBattleResult => ({
@@ -534,12 +544,17 @@ function solveEngagement(
     attackerType,
     defenderType
   );
-  return new WinProbabilitySolver(model, {
+  const solver = new WinProbabilitySolver(model, {
     perspective,
     assignments,
     decisionRoles,
     caps,
-  }).solveTerminalDistribution();
+  });
+  const distribution = solver.solveTerminalDistribution();
+  const chanceOutcomes = distribution.ok
+    ? solver.getGraphStats().chanceOutcomes
+    : 0;
+  return { distribution, states: distribution.states, chanceOutcomes };
 }
 
 function solveEngagementCached(
@@ -570,8 +585,10 @@ function solveEngagementCached(
 
   diagnostics.engagementSolves++;
   const solved = solveEngagement(defenderState, attackerState, caps, policies);
-  if (solved.ok) cache.set(key, solved);
-  return solved;
+  diagnostics.states += solved.states;
+  diagnostics.chanceOutcomes += solved.chanceOutcomes;
+  if (solved.distribution.ok) cache.set(key, solved.distribution);
+  return solved.distribution;
 }
 
 function engagementCacheKey(

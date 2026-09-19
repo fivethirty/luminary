@@ -1,4 +1,9 @@
-import { CombatRunner, type CombatRunResult } from '@calc/combat-runner';
+import {
+  CombatRunner,
+  DEFAULT_CALIBRATION,
+  type CombatRunResult,
+  type SolverCalibration,
+} from '@calc/combat-runner';
 import { buildEngineFleets, type CombatFleetInput } from '@ui/combat-fleets';
 
 export interface CombatClient {
@@ -11,6 +16,9 @@ export type CombatWorkerRequest = {
   type: 'run';
   requestId: number;
   fleets: CombatFleetInput[];
+  // The latest calibration this client saw; the worker returns the updated
+  // one inside the result's diagnostics.
+  calibration: SolverCalibration;
 };
 
 export type CombatWorkerResponse =
@@ -38,15 +46,20 @@ export function isCombatCancelledError(
   return error instanceof CombatCancelledError;
 }
 
-type ActiveWorker = {
+type ActiveRequest = {
   requestId: number;
-  worker: Worker;
   reject: (reason: unknown) => void;
 };
 
+// Runs combat in a dedicated worker that stays alive between requests, so
+// later requests run on warm code. A request in flight cannot be interrupted,
+// so cancelling it discards that worker and the next request starts a fresh
+// one; the solver calibration lives here and survives that.
 export class BrowserCombatClient implements CombatClient {
   private nextRequestId = 0;
-  private active?: ActiveWorker;
+  private worker?: Worker;
+  private active?: ActiveRequest;
+  private calibration: SolverCalibration = DEFAULT_CALIBRATION;
   private readonly inlineFallback = new InlineCombatClient();
 
   run(fleets: readonly CombatFleetInput[]): Promise<CombatRunResult> {
@@ -54,28 +67,27 @@ export class BrowserCombatClient implements CombatClient {
 
     let worker: Worker;
     try {
-      worker = new Worker(new URL('../combat-worker.js', import.meta.url), {
-        type: 'module',
-      });
+      worker = this.worker ?? this.createWorker();
     } catch {
       return this.inlineFallback.run(fleets);
     }
+    this.worker = worker;
 
     const requestId = ++this.nextRequestId;
     return new Promise<CombatRunResult>((resolve, reject) => {
-      this.active = { requestId, worker, reject };
+      this.active = { requestId, reject };
 
-      const finish = () => {
+      const settle = () => {
         if (this.active?.requestId === requestId) {
           this.active = undefined;
         }
-        worker.terminate();
       };
 
       worker.onmessage = (event: MessageEvent<CombatWorkerResponse>) => {
         if (event.data.requestId !== requestId) return;
-        finish();
+        settle();
         if (event.data.type === 'result') {
+          this.calibration = event.data.result.diagnostics.calibration;
           resolve(event.data.result);
         } else {
           reject(new Error(event.data.message));
@@ -83,7 +95,8 @@ export class BrowserCombatClient implements CombatClient {
       };
       worker.onerror = (event) => {
         event.preventDefault();
-        finish();
+        settle();
+        this.discardWorker();
         reject(new Error(event.message || 'Combat worker failed'));
       };
 
@@ -91,11 +104,13 @@ export class BrowserCombatClient implements CombatClient {
         type: 'run',
         requestId,
         fleets: Array.from(fleets),
+        calibration: this.calibration,
       };
       try {
         worker.postMessage(request);
       } catch (error) {
-        finish();
+        settle();
+        this.discardWorker();
         reject(error);
       }
     });
@@ -109,13 +124,25 @@ export class BrowserCombatClient implements CombatClient {
     }
 
     this.active = undefined;
-    active.worker.terminate();
+    this.discardWorker();
     active.reject(new CombatCancelledError());
   }
 
   dispose() {
     this.cancel();
+    this.discardWorker();
     this.inlineFallback.dispose();
+  }
+
+  private createWorker(): Worker {
+    return new Worker(new URL('../combat-worker.js', import.meta.url), {
+      type: 'module',
+    });
+  }
+
+  private discardWorker() {
+    this.worker?.terminate();
+    this.worker = undefined;
   }
 }
 
@@ -124,11 +151,16 @@ export class BrowserCombatClient implements CombatClient {
 // main thread.
 export class InlineCombatClient implements CombatClient {
   private generation = 0;
+  private calibration: SolverCalibration = DEFAULT_CALIBRATION;
 
   async run(fleets: readonly CombatFleetInput[]): Promise<CombatRunResult> {
     const generation = ++this.generation;
-    const result = new CombatRunner().run(buildEngineFleets(fleets));
+    const result = new CombatRunner().run(
+      buildEngineFleets(fleets),
+      this.calibration
+    );
     if (generation !== this.generation) throw new CombatCancelledError();
+    this.calibration = result.diagnostics.calibration;
     return result;
   }
 

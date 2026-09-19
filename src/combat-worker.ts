@@ -1,4 +1,8 @@
-import { CombatRunner } from '@calc/combat-runner';
+import {
+  CombatRunner,
+  DEFAULT_CALIBRATION,
+  type SolverCalibration,
+} from '@calc/combat-runner';
 import {
   type CombatWorkerRequest,
   type CombatWorkerResponse,
@@ -12,12 +16,20 @@ type WorkerScope = {
 
 const workerScope = globalThis as unknown as WorkerScope;
 
+// The client sends its latest calibration with each request; this copy only
+// covers a request that arrives without one.
+let calibration: SolverCalibration = DEFAULT_CALIBRATION;
+
 workerScope.onmessage = (event) => {
   if (event.data.type !== 'run') return;
 
   const { requestId, fleets } = event.data;
   try {
-    const result = new CombatRunner().run(buildEngineFleets(fleets));
+    const result = new CombatRunner().run(
+      buildEngineFleets(fleets),
+      event.data.calibration ?? calibration
+    );
+    calibration = result.diagnostics.calibration;
     workerScope.postMessage({
       type: 'result',
       requestId,

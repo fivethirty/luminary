@@ -65,8 +65,9 @@ composition root between those layers.
   engagement cache excludes fleet names while retaining roles, policy, configuration, HP, and
   resolved phase order; the multi-fleet reporting layer applies fleet identity and attribution to
   cached terminal HP.
-- `combat-runner.ts`: owns the interactive `exact-optimal` → `exact-dps` → `monte-carlo-dps`
-  strategy ladder, its single request-wide deadline, planner-safe fleet cloning, and serializable
+- `combat-runner.ts`: owns the interactive `exact-dps` → `exact-optimal` → `monte-carlo-dps`
+  strategy ladder, its single request-wide deadline, the prediction that gates the optimal tier
+  and the `SolverCalibration` it learns from each run, planner-safe fleet cloning, and serializable
   fallback diagnostics.
 
 ## Application and UI Ownership
@@ -76,8 +77,9 @@ composition root between those layers.
   maps engine identities/results to presentation. It also owns the latest-request-wins combat UI
   lifecycle, while combat policy belongs in the engine runner rather than being reproduced here.
 - `ui/combat-client.ts` and `ui/combat-fleets.ts`: the asynchronous browser-worker boundary and its
-  serializable fleet snapshot. A new edit terminates the active worker, and app-level request
-  versions prevent a stale response from replacing newer odds.
+  serializable fleet snapshot. The worker persists between requests; a new edit terminates a
+  worker whose request is in flight, app-level request versions prevent a stale response from
+  replacing newer odds, and the client carries the latest solver calibration into each request.
 - `combat-worker.ts`: reconstructs engine fleets inside a dedicated worker and invokes the same
   `CombatRunner` used by tests and non-browser callers. It does not duplicate fallback policy.
 - `main.ts`, `sw.js`, and `scripts/build-service-worker.ts`: register offline support immediately

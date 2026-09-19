@@ -2,12 +2,17 @@ import type {
   ExactSimulationResults,
   MonteCarloSimulationResults,
 } from './state';
-import type { CombatRunDiagnostics } from '@calc/combat-runner';
+import {
+  DEFAULT_CALIBRATION,
+  type CombatRunDiagnostics,
+} from '@calc/combat-runner';
 
 const DEFAULT_DIAGNOSTICS: CombatRunDiagnostics = {
   deadlineMillis: 950,
   elapsedMillis: 0,
   preflight: { reason: null, estimatedStates: 0, estimatedOptions: null },
+  optimalDecision: null,
+  calibration: DEFAULT_CALIBRATION,
   attempts: [],
   fallbacks: [],
   deadlineExceeded: false,

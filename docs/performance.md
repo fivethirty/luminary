@@ -15,42 +15,64 @@ documented.
 The engine's `CombatRunner` owns the strategy choice and a single total interactive deadline. It
 evaluates these named tiers in order:
 
-1. **`exact-optimal`:** enumerate dice outcomes and use minimax assignment for eligible optimal
-   player roles.
-2. **`exact-dps`:** if optimal exact is ineligible or exceeds its allocation, use the remaining
-   exact budget to compute exact dice probabilities with deterministic DPS/NPC assignment. Optimal
-   player fleets fall back to DPS; explicitly selected NPC policies remain NPC.
-3. **`monte-carlo-dps`:** if neither exact tier finishes, sample battles after the same
-   optimal-to-DPS fallback while retaining explicitly selected and inherent NPC policies.
+1. **`exact-dps`:** compute exact dice probabilities with deterministic DPS/NPC assignment, using
+   the whole exact budget. Optimal player fleets run as DPS here; explicitly selected and inherent
+   NPC policies remain NPC. This tier's work is a subset of the optimal tier's, so running it first
+   never costs a feasible optimal result, and its measured cost calibrates the device.
+2. **`exact-optimal`:** when a fleet requested optimal targeting and the DPS tier succeeded,
+   predict the minimax solve's cost from the preflight's option estimate and attempt it with the
+   exact budget that remains only when the prediction fits. A successful attempt replaces the DPS
+   result; a failed or skipped one keeps it.
+3. **`monte-carlo-dps`:** only when the DPS tier itself fails, sample battles with the same
+   policies for the rest of the deadline.
 
-The deadline is not reset between exact tiers. A tier receives only the time remaining, and an
-exact tier is skipped when no budget remains. Once the runner chooses Monte Carlo, mutable fleets
-must not start another hidden optimal solve. This prevents a failed exact attempt from paying one
-timeout per fleet or engagement before reaching the intended fallback.
+The deadline is not reset between tiers. A tier receives only the time remaining, and an exact
+tier is skipped when no budget remains. Once the runner chooses Monte Carlo, mutable fleets must
+not start another hidden optimal solve. The default deadline is 950ms with 350ms reserved for
+deadline-aware sampling; the exact tiers share the remaining 600ms. Monte Carlo reports the number
+of iterations actually completed rather than assuming it reached its requested 5,000.
 
-The default deadline is 950ms. The runner reserves 350ms for deadline-aware sampling and limits an
-optimal exact attempt that passes preflight to 300ms, leaving room for the exact DPS tier. Monte
-Carlo reports the number of iterations actually completed rather than assuming it reached its
-requested 5,000.
+The optimal prediction is `estimatedOptions × rate`. The rate starts at a reference of 0.2 ms per
+thousand estimated options (the corpus median on the development machine, where the spread is 0.1 to
+0.5) multiplied by a device factor, and is replaced by the learned rate once an optimal attempt has
+run on the device: successful attempts blend in their observed rate, and an attempt that ran out of
+time raises it to twice its observed lower bound so the same fleet is not retried into the same
+failure. The device factor comes from a reference probe (`solver-calibration.ts`): a fixed
+4-interceptor, 2-cruiser optimal mirror solved three times, the fastest run taken as the warm speed,
+divided by its 12.4 ms on the development machine and clamped to 0.5 to 8. The probe runs once per
+calibration, outside the request deadline, on the first request of a client, and costs about 55 ms
+cold on the development machine. It is deliberately not derived from the request's own DPS solve:
+per counted dice outcome, a rift fleet costs two to four times what an ion fleet costs on the same
+machine, so that measurement would call a fast machine slow for exactly the fleets whose optimal
+solves matter. The DPS solve's work counters are still reported in the attempt diagnostics. This
+`SolverCalibration` is part of every result's diagnostics and is passed back into the next run by
+whoever owns the runner, so it survives worker restarts. Multi-fleet battles have no estimate, so
+their optimal attempt is made on the remaining budget without a prediction, with the DPS result
+already in hand as its fallback. On the development machine the rule admits every corpus fleet
+whose optimal solve fits its budget (for example the 3-rift-cruiser variant of the shared battle at
+about 280 ms and the 6-interceptor plus 2-cruiser mirror at about 80 ms) and skips the ones that do
+not without spending budget on them.
 
 `CombatRunResult` records the method, targeting policy, tier, a user-facing method label, elapsed
 time, and actual iteration count when sampled. Its serializable diagnostics include the deadline,
-preflight reason and state estimate, every attempt and fallback, and whether the total deadline was
-exceeded. Exact DPS-policy results are exact for that deterministic targeting policy; they are not
-minimax-optimal results.
+preflight reason and estimates, the optimal decision with its prediction and rate source, the
+updated calibration, every attempt and fallback with the exact work counters (states and dice
+outcomes) each solve performed, and whether the total deadline was exceeded. Exact DPS-policy
+results are exact for that deterministic targeting policy; they are not minimax-optimal results.
 
-Complexity preflights are routing decisions, not combat rules. Two estimates gate the minimax
-tier. The state estimate is a deterministic upper bound derived from configuration-group HP
-multisets and schedule size; at or above 50,000 states the tier is skipped, for example the tracked
-8-interceptor plus 4-cruiser mirror estimates 72,900. Below that, an assignment-option estimate
-expands one full-HP state per schedule slot through the real model (bounded by the interactive
-outcome cap and a fixed amount of probe work), multiplies the options each decision slot produced
-by the per-slot share of the state bound, and skips the tier at or above 200,000. Minimax cost is
-dominated by decision outcomes times their candidates rather than by states: two antimatter
-starbases and a dreadnought against four rift cruisers is 44,100 states by the bound but about
-760,000 assignment options and 1.5 s uncapped, and it used to burn the whole 300 ms optimal budget
-before falling back to a 30 ms DPS solve. Keep both thresholds with the exact preflight, cover them
-with focused tests, and measure whether they still avoid wasted work as the solver changes.
+Complexity preflights are routing decisions, not combat rules. The state estimate is a
+deterministic upper bound derived from configuration-group HP multisets and schedule size; at or
+above 100,000 states the option probe is not run and the optimal tier is skipped. Below that, the
+probe expands one full-HP state per schedule slot through the real model (bounded by the
+interactive outcome cap and a fixed amount of probe work) and multiplies the options each decision
+slot produced by the per-slot share of the state bound. Minimax cost is dominated by decision
+outcomes times their candidates rather than by states: two antimatter starbases and a dreadnought
+against four rift cruisers is 44,100 states by the bound but about 7.8 million estimated and
+760,000 actual assignment options, more than a second uncapped, while the 8-interceptor plus
+4-cruiser mirror at 72,900 states estimates 9.7 million options. The runner turns the estimate into
+a time prediction as described above; direct `computeExactCombat` callers, which have no budget,
+still apply a static 200,000-option cutoff. Keep both thresholds with the exact preflight, cover
+them with focused tests, and measure whether they still avoid wasted work as the solver changes.
 
 Homogeneous targeting is reduced inside the exact state model rather than by the preflight. When
 all living targets share one combat configuration, the slot uses deterministic DPS concentration
@@ -285,9 +307,13 @@ the user-facing time target locally and spot-check representative mobile hardwar
 ## Web Worker Execution
 
 The browser application snapshots serializable fleet inputs and runs `CombatRunner` in a dedicated
-worker. A new edit terminates any active worker before the debounced replacement request begins;
-an app-level request version also prevents a late response from replacing newer odds. The previous
-result remains visible but is explicitly labeled as stale while the replacement is pending.
+worker that stays alive between requests, so later requests run on warm code (a fresh worker's
+first small solve costs about twice as much as a warm one). A new edit terminates a worker whose
+request is still in flight before the debounced replacement request begins, and the next request
+starts a fresh worker; an app-level request version also prevents a late response from replacing
+newer odds. The client keeps the latest `SolverCalibration` from each result and sends it with the
+next request, so calibration survives those restarts. The previous result remains visible but is
+explicitly labeled as stale while the replacement is pending.
 
 The worker keeps input and rendering responsive, but it does not reduce solver work or make an
 oversized graph finish sooner. It must continue to call the same combat runner and return the same

@@ -388,7 +388,7 @@ describe('computeExactCombat', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.exactDiagnostics).toEqual({
+    expect(result.exactDiagnostics).toMatchObject({
       engagementRequests: 6,
       engagementSolves: 1,
       engagementCacheHits: 5,
@@ -412,7 +412,7 @@ describe('computeExactCombat', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.exactDiagnostics).toEqual({
+    expect(result.exactDiagnostics).toMatchObject({
       engagementRequests: 3,
       engagementSolves: 2,
       engagementCacheHits: 1,
@@ -457,7 +457,7 @@ describe('computeExactCombat', () => {
     expect(result.ok).toBe(true);
     expect(result.lastFleetStanding).toEqual(reference.lastFleetStanding);
     expect(result.drawPercentage).toBe(reference.drawPercentage);
-    expect(result.exactDiagnostics).toEqual({
+    expect(result.exactDiagnostics).toMatchObject({
       engagementRequests: 6,
       engagementSolves: 1,
       engagementCacheHits: 5,
@@ -510,7 +510,7 @@ describe('computeExactCombat', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.exactDiagnostics).toEqual({
+    expect(result.exactDiagnostics).toMatchObject({
       engagementRequests: 6,
       engagementSolves: 1,
       engagementCacheHits: 5,
@@ -539,7 +539,7 @@ describe('computeExactCombat', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.exactDiagnostics).toEqual({
+    expect(result.exactDiagnostics).toMatchObject({
       engagementRequests: 6,
       engagementSolves: 6,
       engagementCacheHits: 0,
@@ -571,7 +571,7 @@ describe('computeExactCombat', () => {
 
     expect(shifted.ok).toBe(true);
     expect(shifted.lastFleetStanding).toEqual(tied.lastFleetStanding);
-    expect(shifted.exactDiagnostics).toEqual({
+    expect(shifted.exactDiagnostics).toMatchObject({
       engagementRequests: 6,
       engagementSolves: 1,
       engagementCacheHits: 5,
@@ -599,7 +599,7 @@ describe('computeExactCombat', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.exactDiagnostics).toEqual({
+    expect(result.exactDiagnostics).toMatchObject({
       engagementRequests: 6,
       engagementSolves: 2,
       engagementCacheHits: 4,

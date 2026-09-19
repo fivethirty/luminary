@@ -6,8 +6,10 @@
  */
 import {
   CombatRunner,
+  DEFAULT_CALIBRATION,
   type CombatRunResult,
   type CombatTier,
+  type SolverCalibration,
 } from '../src/engine/combat-runner';
 import { Fleet } from '../src/engine/fleet';
 import { Ship, ShipConfig, ShipType } from '../src/engine/ship';
@@ -323,6 +325,9 @@ function mirrorScenario(
 }
 
 const runs = Math.max(1, Number.parseInt(process.argv[2] ?? '3', 10) || 3);
+// Carried across runs like the browser client does, so the device probe runs
+// once (during the first warm-up) and learned rates persist.
+let calibration: SolverCalibration = DEFAULT_CALIBRATION;
 
 for (const scenario of scenarios) {
   // Warm the scenario without including it in the reported samples.
@@ -374,6 +379,7 @@ for (const scenario of scenarios) {
         ),
         preflightStateEstimate: preflight.estimatedStates,
         preflightOptionEstimate: preflight.estimatedOptions,
+        optimalDecision: results[0].diagnostics.optimalDecision,
         preflightReason: preflight.reason,
       },
       solverProbe: summarizeSolverProbes(
@@ -405,8 +411,9 @@ function runScenario(scenario: Scenario, seed: number): BenchmarkSample {
       )
   );
   const startedAt = performance.now();
-  const result = new CombatRunner().run(fleets);
+  const result = new CombatRunner().run(fleets, calibration);
   const elapsedMillis = performance.now() - startedAt;
+  calibration = result.diagnostics.calibration;
   return {
     elapsedMillis,
     result,
