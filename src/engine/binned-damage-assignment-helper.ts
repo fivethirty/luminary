@@ -130,7 +130,8 @@ export class BinnedDamageAssignmentHelper {
     maxScore: number,
     canonicalGroups: CanonicalGroup[],
     memo: Map<string, MemoEntry>,
-    shotIdx: number
+    shotIdx: number,
+    targetShield?: number
   ): Plan {
     const key = this.memoKey(
       shotIdx,
@@ -153,7 +154,8 @@ export class BinnedDamageAssignmentHelper {
         ships,
         remainingHp,
         damageAssignments,
-        upcomingPhases
+        upcomingPhases,
+        targetShield
       );
       const plan = {
         ...evaluated,
@@ -188,7 +190,8 @@ export class BinnedDamageAssignmentHelper {
         maxScore,
         canonicalGroups,
         memo,
-        shotIdx + 1
+        shotIdx + 1,
+        targetShield
       );
       if (newPlan.allDestroyed || newPlan.score >= maxScore) {
         damageAssignments[shipIdx] -= shotDmg;
@@ -216,7 +219,8 @@ export class BinnedDamageAssignmentHelper {
         maxScore,
         canonicalGroups,
         memo,
-        shotIdx + 1
+        shotIdx + 1,
+        targetShield
       );
     }
     memo.set(key, {
@@ -290,7 +294,8 @@ export class BinnedDamageAssignmentHelper {
       maxScore,
       canonicalGroups,
       memo,
-      0
+      0,
+      targetShield
     );
 
     // Apply the chosen assignment
