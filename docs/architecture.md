@@ -244,11 +244,15 @@ without changing first-seen planner behavior. Healing can increase HP, so the gr
 cycles and must not be treated as a DAG.
 
 Policy transitions call the real `BinnedDamageAssignmentHelper` on materialized ship clones using
-each fleet's selected NPC or DPS policy. They do not reimplement either targeting planner. Minimax
-transitions reuse `enumerateCandidates`
-to produce legal, distinct successor assignments; NPC assignment remains deterministic. When all
-living targets have one combat configuration, concentrating damage is deterministic under DPS and
-is used as an exact reduction of that otherwise redundant minimax decision node.
+each fleet's selected NPC or DPS policy. They do not reimplement either targeting planner. Those
+results are memoized per `BattleModel` on exactly the inputs the planners read: the sorted shots,
+the living targets' `(configKey, HP)` in roster order, the target role, the shooter fleet's
+minimum shield after rift self-damage, and the target's remaining missile-phase initiatives. A
+planner change that reads any other state must extend that key. Minimax transitions reuse
+`enumerateCandidates` to produce legal, distinct successor assignments; NPC assignment remains
+deterministic. When all living targets have one combat configuration, concentrating damage is
+deterministic under DPS and is used as an exact reduction of that otherwise redundant minimax
+decision node.
 
 `dice-distribution.ts` groups ordinary die rolls by the set of living shield values they hit.
 Identical dice are exchangeable, so it enumerates multinomial multisets rather than roll

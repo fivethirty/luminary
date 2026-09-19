@@ -418,4 +418,107 @@ describe('BattleModel', () => {
       expect(seenTerminals).toContain('DefenderWins');
     });
   });
+  describe('heuristic assignment memo', () => {
+    // A warmed memo must reproduce exactly what a fresh model computes for a
+    // raw roster layout the memo has never seen, on both key paths: the
+    // canonical HP code (planner ordering never ties two config groups) and
+    // the raw roster HP vector (it can).
+    type MemoContexts = Map<string, { groupOrderFree: boolean }>;
+    const memoContexts = (model: BattleModel): MemoContexts =>
+      (model as unknown as { heuristicContexts: MemoContexts })
+        .heuristicContexts;
+    const expandJson = (model: BattleModel, state: WorkingState): string =>
+      JSON.stringify(model.expand(state, CTX));
+
+    function checkPermutedLayouts(
+      make: () => Ship[],
+      layouts: number[][],
+      expectGroupOrderFree: boolean
+    ): void {
+      const warmed = new BattleModel(make(), make(), false, false);
+      const slot = warmed.findSlot('A', 3, false);
+      expect(slot).toBeGreaterThanOrEqual(0);
+      const hpA = warmed.initialState().hpA;
+      // Warm the memo with the first layout, then replay every other layout
+      // of the same per-group HP multisets against a fresh model.
+      expandJson(warmed, { hpA, hpB: layouts[0], slot });
+      const contexts = Array.from(memoContexts(warmed).values());
+      expect(contexts.length).toBeGreaterThan(0);
+      for (const context of contexts) {
+        expect(context.groupOrderFree).toBe(expectGroupOrderFree);
+      }
+      for (const hpB of layouts.slice(1)) {
+        const fresh = new BattleModel(make(), make(), false, false);
+        const state: WorkingState = { hpA, hpB, slot };
+        expect(expandJson(warmed, state)).toBe(expandJson(fresh, state));
+      }
+    }
+
+    test('canonical-code path: interceptors and cruisers', () => {
+      const make = (): Ship[] => [
+        ...Array.from(
+          { length: 3 },
+          () =>
+            new Ship(ShipType.Interceptor, {
+              initiative: 3,
+              cannons: { ion: 1 },
+            })
+        ),
+        ...Array.from(
+          { length: 2 },
+          () =>
+            new Ship(ShipType.Cruiser, {
+              initiative: 2,
+              hull: 1,
+              cannons: { ion: 1 },
+            })
+        ),
+      ];
+      checkPermutedLayouts(
+        make,
+        [
+          [1, 0, 1, 2, 1],
+          [0, 1, 1, 1, 2],
+          [1, 1, 0, 2, 1],
+        ],
+        true
+      );
+    });
+
+    test('raw-key path: groups that differ only in hull can tie', () => {
+      // Same weapons, computers, initiative and type: the DPS ordering ties
+      // whenever a hull-1 and a hull-2 cruiser share remaining HP, so the
+      // memo must key on the raw roster HP vector.
+      const make = (): Ship[] => [
+        new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } }),
+        ...Array.from(
+          { length: 2 },
+          () =>
+            new Ship(ShipType.Cruiser, {
+              initiative: 2,
+              hull: 1,
+              cannons: { ion: 1 },
+            })
+        ),
+        ...Array.from(
+          { length: 2 },
+          () =>
+            new Ship(ShipType.Cruiser, {
+              initiative: 2,
+              hull: 2,
+              cannons: { ion: 1 },
+            })
+        ),
+      ];
+      checkPermutedLayouts(
+        make,
+        [
+          [1, 2, 1, 2, 3],
+          [1, 1, 2, 3, 2],
+          [1, 2, 2, 2, 2],
+        ],
+        false
+      );
+    });
+  });
 });

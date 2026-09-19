@@ -7,7 +7,10 @@ import { Ship, Shot, WeaponDamage } from './ship';
 import { Fleet } from './fleet';
 import { Phase } from './battle';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
-import { enumerateSlotOutcomes } from './dice-distribution';
+import { sortShotsForAssignment } from './abstract-damage-planner';
+import { DpsRemovalDamagePlanner } from './dps-removal-damage-planner';
+import { NpcDamagePlanner } from './npc-damage-planner';
+import { enumerateSlotOutcomes, type SlotOutcome } from './dice-distribution';
 import { enumerateCandidates } from './candidate-enumerator';
 import { Terminal, terminalFromSurvival } from './battle-rules';
 
@@ -57,7 +60,28 @@ type AssignmentControl =
   | { kind: 'decision'; role: Role }
   | { kind: 'heuristic'; damageType: DamageType.NPC | DamageType.DPS };
 
-type CanonicalGroup = { key: string; indices: number[] };
+type MaterializedFleet = { fleet: Fleet; ships: Ship[] };
+type OutcomeScratch = {
+  shooter: MaterializedFleet;
+  target: MaterializedFleet;
+  // Whether the shooter ships still hold a previous outcome's rift
+  // self-damage and must be reset before the next outcome reads them.
+  shooterDirty: boolean;
+};
+
+type CanonicalGroup = {
+  key: string;
+  indices: number[];
+  hpWeights: number[];
+};
+
+// One heuristic-assignment memo context: the target side, planner, target
+// shield and missile-tail signature that fix a planner's ship ordering. When
+// `groupOrderFree` is true the planner never ties two different configuration
+// groups, so its sorted target sequence depends only on the per-group HP
+// multisets and the memo can key on the canonical HP code; otherwise it keys
+// on the raw roster HP vector, which is always exact.
+type HeuristicMemoContext = { prefix: string; groupOrderFree: boolean };
 
 export class BattleModel {
   readonly schedule: Slot[];
@@ -70,6 +94,22 @@ export class BattleModel {
   private readonly defenderInitialHp: number[];
   private readonly attackerCanonicalGroups: CanonicalGroup[];
   private readonly defenderCanonicalGroups: CanonicalGroup[];
+  private readonly slotOutcomeCache = new Map<string, SlotOutcome[]>();
+  // Deterministic NPC/DPS assignment results keyed by everything the planners
+  // read (see heuristicMemoKey). Values are the resulting target HP per
+  // canonical group in (current HP, roster index) order.
+  private readonly heuristicMemo = new Map<string, number[]>();
+  private readonly heuristicContexts = new Map<string, HeuristicMemoContext>();
+  private readonly shotSignatures = new WeakMap<Shot[], string>();
+  private readonly slotTailSignatures: string[];
+  private readonly slotTailInitiatives: number[][];
+  // One helper for the whole solve: its planners only cache pure per-config
+  // priorities, and the mutable engine also keeps one helper per fleet.
+  private readonly assignmentHelper = new BinnedDamageAssignmentHelper();
+  // Real ships for the planners and candidate enumeration, cloned once per
+  // solve and reset to each outcome's HP before use (see resolveOutcome).
+  private readonly attackerScratch: MaterializedFleet;
+  private readonly defenderScratch: MaterializedFleet;
 
   constructor(
     attackerTemplates: Ship[],
@@ -91,6 +131,16 @@ export class BattleModel {
       template.resetDamage();
       return template;
     });
+    this.attackerScratch = this.materializeFleet(
+      this.attackerTemplates,
+      this.attackerInitialHp,
+      attackerSplitter
+    );
+    this.defenderScratch = this.materializeFleet(
+      this.defenderTemplates,
+      this.defenderInitialHp,
+      defenderSplitter
+    );
     this.attackerCanonicalGroups = this.buildCanonicalGroups(
       this.attackerTemplates
     );
@@ -99,6 +149,13 @@ export class BattleModel {
     );
     this.schedule = this.buildSchedule();
     this.numMissileSlots = this.schedule.filter((s) => s.missile).length;
+    this.slotTailInitiatives = this.schedule.map((_, index) =>
+      this.targetMissileTailInitiatives(index)
+    );
+    this.slotTailSignatures = this.slotTailInitiatives.map(
+      (initiatives, index) =>
+        this.schedule[index].missile ? `m${initiatives.join(',')}` : 'c'
+    );
     this.attackerDamageType =
       attackerDamageType ??
       (this.attackerTemplates.some((ship) => ship.isPlayerShip())
@@ -180,10 +237,10 @@ export class BattleModel {
   canonicalKey(state: WorkingState): string {
     const side = (groups: CanonicalGroup[], hp: number[]): string =>
       groups
-        .map(({ key, indices }) => {
-          const hps = indices.map((index) => hp[index]);
-          hps.sort((a, b) => a - b);
-          return `${key}=${hps.join('.')}`;
+        .map(({ key, indices, hpWeights }) => {
+          let hpCode = 0;
+          for (const index of indices) hpCode += hpWeights[hp[index]];
+          return `${key}=${hpCode}`;
         })
         .join(';');
     return `${state.slot}|A:${side(
@@ -200,9 +257,17 @@ export class BattleModel {
       if (indices) indices.push(index);
       else byKey.set(key, [index]);
     });
-    return Array.from(byKey, ([key, indices]) => ({ key, indices })).sort(
-      (a, b) => a.key.localeCompare(b.key)
-    );
+    return Array.from(byKey, ([key, indices]) => {
+      const base = indices.length + 1;
+      const maxHp = Math.max(
+        ...indices.map((index) => templates[index].maxHP())
+      );
+      const hpWeights = [1];
+      for (let hp = 1; hp <= maxHp; hp++) {
+        hpWeights.push(hpWeights[hp - 1] * base);
+      }
+      return { key, indices, hpWeights };
+    }).sort((a, b) => a.key.localeCompare(b.key));
   }
 
   private anyAlive(hp: number[]): boolean {
@@ -267,8 +332,194 @@ export class BattleModel {
     return { fleet, ships };
   }
 
+  private resetMaterializedFleet(
+    materialized: MaterializedFleet,
+    templates: Ship[],
+    hp: number[]
+  ): void {
+    materialized.fleet.reset();
+    for (let i = 0; i < materialized.ships.length; i++) {
+      const damage = templates[i].maxHP() - hp[i];
+      if (damage > 0) materialized.ships[i].takeDamage(damage);
+    }
+  }
+
   private livingHpVector(ships: Ship[]): number[] {
     return ships.map((s) => s.remainingHP());
+  }
+
+  // Initiatives of the target fleet's own missile phases that follow `fromSlot`
+  // before the next cannon phase. DpsRemovalDamagePlanner.getShipPriority reads
+  // the phase tail only to ask whether a target ship still has missiles to
+  // fire (`phase.ships.includes(ship)`), and a living ship is in such a phase
+  // exactly when its initiative matches one of these. Cannon slots have no tail.
+  private targetMissileTailInitiatives(fromSlot: number): number[] {
+    const slot = this.schedule[fromSlot];
+    if (!slot.missile) return [];
+    const initiatives = new Set<number>();
+    for (let i = fromSlot + 1; i < this.schedule.length; i++) {
+      const next = this.schedule[i];
+      if (!next.missile) break;
+      if (next.role !== slot.role) initiatives.add(next.initiative);
+    }
+    return Array.from(initiatives).sort((a, b) => a - b);
+  }
+
+  // Mixed-radix HP histogram per canonical group; equal codes mean equal
+  // (configKey, HP) multisets. Same encoding as canonicalKey.
+  private hpMultisetCode(groups: CanonicalGroup[], hp: number[]): string {
+    let code = '';
+    for (let g = 0; g < groups.length; g++) {
+      const { indices, hpWeights } = groups[g];
+      let groupCode = 0;
+      for (let k = 0; k < indices.length; k++) {
+        groupCode += hpWeights[hp[indices[k]]];
+      }
+      code += g === 0 ? `${groupCode}` : `,${groupCode}`;
+    }
+    return code;
+  }
+
+  // Shots in the order the binned helper will process them. Cached per outcome
+  // object because slot outcomes are shared across every expansion of a slot.
+  private shotSignature(shots: Shot[]): string {
+    let signature = this.shotSignatures.get(shots);
+    if (signature === undefined) {
+      signature = sortShotsForAssignment(shots)
+        .map((shot) => `${shot.roll},${shot.computers},${shot.damage}`)
+        .join(';');
+      this.shotSignatures.set(shots, signature);
+    }
+    return signature;
+  }
+
+  private heuristicContext(
+    targetRole: Role,
+    targetTemplates: Ship[],
+    groups: CanonicalGroup[],
+    damageType: DamageType.NPC | DamageType.DPS,
+    targetShield: number,
+    fromSlot: number
+  ): HeuristicMemoContext {
+    const tail = this.slotTailSignatures[fromSlot];
+    const contextKey = `${targetRole}|${damageType}|${targetShield}|${tail}`;
+    let context = this.heuristicContexts.get(contextKey);
+    if (context === undefined) {
+      context = {
+        prefix: `${contextKey}|`,
+        groupOrderFree: this.plannerOrderIsGroupFree(
+          targetTemplates,
+          groups,
+          damageType,
+          targetShield,
+          this.slotTailInitiatives[fromSlot]
+        ),
+      };
+      this.heuristicContexts.set(contextKey, context);
+    }
+    return context;
+  }
+
+  // Whether the planner's own ship ordering can tie two ships from different
+  // configuration groups. The planners sort with a stable comparator, so a
+  // tie is observable as both input orders being preserved. Representatives
+  // cover every living HP so HP-dependent comparator terms are exercised. A
+  // tie-free ordering makes the planner-sorted target sequence a function of
+  // the per-group HP multisets alone.
+  private plannerOrderIsGroupFree(
+    targetTemplates: Ship[],
+    groups: CanonicalGroup[],
+    damageType: DamageType.NPC | DamageType.DPS,
+    targetShield: number,
+    tailInitiatives: number[]
+  ): boolean {
+    if (groups.length < 2) return true;
+    const planner =
+      damageType === DamageType.NPC
+        ? new NpcDamagePlanner()
+        : new DpsRemovalDamagePlanner();
+    const representatives = groups.map(({ indices }) => {
+      const template = targetTemplates[indices[0]];
+      const ships: Ship[] = [];
+      for (let hp = 1; hp <= template.maxHP(); hp++) {
+        const ship = template.clone();
+        ship.resetDamage();
+        ship.takeDamage(template.maxHP() - hp);
+        ships.push(ship);
+      }
+      return ships;
+    });
+    const phases: Phase[] = [];
+    if (tailInitiatives.length > 0) {
+      const probeFleet = new Fleet('memo-probe', [], false, DamageType.DPS);
+      phases.push({
+        ships: representatives
+          .flat()
+          .filter((ship) => tailInitiatives.includes(ship.initiative)),
+        initiative: 0,
+        shootingFleet: probeFleet,
+        targetFleet: probeFleet,
+        missilePhase: true,
+      });
+      phases.push({
+        ships: [],
+        initiative: 0,
+        shootingFleet: probeFleet,
+        targetFleet: probeFleet,
+        missilePhase: false,
+      });
+    }
+    for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        for (const a of representatives[i]) {
+          for (const b of representatives[j]) {
+            const ab = planner.optimallySortShips([a, b], phases, targetShield);
+            const ba = planner.optimallySortShips([b, a], phases, targetShield);
+            if (ab[0] === a && ba[0] === b) return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  // Living ships of each group in (current HP, roster index) order: the order
+  // the planners' stable sort leaves interchangeable ships in.
+  private encodeGroupedHp(
+    groups: CanonicalGroup[],
+    oldHp: number[],
+    newHp: number[]
+  ): number[] {
+    const encoded: number[] = [];
+    for (const { indices, hpWeights } of groups) {
+      const maxHp = hpWeights.length - 1;
+      for (let hp = 1; hp <= maxHp; hp++) {
+        for (let k = 0; k < indices.length; k++) {
+          const index = indices[k];
+          if (oldHp[index] === hp) encoded.push(newHp[index]);
+        }
+      }
+    }
+    return encoded;
+  }
+
+  private applyGroupedHp(
+    groups: CanonicalGroup[],
+    oldHp: number[],
+    encoded: number[]
+  ): number[] {
+    const result = oldHp.slice();
+    let next = 0;
+    for (const { indices, hpWeights } of groups) {
+      const maxHp = hpWeights.length - 1;
+      for (let hp = 1; hp <= maxHp; hp++) {
+        for (let k = 0; k < indices.length; k++) {
+          const index = indices[k];
+          if (oldHp[index] === hp) result[index] = encoded[next++];
+        }
+      }
+    }
+    return result;
   }
 
   // The upcoming-phase tail a heuristic planner reads. Only leading missile
@@ -375,20 +626,36 @@ export class BattleModel {
     );
 
     let diceDeadlineExceeded = false;
-    const outcomes = enumerateSlotOutcomes(
-      shooterShips,
-      slot.missile,
-      enemyShields,
-      slot.missile ? false : shooterSplitter,
+    const outcomeKey = [
+      state.slot,
+      livingShooterIdx.join(','),
+      enemyShields.join(','),
+      slot.missile ? 'm' : 'c',
+      shooterSplitter ? 's' : 'n',
       ctx.maxOutcomes,
-      ctx.deadlineExceeded
-        ? () => {
-            diceDeadlineExceeded = ctx.deadlineExceeded!();
-            return diceDeadlineExceeded;
-          }
-        : undefined,
-      ordinaryDamageCeiling
-    );
+      ordinaryDamageCeiling,
+    ].join('|');
+    const cachedOutcomes = this.slotOutcomeCache.get(outcomeKey);
+    let outcomes: SlotOutcome[] | null;
+    if (cachedOutcomes !== undefined) {
+      outcomes = cachedOutcomes;
+    } else {
+      outcomes = enumerateSlotOutcomes(
+        shooterShips,
+        slot.missile,
+        enemyShields,
+        slot.missile ? false : shooterSplitter,
+        ctx.maxOutcomes,
+        ctx.deadlineExceeded
+          ? () => {
+              diceDeadlineExceeded = ctx.deadlineExceeded!();
+              return diceDeadlineExceeded;
+            }
+          : undefined,
+        ordinaryDamageCeiling
+      );
+      if (outcomes !== null) this.slotOutcomeCache.set(outcomeKey, outcomes);
+    }
     if (diceDeadlineExceeded || ctx.deadlineExceeded?.()) {
       return { kind: 'fail', reason: 'time budget exceeded' };
     }
@@ -415,6 +682,12 @@ export class BattleModel {
     const decisionRole =
       assignmentControl.kind === 'decision' ? assignmentControl.role : null;
 
+    const scratch: OutcomeScratch = {
+      shooter: shooterIsAttacker ? this.attackerScratch : this.defenderScratch,
+      target: shooterIsAttacker ? this.defenderScratch : this.attackerScratch,
+      shooterDirty: true,
+    };
+
     const edges: MoveEdge[] = [];
     for (const outcome of outcomes) {
       if (ctx.deadlineExceeded?.()) {
@@ -428,7 +701,8 @@ export class BattleModel {
         shooterTemplates,
         targetTemplates,
         assignmentControl,
-        ctx
+        ctx,
+        scratch
       );
       if (!resolved.ok) return { kind: 'fail', reason: resolved.reason };
       edges.push({ prob: outcome.prob, options: resolved.options });
@@ -486,7 +760,8 @@ export class BattleModel {
     shooterTemplates: Ship[],
     targetTemplates: Ship[],
     assignmentControl: AssignmentControl,
-    ctx: ExpandContext
+    ctx: ExpandContext,
+    scratch: OutcomeScratch
   ):
     | { ok: true; options: Successor[] }
     | {
@@ -498,26 +773,22 @@ export class BattleModel {
     }
     const shooterHp = shooterIsAttacker ? state.hpA : state.hpB;
     const targetHp = shooterIsAttacker ? state.hpB : state.hpA;
-    const shooterSplitFlag = shooterIsAttacker
-      ? this.attackerSplitter
-      : this.defenderSplitter;
-
-    // Materialize both fleets so heuristics/candidates run against real ships.
-    const shooterMat = this.materializeFleet(
-      shooterTemplates,
-      shooterHp,
-      shooterSplitFlag
-    );
-    const targetMat = this.materializeFleet(
-      targetTemplates,
-      targetHp,
-      shooterIsAttacker ? this.defenderSplitter : this.attackerSplitter
-    );
+    // The shooter scratch fleet holds this state's HP for every outcome of one
+    // expansion; it only needs a reset after an outcome applied rift
+    // self-damage. The target fleet is reset when a planner or candidate
+    // enumeration actually needs it.
+    const shooterMat = scratch.shooter;
+    const targetMat = scratch.target;
+    if (scratch.shooterDirty) {
+      this.resetMaterializedFleet(shooterMat, shooterTemplates, shooterHp);
+      scratch.shooterDirty = false;
+    }
     if (ctx.deadlineExceeded?.()) {
       return { ok: false, reason: 'time budget exceeded' };
     }
 
     // Apply rift self-damage to the shooter's living rift ships (NPC-assigned).
+    let selfDamageApplied = false;
     if (!slot.missile && outcome.selfDamage > 0) {
       const selfShots = Array.from({ length: outcome.selfDamage }, () => ({
         roll: 6,
@@ -526,34 +797,37 @@ export class BattleModel {
       }));
       const riftShips = shooterMat.fleet.getLivingRiftShips();
       if (riftShips.length > 0) {
-        new BinnedDamageAssignmentHelper().assignDamage(
+        this.assignmentHelper.assignDamage(
           selfShots,
           riftShips,
           DamageType.NPC,
           []
         );
+        selfDamageApplied = true;
+        scratch.shooterDirty = true;
       }
     }
     if (ctx.deadlineExceeded?.()) {
       return { ok: false, reason: 'time budget exceeded' };
     }
-    const newShooterHp = this.livingHpVector(shooterMat.ships);
+    const newShooterHp = selfDamageApplied
+      ? this.livingHpVector(shooterMat.ships)
+      : shooterHp.slice();
 
-    const targetLiving = targetMat.ships.filter((s) => s.isAlive());
-
-    const buildSuccessor = (): Successor => {
-      const newTargetHp = this.livingHpVector(targetMat.ships);
+    const successorFrom = (newTargetHp: number[]): Successor => {
       const hpA = shooterIsAttacker ? newShooterHp : newTargetHp;
       const hpB = shooterIsAttacker ? newTargetHp : newShooterHp;
       return this.finishSlot(hpA, hpB, state.slot, slot);
     };
 
-    if (outcome.shots.length === 0 || targetLiving.length === 0) {
+    if (outcome.shots.length === 0 || !this.anyAlive(targetHp)) {
       // No target damage this outcome.
-      return { ok: true, options: [buildSuccessor()] };
+      return { ok: true, options: [successorFrom(targetHp.slice())] };
     }
 
     if (assignmentControl.kind === 'decision') {
+      this.resetMaterializedFleet(targetMat, targetTemplates, targetHp);
+      const targetLiving = targetMat.ships.filter((s) => s.isAlive());
       let candidateDeadlineExceeded = false;
       const candidates = enumerateCandidates(outcome.shots, targetLiving, {
         shouldAbort: ctx.deadlineExceeded
@@ -570,7 +844,10 @@ export class BattleModel {
         return { ok: false, reason: 'expand cap exceeded' };
       }
       if (candidates.length === 0) {
-        return { ok: true, options: [buildSuccessor()] };
+        return {
+          ok: true,
+          options: [successorFrom(this.livingHpVector(targetMat.ships))],
+        };
       }
       const options: Successor[] = [];
       for (const candidate of candidates) {
@@ -586,30 +863,68 @@ export class BattleModel {
           const rosterIdx = targetMat.ships.indexOf(targetLiving[i]);
           newTargetHp[rosterIdx] = targetLiving[i].remainingHP() - dmg;
         }
-        const hpA = shooterIsAttacker ? newShooterHp : newTargetHp;
-        const hpB = shooterIsAttacker ? newTargetHp : newShooterHp;
-        options.push(this.finishSlot(hpA, hpB, state.slot, slot));
+        options.push(successorFrom(newTargetHp));
       }
       return { ok: true, options };
     }
 
     // Heuristic assignment follows the fleet's selected deterministic policy.
+    // The planners are deterministic functions of the shot sequence, the
+    // living targets' (config, HP) in roster order, the shooter's minimum
+    // shield and the missile-phase tail, so their result is memoized on
+    // exactly that. Ships sharing a configKey are interchangeable for the
+    // solver (canonicalKey sorts HP within a group, and the helper's own memo
+    // remaps plans across such ships), so the result is stored per group in
+    // (HP, roster) order and replayed onto the current roster; with a tie-free
+    // planner ordering this reproduces the planner's raw HP vector exactly.
+    const targetShield = shooterMat.fleet.getMinShield();
+    const targetRole: Role = shooterIsAttacker ? 'D' : 'A';
+    const groups = shooterIsAttacker
+      ? this.defenderCanonicalGroups
+      : this.attackerCanonicalGroups;
+    const context = this.heuristicContext(
+      targetRole,
+      targetTemplates,
+      groups,
+      assignmentControl.damageType,
+      targetShield,
+      state.slot
+    );
+    const targetSignature = context.groupOrderFree
+      ? this.hpMultisetCode(groups, targetHp)
+      : targetHp.join('.');
+    const memoKey = `${context.prefix}${this.shotSignature(outcome.shots)}|${targetSignature}`;
+    const cached = this.heuristicMemo.get(memoKey);
+    if (cached !== undefined) {
+      return {
+        ok: true,
+        options: [successorFrom(this.applyGroupedHp(groups, targetHp, cached))],
+      };
+    }
+
+    this.resetMaterializedFleet(targetMat, targetTemplates, targetHp);
+    const targetLiving = targetMat.ships.filter((s) => s.isAlive());
     const phases = this.buildPhaseTail(
       state.slot,
       shooterIsAttacker ? shooterMat.fleet : targetMat.fleet,
       shooterIsAttacker ? targetMat.fleet : shooterMat.fleet
     );
-    new BinnedDamageAssignmentHelper().assignDamage(
+    this.assignmentHelper.assignDamage(
       outcome.shots,
       targetLiving,
       assignmentControl.damageType,
       phases,
-      shooterMat.fleet.getMinShield()
+      targetShield
     );
     if (ctx.deadlineExceeded?.()) {
       return { ok: false, reason: 'time budget exceeded' };
     }
-    return { ok: true, options: [buildSuccessor()] };
+    const newTargetHp = this.livingHpVector(targetMat.ships);
+    this.heuristicMemo.set(
+      memoKey,
+      this.encodeGroupedHp(groups, targetHp, newTargetHp)
+    );
+    return { ok: true, options: [successorFrom(newTargetHp)] };
   }
 
   private assignmentControl(

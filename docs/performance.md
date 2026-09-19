@@ -86,6 +86,79 @@ not comparable if the policy or probability tolerance changed.
 For Monte Carlo, report iterations, elapsed time, and a fixed-seed or statistical comparison when
 evaluating accuracy. Do not treat a single sampled percentage as a correctness fixture.
 
+## Measured Exact Optimizations
+
+The benchmark baseline is three warmed runs of the mixed optimal mirrors on the local development
+machine. Both mirrors route to the exact-DPS tier because the minimax preflight estimate exceeds
+the cutoff. Before this work the 12-ship case (8 interceptors plus 4 cruisers per fleet) completed
+exact DPS in a median of 135 ms, and the 14-ship case (plus 2 dreadnoughts per fleet) exhausted its
+600 ms exact-DPS allocation and fell back to roughly 865 Monte Carlo iterations.
+
+Two exact-model optimizations landed first and are covered by the existing state and combat tests:
+
+- Reusing materialized shooter and target fleets for every outcome in one expanded state reduced
+  the 12-ship exact-DPS median to about 106 ms.
+- Encoding interchangeable HP multisets as mixed-radix histogram values instead of sorting and
+  joining HP arrays reduced that median further to about 101 ms.
+
+An uncapped solve of the 14-ship case then measured where its time actually goes: about 9.4 s of
+graph construction over 150,076 states and 473,648 edges, about 32 s of value iteration (407
+sweeps, because index-order sweeps over a DFS-discovered graph advance roughly one schedule slot
+per sweep), and about 4.8 s of forward propagation. An earlier five-second probe that never left
+graph construction had suggested that expansion was the only target; fixed-point iteration is the
+larger one. A sparse forward-propagation trial was rejected because it regressed the target
+workload and is not part of the implementation.
+
+Two structural measurements explain the construction cost and bound the remaining wins:
+
+- The joint state space is close to a product of the two sides. Each side of the 14-ship mirror
+  reaches only 158 canonical HP configurations, and 158 x 158 x 6 slots is essentially the whole
+  graph, so only 5,372 distinct (slot, living shooters, target HP) transitions exist among the
+  149,760 expansions. The 12-ship minimax graph has the same shape (134 x 134 x 4).
+- Deterministic planner calls dominated construction. On the 12-ship case, 2,816 `assignDamage`
+  calls were about 105 ms of a 139 ms instrumented build, and 99% of the 14-ship case's roughly
+  324,000 calls repeated an input that had already been planned.
+
+Three further exact transformations target those planner calls and are covered by the state,
+solver, and combat tests:
+
+- `BattleModel` memoizes each heuristic assignment result per model. The planners are
+  deterministic functions of the shot sequence they sort, the living targets' `(configKey, HP)` in
+  roster order, the shooter fleet's minimum shield after rift self-damage, and which of the
+  target's own missile phases remain, so the memo key is exactly that (the missile tail reduces to
+  a set of initiatives per schedule slot, and the key includes the target role so attacker and
+  defender rosters never share an entry). The value is the resulting HP of each configuration
+  group's living ships in (HP, roster) order, which is the order the planners' stable sort leaves
+  interchangeable ships in. When the planner's ordering never ties two different configuration
+  groups, checked once per context by sorting representative ships with the real planner, the
+  memo keys on the canonical HP code; otherwise it keys on the raw roster HP vector. Both cases
+  reproduce the planner's raw HP vector bit for bit; the 12-ship build makes 256 planner calls
+  instead of 2,816 and the 14-ship build about 3,160.
+- `BinnedDamageAssignmentHelper` keys its per-call memo by a mixed-radix code of each
+  configuration group's effective-HP histogram (a numeric key when the whole key fits a safe
+  integer, strings otherwise) instead of sorting and joining HP arrays, replays cached plans by
+  (HP, index) rank without sorting, and shares immutable plan objects instead of copying them.
+  Memo equivalence, recursion counts, and evaluation counts are unchanged; the instrumented cost
+  per `assignDamage` fell from about 33 us to 18 us. The mutable engine shares this helper, so
+  Monte Carlo sampling benefits as well.
+- `BattleModel` clones each side's scratch fleet once per solve and resets it to an outcome's HP
+  before a planner or candidate enumeration reads it; the shooter fleet is reset again only after
+  an outcome applied rift self-damage, and the successor's shooter HP is copied from the state
+  vector unless self-damage changed it. This removed about 226,000 `materializeFleet` and 3.2
+  million `Ship.clone` calls from the 14-ship build.
+
+Measured together, as medians of paired runs: uncapped 12-ship graph construction fell from about
+89 ms to 18 ms and the interactive 12-ship exact-DPS tier from about 95 ms to 27 ms; uncapped
+14-ship construction fell from about 9.4 s to 0.9 s. State counts, edge counts, and probabilities
+are identical, including for the mutable engine, and the 14-ship mirror now completes roughly
+1,200 to 1,350 sampled battles in its 350 ms Monte Carlo window instead of about 900. Value
+iteration is untouched by these changes (a faster 14-ship iterate observed in the same runs is a
+garbage-collection side effect of fewer allocations, not a solver change), so the 14-ship case
+still exceeds the interactive exact budget. Its remaining cost is value-iteration order and
+per-state bookkeeping, and the product structure above is the basis for reusing per-side
+transitions across joint states; both were prototyped with exact results but are not part of the
+implementation yet.
+
 ## Benchmark Assets
 
 Permanent repository assets are warranted when they make algorithmic regressions reproducible:
