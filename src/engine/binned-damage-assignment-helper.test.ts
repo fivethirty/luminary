@@ -370,4 +370,60 @@ describe('BinnedDamageAssignment', () => {
       expect(ship2.remainingHP()).toBe(2);
     });
   });
+  describe('memo key encoding', () => {
+    // The per-call memo keys each configuration group's effective-HP histogram
+    // as a mixed-radix number and falls back to string keys when that radix
+    // cannot be a safe integer. Both paths must reach the same plan; the DPS
+    // oracle here is unambiguous: every kill outranks any chip damage.
+    const fleet = (count: number, damagedToOneHp: number): Ship[] =>
+      Array.from({ length: count }, (_, index) => {
+        const ship = new Ship(ShipType.Cruiser, {
+          hull: 9,
+          cannons: { ion: 1 },
+        });
+        if (index < damagedToOneHp) ship.takeDamage(ship.maxHP() - 1);
+        return ship;
+      });
+    const hit = (damage: number): Shot => ({
+      roll: DICE_VALUES.HIT,
+      computers: 0,
+      damage,
+    });
+    const hpCounts = (ships: Ship[]): Record<number, number> => {
+      const counts: Record<number, number> = {};
+      for (const ship of ships) {
+        counts[ship.remainingHP()] = (counts[ship.remainingHP()] ?? 0) + 1;
+      }
+      return counts;
+    };
+
+    for (const count of [6, 60]) {
+      // base = count + 1, radix = base ** (maxHP + 1): 7 ** 11 fits a safe
+      // integer, 61 ** 11 does not.
+      const label =
+        (count + 1) ** 11 <= Number.MAX_SAFE_INTEGER
+          ? 'numeric keys'
+          : 'string-key fallback';
+
+      test(`${label}: DPS kills once per lethal shot (${count} ships)`, () => {
+        const ships = fleet(count, 0);
+        new BinnedDamageAssignmentHelper().assignDamage(
+          Array.from({ length: 5 }, () => hit(10)),
+          ships,
+          DamageType.DPS
+        );
+        expect(hpCounts(ships)).toEqual({ 0: 5, 10: count - 5 });
+      });
+
+      test(`${label}: DPS finishes damaged ships first (${count} ships)`, () => {
+        const ships = fleet(count, 2);
+        new BinnedDamageAssignmentHelper().assignDamage(
+          Array.from({ length: 3 }, () => hit(1)),
+          ships,
+          DamageType.DPS
+        );
+        expect(hpCounts(ships)).toEqual({ 0: 2, 9: 1, 10: count - 3 });
+      });
+    }
+  });
 });

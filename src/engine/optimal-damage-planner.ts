@@ -9,6 +9,7 @@ import { enumerateCandidates } from './candidate-enumerator';
 import { BattleModel, Role, Terminal, WorkingState } from './battle-state';
 import { DamageType } from 'src/constants';
 import {
+  DECISION_TIE_EPSILON,
   DEFAULT_CAPS,
   SolverCaps,
   WinProbabilitySolver,
@@ -141,7 +142,7 @@ export class OptimalDamagePlanner {
 
     const isMax = ownIsAttacker; // attacker maximizes reach value, defender minimizes
 
-    let bestCandidate = candidates[0];
+    const values: number[] = [];
     let bestValue = isMax ? -Infinity : Infinity;
     for (const candidate of candidates) {
       const targetHp = targetBaseHp.slice();
@@ -160,13 +161,20 @@ export class OptimalDamagePlanner {
         this.fallback(shots, targetShips, upcomingPhases);
         return;
       }
-      if (isMax ? value > bestValue : value < bestValue) {
-        bestValue = value;
-        bestCandidate = candidate;
-      }
+      values.push(value);
+      if (isMax ? value > bestValue : value < bestValue) bestValue = value;
     }
 
-    this.applyAssignment(targetShips, bestCandidate.damageAssignments);
+    // Same tie rule as the solver's own policy: the first candidate within
+    // the tolerance of the best value, so equally optimal assignments do not
+    // depend on iteration residuals.
+    const chosen = values.findIndex(
+      (value) => Math.abs(value - bestValue) <= DECISION_TIE_EPSILON
+    );
+    this.applyAssignment(
+      targetShips,
+      candidates[chosen < 0 ? 0 : chosen].damageAssignments
+    );
   }
 
   // Reach value (solver convention) of the position after an assignment. A dead
@@ -191,7 +199,7 @@ export class OptimalDamagePlanner {
     }
 
     const state: WorkingState = { hpA, hpB, slot: nextSlot };
-    return this.solver!.getValue(this.model!.canonicalKey(state));
+    return this.solver!.getStateValue(state);
   }
 
   private terminalValue(outcome: Terminal): number {

@@ -6,7 +6,7 @@ import type {
   DestroyedShipsCreditedToFleet,
   ShipCountByType,
 } from './combat-result';
-import { BattleModel, Role } from './battle-state';
+import { BattleModel, ExpandContext, Role } from './battle-state';
 import {
   AssignmentMode,
   DEFAULT_CAPS,
@@ -17,10 +17,25 @@ import {
 
 // A deliberately conservative upper bound for interactive minimax. It counts
 // HP multisets for each interchangeable ship configuration across both fleets,
-// then multiplies by schedule slots. The measured 8-interceptor + 4-cruiser
-// mirror is 72,900 by this estimate and takes seconds in minimax despite its
-// small number of ship types; policy-mode exact resolves it much faster.
-const OPTIMAL_EXACT_STATE_SPACE_CUTOFF = 50_000;
+// then multiplies by schedule slots. At or above this bound the option probe
+// below is not even run; below it the probe's estimate, and the runner's
+// time prediction from it, decide. The 8-interceptor + 4-cruiser mirror is
+// 72,900 by this bound and still skipped: its probe estimates millions of
+// assignment options (about 1.9 s uncapped), while a 4-interceptor, 2-cruiser,
+// 1-dreadnought mirror at 86,400 solves in about 0.23 s and is admitted.
+const OPTIMAL_EXACT_STATE_SPACE_CUTOFF = 100_000;
+// Interactive minimax cost is dominated by decision outcomes times their
+// assignment candidates, not by states: two antimatter starbases and a
+// dreadnought against four rift cruisers is 44,100 states by the bound above
+// but about 760,000 assignment options and 1.5 s uncapped. The option
+// estimate expands one full-HP state per schedule slot through the real model,
+// multiplies the options each decision slot produced by the per-slot share of
+// the state bound, and skips the minimax tier at or above this total.
+const OPTIMAL_EXACT_OPTION_CUTOFF = 200_000;
+// The probe's own work is bounded by this many abort-predicate calls (a few
+// per dice outcome), so a fleet with thousands of outcomes per slot does not
+// spend a budget's worth of time deciding not to spend the budget.
+const OPTIMAL_EXACT_PROBE_LIMIT = 4_000;
 const MULTI_EXACT_RESIDUAL_TOLERANCE = 1e-9;
 
 // Interactive budget for the app: bail out (to Monte Carlo) rather than stall
@@ -44,6 +59,11 @@ export type ExactCombatDiagnostics = {
   engagementSolves: number;
   // Every successful cache hit avoids one otherwise identical engagement solve.
   engagementCacheHits: number;
+  // Work actually done by the engagements solved in this call (cache hits
+  // excluded): graph states and enumerated dice outcomes. Deterministic for a
+  // given input, so elapsed time over these counters measures the device.
+  states: number;
+  chanceOutcomes: number;
 };
 
 export type ExactCombatOptions = {
@@ -59,6 +79,10 @@ export type ExactPlannerPreflight = {
   overrides: (DamageType | undefined)[];
   reason: ExactPlannerPreflightReason;
   estimatedStates: number;
+  // Assignment-option estimate from the full-HP probe, or null when it was
+  // not needed: no optimal fleet, not a two-fleet battle, or the state bound
+  // alone already exceeded its cutoff.
+  estimatedOptions: number | null;
 };
 
 type FleetState = {
@@ -207,6 +231,8 @@ export function computeExactCombat(
     engagementRequests: 0,
     engagementSolves: 0,
     engagementCacheHits: 0,
+    states: 0,
+    chanceOutcomes: 0,
   };
   const engagementCache = new Map<string, TerminalDistributionResult>();
   const fail = (reason: string): ExactBattleResult => ({
@@ -351,26 +377,87 @@ export function exactPlannerPreflight(
 ): ExactPlannerPreflight {
   const overrides = fleets.map(() => undefined as DamageType | undefined);
   const estimatedStates = estimateExactStateSpace(fleets);
-
-  if (fleets.length !== 2) {
-    return { overrides, reason: null, estimatedStates };
-  }
-
-  if (!fleets.some(isOptimalFleet)) {
-    return { overrides, reason: null, estimatedStates };
-  }
-
-  if (estimatedStates < OPTIMAL_EXACT_STATE_SPACE_CUTOFF) {
-    return { overrides, reason: null, estimatedStates };
-  }
-
-  return {
+  const pass: ExactPlannerPreflight = {
+    overrides,
+    reason: null,
+    estimatedStates,
+    estimatedOptions: null,
+  };
+  const complexity = (
+    estimatedOptions: number | null
+  ): ExactPlannerPreflight => ({
     overrides: fleets.map((fleet) =>
       isOptimalFleet(fleet) ? DamageType.DPS : undefined
     ),
     reason: 'complexity',
     estimatedStates,
+    estimatedOptions,
+  });
+
+  if (fleets.length !== 2) return pass;
+  if (!fleets.some(isOptimalFleet)) return pass;
+  if (estimatedStates >= OPTIMAL_EXACT_STATE_SPACE_CUTOFF) {
+    return complexity(null);
+  }
+
+  const estimatedOptions = estimateExactOptimalOptions(fleets, estimatedStates);
+  if (estimatedOptions >= OPTIMAL_EXACT_OPTION_CUTOFF) {
+    return complexity(estimatedOptions);
+  }
+  return { ...pass, estimatedOptions };
+}
+
+/**
+ * Estimates the assignment options a minimax graph would hold: the options
+ * each decision slot produces when expanded once at full HP (every ship at
+ * its starting HP has the most distinct ways to spread damage), times the
+ * per-slot share of the state bound. Slots whose targets share one
+ * configuration reduce to a deterministic assignment and contribute nothing.
+ * Returns MAX_SAFE_INTEGER when a slot exceeds the interactive outcome cap or
+ * the probe's work limit, since the real solve would fail the same way.
+ */
+export function estimateExactOptimalOptions(
+  fleets: readonly Fleet[],
+  estimatedStates: number = estimateExactStateSpace(fleets)
+): number {
+  if (fleets.length !== 2) return 0;
+  const [defender, attacker] = fleets;
+  const decisionRoles: Role[] = [];
+  if (isOptimalFleet(attacker)) decisionRoles.push('A');
+  if (isOptimalFleet(defender)) decisionRoles.push('D');
+  if (decisionRoles.length === 0) return 0;
+
+  const model = new BattleModel(
+    attacker.getRoster(),
+    defender.getRoster(),
+    attacker.antimatterSplitter,
+    defender.antimatterSplitter,
+    attacker.getDamageType(),
+    defender.getDamageType()
+  );
+  const initial = model.initialState();
+  const perSlot = estimatedStates / Math.max(1, model.schedule.length);
+  let probeCalls = 0;
+  const ctx: ExpandContext = {
+    decisionRoles,
+    maxOutcomes: EXACT_INTERACTIVE_CAPS.maxOutcomesPerSlot,
+    deadlineExceeded: () => ++probeCalls > OPTIMAL_EXACT_PROBE_LIMIT,
   };
+
+  let options = 0;
+  for (let slot = 0; slot < model.schedule.length; slot++) {
+    const expansion = model.expand(
+      { hpA: initial.hpA, hpB: initial.hpB, slot },
+      ctx
+    );
+    if (expansion.kind === 'fail') return Number.MAX_SAFE_INTEGER;
+    if (expansion.kind !== 'move' || expansion.decisionRole === null) continue;
+    let slotOptions = 0;
+    for (const edge of expansion.edges) slotOptions += edge.options.length;
+    options += perSlot * slotOptions;
+    if (options >= Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER;
+  }
+  return Math.round(options);
 }
 
 /**
@@ -457,12 +544,17 @@ function solveEngagement(
     attackerType,
     defenderType
   );
-  return new WinProbabilitySolver(model, {
+  const solver = new WinProbabilitySolver(model, {
     perspective,
     assignments,
     decisionRoles,
     caps,
-  }).solveTerminalDistribution();
+  });
+  const distribution = solver.solveTerminalDistribution();
+  const chanceOutcomes = distribution.ok
+    ? solver.getGraphStats().chanceOutcomes
+    : 0;
+  return { distribution, states: distribution.states, chanceOutcomes };
 }
 
 function solveEngagementCached(
@@ -493,8 +585,10 @@ function solveEngagementCached(
 
   diagnostics.engagementSolves++;
   const solved = solveEngagement(defenderState, attackerState, caps, policies);
-  if (solved.ok) cache.set(key, solved);
-  return solved;
+  diagnostics.states += solved.states;
+  diagnostics.chanceOutcomes += solved.chanceOutcomes;
+  if (solved.distribution.ok) cache.set(key, solved.distribution);
+  return solved.distribution;
 }
 
 function engagementCacheKey(

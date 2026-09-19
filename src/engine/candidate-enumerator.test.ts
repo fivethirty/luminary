@@ -51,6 +51,36 @@ describe('enumerateCandidates', () => {
     expect(candidates![0].stateKey).toContain('#0');
   });
 
+  test('same-config ships at different HP keep every distinct outcome', () => {
+    // Two identical cruisers at 3 HP and 2 HP facing two 1-damage hits. The
+    // distinct results are {1,2} (both on the healthy ship, or one each) and
+    // {0,3} (both on the damaged ship, a kill). Partial-state pruning must key
+    // on resulting HP: keying on applied damage conflated the two ships after
+    // one hit and dropped the kill, and only for one roster order.
+    const cruiser = (hp: number): Ship => {
+      const ship = new Ship(ShipType.Cruiser, { hull: 2, cannons: { ion: 1 } });
+      ship.takeDamage(ship.maxHP() - hp);
+      return ship;
+    };
+    const resultingHp = (ships: Ship[]): string[] =>
+      enumerateCandidates([hit(1), hit(1)], ships)!
+        .map((candidate) =>
+          ships
+            .map((ship, index) =>
+              Math.max(
+                0,
+                ship.remainingHP() - candidate.damageAssignments[index]
+              )
+            )
+            .sort()
+            .join(',')
+        )
+        .sort();
+
+    expect(resultingHp([cruiser(3), cruiser(2)])).toEqual(['0,3', '1,2']);
+    expect(resultingHp([cruiser(2), cruiser(3)])).toEqual(['0,3', '1,2']);
+  });
+
   test('returns [] when no shot can damage any ship', () => {
     const shielded = new Ship(ShipType.Interceptor, { shields: 2 });
     const shot: Shot = { roll: 2, computers: 0, damage: 1 };
