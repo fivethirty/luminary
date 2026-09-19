@@ -199,7 +199,7 @@ export class OptimalDamagePlanner {
     }
 
     const state: WorkingState = { hpA, hpB, slot: nextSlot };
-    return this.solver!.getValue(this.model!.canonicalKey(state));
+    return this.solver!.getStateValue(state);
   }
 
   private terminalValue(outcome: Terminal): number {

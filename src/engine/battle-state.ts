@@ -73,6 +73,9 @@ type CanonicalGroup = {
   key: string;
   indices: number[];
   hpWeights: number[];
+  // Exclusive upper bound of this group's histogram code: every canonical HP
+  // multiset of the group encodes below it, so groups stack as mixed radix.
+  radix: number;
 };
 
 // One heuristic-assignment memo context: the target side, planner, target
@@ -82,6 +85,29 @@ type CanonicalGroup = {
 // multisets and the memo can key on the canonical HP code; otherwise it keys
 // on the raw roster HP vector, which is always exact.
 type HeuristicMemoContext = { prefix: string; groupOrderFree: boolean };
+// Mixed-radix layout of one side's canonical (histogram-coded) or raw HP
+// vector. `radix` is the exclusive bound of the side code.
+type SideCodeLayout = { radix: number };
+
+// Everything one expansion computes before the joint advance step: for each
+// dice outcome its probability, the shooter's HP after rift self-damage (null
+// when unchanged) and the target HP vector of each assignment option. Vectors
+// are representatives of canonical states and are shared, never mutated.
+type TemplateOutcome = {
+  prob: number;
+  shooterHp: number[] | null;
+  targets: number[][];
+};
+type TransitionTemplate = {
+  decisionRole: Role | null;
+  outcomes: TemplateOutcome[];
+};
+
+const TERMINAL_OUTCOMES: readonly Terminal[] = [
+  'AttackerWins',
+  'DefenderWins',
+  'Draw',
+];
 
 export class BattleModel {
   readonly schedule: Slot[];
@@ -94,6 +120,41 @@ export class BattleModel {
   private readonly defenderInitialHp: number[];
   private readonly attackerCanonicalGroups: CanonicalGroup[];
   private readonly defenderCanonicalGroups: CanonicalGroup[];
+  private readonly attackerCanonicalLayout: SideCodeLayout;
+  private readonly defenderCanonicalLayout: SideCodeLayout;
+  // Whether (slot, canonical A, canonical D) packs into one safe integer.
+  private readonly canonicalCodeFits: boolean;
+  private readonly attackerRawWeights: number[];
+  private readonly defenderRawWeights: number[];
+  private readonly attackerRawRadix: number;
+  private readonly defenderRawRadix: number;
+  // Whether (outcome, raw hpA, raw hpB) packs into one safe integer.
+  private readonly terminalCodeFits: boolean;
+  // Fallback when a fleet is too large for numeric packing: string keys are
+  // interned to dense ids so callers can still key by number.
+  private readonly internedIds = new Map<string, number>();
+  private readonly internedKeys: string[] = [];
+  // Per slot: roster indices of ships that would contribute dice to that slot
+  // while alive (initiative match plus a relevant weapon).
+  private readonly slotDiceIndices: number[][];
+  // Parallel to slotDiceIndices: the mixed-radix weight of each dice ship's
+  // configuration group, so the living dice ships of a slot reduce to one
+  // per-group count code (see transitionKey).
+  private readonly slotDiceWeights: number[][];
+  // Per cannon slot: whether a dice ship there carries rift dice, whose
+  // self-damage makes the transition depend on the shooter's own HP.
+  private readonly slotHasRift: boolean[];
+  private readonly attackerMixedShields: boolean;
+  private readonly defenderMixedShields: boolean;
+  // Transition templates keyed by the factor of the joint state that the
+  // expansion actually depends on (transitionKey). `null` marks a factor whose
+  // heuristic planner ordering can tie ships of different configurations, so
+  // its states are expanded individually to preserve first-seen semantics.
+  private readonly transitionMemo = new Map<
+    string,
+    TransitionTemplate | null
+  >();
+  private readonly ctxSignatures = new WeakMap<ExpandContext, string>();
   private readonly slotOutcomeCache = new Map<string, SlotOutcome[]>();
   // Deterministic NPC/DPS assignment results keyed by everything the planners
   // read (see heuristicMemoKey). Values are the resulting target HP per
@@ -147,6 +208,22 @@ export class BattleModel {
     this.defenderCanonicalGroups = this.buildCanonicalGroups(
       this.defenderTemplates
     );
+    this.attackerCanonicalLayout = BattleModel.canonicalLayout(
+      this.attackerCanonicalGroups
+    );
+    this.defenderCanonicalLayout = BattleModel.canonicalLayout(
+      this.defenderCanonicalGroups
+    );
+    this.attackerRawWeights = BattleModel.rawWeights(this.attackerTemplates);
+    this.defenderRawWeights = BattleModel.rawWeights(this.defenderTemplates);
+    this.attackerRawRadix = BattleModel.rawRadix(
+      this.attackerTemplates,
+      this.attackerRawWeights
+    );
+    this.defenderRawRadix = BattleModel.rawRadix(
+      this.defenderTemplates,
+      this.defenderRawWeights
+    );
     this.schedule = this.buildSchedule();
     this.numMissileSlots = this.schedule.filter((s) => s.missile).length;
     this.slotTailInitiatives = this.schedule.map((_, index) =>
@@ -156,16 +233,80 @@ export class BattleModel {
       (initiatives, index) =>
         this.schedule[index].missile ? `m${initiatives.join(',')}` : 'c'
     );
-    this.attackerDamageType =
-      attackerDamageType ??
-      (this.attackerTemplates.some((ship) => ship.isPlayerShip())
-        ? DamageType.DPS
-        : DamageType.NPC);
-    this.defenderDamageType =
-      defenderDamageType ??
-      (this.defenderTemplates.some((ship) => ship.isPlayerShip())
-        ? DamageType.DPS
-        : DamageType.NPC);
+    this.canonicalCodeFits =
+      Math.max(1, this.schedule.length) *
+        this.attackerCanonicalLayout.radix *
+        this.defenderCanonicalLayout.radix <=
+      Number.MAX_SAFE_INTEGER;
+    this.terminalCodeFits =
+      TERMINAL_OUTCOMES.length *
+        this.attackerRawRadix *
+        this.defenderRawRadix <=
+      Number.MAX_SAFE_INTEGER;
+    this.slotDiceIndices = this.schedule.map((slot) => {
+      const templates =
+        slot.role === 'A' ? this.attackerTemplates : this.defenderTemplates;
+      const indices: number[] = [];
+      for (let i = 0; i < templates.length; i++) {
+        const ship = templates[i];
+        if (ship.initiative !== slot.initiative) continue;
+        if (slot.missile ? ship.hasMissiles() : ship.hasCannons()) {
+          indices.push(i);
+        }
+      }
+      return indices;
+    });
+    this.slotDiceWeights = this.schedule.map((slot, slotIndex) => {
+      const groups =
+        slot.role === 'A'
+          ? this.attackerCanonicalGroups
+          : this.defenderCanonicalGroups;
+      const indices = this.slotDiceIndices[slotIndex];
+      const groupOf = new Map<number, number>();
+      groups.forEach((group, g) => {
+        for (const index of group.indices) groupOf.set(index, g);
+      });
+      const counts = new Array<number>(groups.length).fill(0);
+      for (const index of indices) counts[groupOf.get(index)!]++;
+      const groupWeight = new Array<number>(groups.length).fill(0);
+      let scale = 1;
+      for (let g = 0; g < groups.length; g++) {
+        groupWeight[g] = scale;
+        scale *= counts[g] + 1;
+      }
+      return indices.map((index) => groupWeight[groupOf.get(index)!]);
+    });
+    this.slotHasRift = this.schedule.map((slot, slotIndex) => {
+      if (slot.missile) return false;
+      const templates =
+        slot.role === 'A' ? this.attackerTemplates : this.defenderTemplates;
+      return this.slotDiceIndices[slotIndex].some(
+        (index) => templates[index].rift > 0
+      );
+    });
+    this.attackerMixedShields =
+      new Set(this.attackerTemplates.map((ship) => ship.shields)).size > 1;
+    this.defenderMixedShields =
+      new Set(this.defenderTemplates.map((ship) => ship.shields)).size > 1;
+    // Inherent NPC rosters always use NPC targeting, whatever a caller passes:
+    // player fleets may select NPC, DPS, or optimal, NPC fleets cannot select
+    // anything else (Fleet.getDamageType applies the same rule).
+    this.attackerDamageType = BattleModel.rosterDamageType(
+      this.attackerTemplates,
+      attackerDamageType
+    );
+    this.defenderDamageType = BattleModel.rosterDamageType(
+      this.defenderTemplates,
+      defenderDamageType
+    );
+  }
+
+  private static rosterDamageType(
+    templates: Ship[],
+    selected: DamageType | undefined
+  ): DamageType {
+    if (!templates.some((ship) => ship.isPlayerShip())) return DamageType.NPC;
+    return selected ?? DamageType.DPS;
   }
 
   // Mirrors getAllPhases(): each fleet contributes a cannon slot for every
@@ -234,6 +375,7 @@ export class BattleModel {
 
   // Interchangeable ships (same config) collapse: sort HP within each config
   // group. Slot index captures missile-consumption (missiles are a prefix).
+  // This readable form and canonicalCode() identify exactly the same states.
   canonicalKey(state: WorkingState): string {
     const side = (groups: CanonicalGroup[], hp: number[]): string =>
       groups
@@ -247,6 +389,119 @@ export class BattleModel {
       this.attackerCanonicalGroups,
       state.hpA
     )}|D:${side(this.defenderCanonicalGroups, state.hpB)}`;
+  }
+
+  // Numeric form of canonicalKey(): slot, then each side's canonical group
+  // histogram codes stacked as mixed radix. Falls back to an interned id of the
+  // string key when the fleets are too large for one safe integer.
+  canonicalCode(state: WorkingState): number {
+    if (!this.canonicalCodeFits) return this.intern(this.canonicalKey(state));
+    const sideA = BattleModel.canonicalSideCode(
+      this.attackerCanonicalGroups,
+      state.hpA
+    );
+    const sideD = BattleModel.canonicalSideCode(
+      this.defenderCanonicalGroups,
+      state.hpB
+    );
+    return (
+      state.slot +
+      this.schedule.length *
+        (sideA + this.attackerCanonicalLayout.radix * sideD)
+    );
+  }
+
+  // Inverse of canonicalCode(): the readable canonicalKey() of a packed code.
+  canonicalKeyFromCode(code: number): string {
+    if (!this.canonicalCodeFits) return this.internedKeys[code];
+    const slot = code % this.schedule.length;
+    let rest = (code - slot) / this.schedule.length;
+    const sideA = rest % this.attackerCanonicalLayout.radix;
+    rest = (rest - sideA) / this.attackerCanonicalLayout.radix;
+    const side = (groups: CanonicalGroup[], sideCode: number): string => {
+      const parts: string[] = [];
+      let remaining = sideCode;
+      for (const group of groups) {
+        const hpCode = remaining % group.radix;
+        remaining = (remaining - hpCode) / group.radix;
+        parts.push(`${group.key}=${hpCode}`);
+      }
+      return parts.join(';');
+    };
+    return `${slot}|A:${side(this.attackerCanonicalGroups, sideA)}|D:${side(
+      this.defenderCanonicalGroups,
+      rest
+    )}`;
+  }
+
+  // Numeric identity of an absorbing terminal: outcome plus both raw HP
+  // vectors (roster order, not canonicalized) so survivor detail is preserved.
+  terminalCode(outcome: Terminal, hpA: number[], hpB: number[]): number {
+    if (!this.terminalCodeFits) {
+      return this.intern(`T|${outcome}|${hpA.join('.')}|${hpB.join('.')}`);
+    }
+    const rawA = BattleModel.rawSideCode(this.attackerRawWeights, hpA);
+    const rawD = BattleModel.rawSideCode(this.defenderRawWeights, hpB);
+    return (
+      TERMINAL_OUTCOMES.indexOf(outcome) +
+      TERMINAL_OUTCOMES.length * (rawA + this.attackerRawRadix * rawD)
+    );
+  }
+
+  private intern(key: string): number {
+    let id = this.internedIds.get(key);
+    if (id === undefined) {
+      id = this.internedKeys.length;
+      this.internedIds.set(key, id);
+      this.internedKeys.push(key);
+    }
+    return id;
+  }
+
+  private static canonicalSideCode(
+    groups: CanonicalGroup[],
+    hp: number[]
+  ): number {
+    let code = 0;
+    let scale = 1;
+    for (let g = 0; g < groups.length; g++) {
+      const { indices, hpWeights, radix } = groups[g];
+      let hpCode = 0;
+      for (let i = 0; i < indices.length; i++) {
+        hpCode += hpWeights[hp[indices[i]]];
+      }
+      code += hpCode * scale;
+      scale *= radix;
+    }
+    return code;
+  }
+
+  private static canonicalLayout(groups: CanonicalGroup[]): SideCodeLayout {
+    let radix = 1;
+    for (const group of groups) radix *= group.radix;
+    return { radix };
+  }
+
+  private static rawWeights(templates: Ship[]): number[] {
+    const weights: number[] = [];
+    let scale = 1;
+    for (const template of templates) {
+      weights.push(scale);
+      scale *= template.maxHP() + 1;
+    }
+    return weights;
+  }
+
+  private static rawRadix(templates: Ship[], weights: number[]): number {
+    if (templates.length === 0) return 1;
+    const last = templates.length - 1;
+    return weights[last] * (templates[last].maxHP() + 1);
+  }
+
+  private static rawSideCode(weights: number[], hp: number[]): number {
+    let code = 0;
+    for (let i = 0; i < weights.length; i++) code += hp[i] * weights[i];
+    return code;
   }
 
   private buildCanonicalGroups(templates: Ship[]): CanonicalGroup[] {
@@ -266,8 +521,33 @@ export class BattleModel {
       for (let hp = 1; hp <= maxHp; hp++) {
         hpWeights.push(hpWeights[hp - 1] * base);
       }
-      return { key, indices, hpWeights };
+      // Largest code is every ship at maxHp: |group| * base^maxHp < base^(maxHp+1).
+      const radix = hpWeights[maxHp] * base;
+      return { key, indices, hpWeights, radix };
     }).sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  // Whether any living ship would roll dice in `slotIndex`. A slot with no
+  // dice is a deterministic pass-through, so advance() skips it.
+  private slotHasDice(
+    slotIndex: number,
+    hpA: number[],
+    hpB: number[]
+  ): boolean {
+    const hp = this.schedule[slotIndex].role === 'A' ? hpA : hpB;
+    const indices = this.slotDiceIndices[slotIndex];
+    for (let i = 0; i < indices.length; i++) {
+      if (hp[indices[i]] > 0) return true;
+    }
+    return false;
+  }
+
+  // Resolves a possibly dice-less working state to the state the graph
+  // actually stores (the first upcoming slot with dice) or to its terminal.
+  // Exact: a dice-less slot has one deterministic successor with equal value.
+  resolvePassThrough(state: WorkingState): Successor {
+    if (this.slotHasDice(state.slot, state.hpA, state.hpB)) return { state };
+    return this.advance(state.hpA, state.hpB, state.slot);
   }
 
   private anyAlive(hp: number[]): boolean {
@@ -281,8 +561,12 @@ export class BattleModel {
     return false;
   }
 
-  // Advance from `fromSlot` to the next slot, applying heal + the mutual-no-
-  // cannons stalemate check when a full cannon cycle wraps (fact 5).
+  // Advance from `fromSlot` to the next slot that has dice, applying heal +
+  // the mutual-no-cannons stalemate check when a full cannon cycle wraps
+  // (fact 5). Slots with no living dice-rolling ship are pass-through states
+  // with one deterministic successor, so they are skipped rather than stored;
+  // missile slots are still consumed exactly once because the walk only moves
+  // forward through the prefix and wraps to the first cannon slot.
   private advance(hpA: number[], hpB: number[], fromSlot: number): Successor {
     const terminal = terminalFromSurvival(
       this.anyAlive(hpA),
@@ -291,21 +575,28 @@ export class BattleModel {
     if (terminal) return { terminal, hpA, hpB };
 
     const lastSlot = this.schedule.length - 1;
-    if (fromSlot === lastSlot) {
-      // End of a cannon cycle: heal both fleets, then check stalemate.
-      const healedA = this.applyHeal(this.attackerTemplates, hpA);
-      const healedB = this.applyHeal(this.defenderTemplates, hpB);
-      if (
-        !this.hasLivingCannon(this.attackerTemplates, healedA) &&
-        !this.hasLivingCannon(this.defenderTemplates, healedB)
-      ) {
-        return { terminal: 'DefenderWins', hpA: healedA, hpB: healedB };
+    let slot = fromSlot;
+    // Every living ship with cannons owns a cannon slot, so either a slot with
+    // dice is found within one cycle or the wrap-around stalemate rule fires.
+    for (let steps = 0; steps <= this.schedule.length; steps++) {
+      if (slot === lastSlot) {
+        // End of a cannon cycle: heal both fleets, then check stalemate.
+        hpA = this.applyHeal(this.attackerTemplates, hpA);
+        hpB = this.applyHeal(this.defenderTemplates, hpB);
+        if (
+          !this.hasLivingCannon(this.attackerTemplates, hpA) &&
+          !this.hasLivingCannon(this.defenderTemplates, hpB)
+        ) {
+          return { terminal: 'DefenderWins', hpA, hpB };
+        }
+        slot = this.numMissileSlots;
+      } else {
+        slot += 1;
       }
-      return {
-        state: { hpA: healedA, hpB: healedB, slot: this.numMissileSlots },
-      };
+      if (this.slotHasDice(slot, hpA, hpB))
+        return { state: { hpA, hpB, slot } };
     }
-    return { state: { hpA, hpB, slot: fromSlot + 1 } };
+    throw new Error('advance did not find a slot with dice within one cycle');
   }
 
   private applyHeal(templates: Ship[], hp: number[]): number[] {
@@ -578,6 +869,124 @@ export class BattleModel {
 
     const slot = this.schedule[state.slot];
     const shooterIsAttacker = slot.role === 'A';
+    const shooterHp = shooterIsAttacker ? state.hpA : state.hpB;
+
+    // Dice, self-damage and target assignment depend on the joint state only
+    // through the transition key, so joint states sharing a key reuse one
+    // template and pay only the joint advance step per outcome.
+    const key = this.canonicalCodeFits ? this.transitionKey(state, ctx) : null;
+    const cached = key === null ? undefined : this.transitionMemo.get(key);
+    if (cached) {
+      return this.composeMove(cached, shooterIsAttacker, shooterHp, state.slot);
+    }
+    const computed = this.computeTransition(state, ctx);
+    if (computed.kind === 'fail') return computed;
+    if (key !== null && cached === undefined) {
+      this.transitionMemo.set(
+        key,
+        computed.templateUsable ? computed.template : null
+      );
+    }
+    return this.composeMove(
+      computed.template,
+      shooterIsAttacker,
+      shooterHp,
+      state.slot
+    );
+  }
+
+  // The factor of a joint state that expansion depends on: the slot and
+  // context, the living dice ships of the slot by configuration group (the
+  // dice), the shooter's minimum living shield when its fleet mixes shields
+  // (DPS priorities read it), the shooter's whole canonical HP when the slot
+  // fires missiles (phase tails read the shooter's other living ships) or
+  // rift dice (self-damage changes the shooter), and the target's canonical HP.
+  private transitionKey(state: WorkingState, ctx: ExpandContext): string {
+    const slotIndex = state.slot;
+    const slot = this.schedule[slotIndex];
+    const shooterIsAttacker = slot.role === 'A';
+    const shooterHp = shooterIsAttacker ? state.hpA : state.hpB;
+    const targetHp = shooterIsAttacker ? state.hpB : state.hpA;
+    const shooterGroups = shooterIsAttacker
+      ? this.attackerCanonicalGroups
+      : this.defenderCanonicalGroups;
+    const targetGroups = shooterIsAttacker
+      ? this.defenderCanonicalGroups
+      : this.attackerCanonicalGroups;
+    const diceIndices = this.slotDiceIndices[slotIndex];
+    const diceWeights = this.slotDiceWeights[slotIndex];
+    let diceCode = 0;
+    for (let k = 0; k < diceIndices.length; k++) {
+      if (shooterHp[diceIndices[k]] > 0) diceCode += diceWeights[k];
+    }
+    let shooterPart = 0;
+    if (slot.missile || this.slotHasRift[slotIndex]) {
+      shooterPart = BattleModel.canonicalSideCode(shooterGroups, shooterHp);
+    } else if (
+      shooterIsAttacker ? this.attackerMixedShields : this.defenderMixedShields
+    ) {
+      shooterPart = this.minLivingShield(
+        shooterIsAttacker ? this.attackerTemplates : this.defenderTemplates,
+        shooterHp
+      );
+    }
+    const targetCode = BattleModel.canonicalSideCode(targetGroups, targetHp);
+    return `${slotIndex}|${this.ctxSignature(ctx)}|${diceCode}|${shooterPart}|${targetCode}`;
+  }
+
+  private ctxSignature(ctx: ExpandContext): string {
+    let signature = this.ctxSignatures.get(ctx);
+    if (signature === undefined) {
+      signature = `${ctx.decisionRoles.join('')}:${ctx.maxOutcomes}`;
+      this.ctxSignatures.set(ctx, signature);
+    }
+    return signature;
+  }
+
+  private minLivingShield(templates: Ship[], hp: number[]): number {
+    let min = Infinity;
+    for (let i = 0; i < templates.length; i++) {
+      if (hp[i] > 0 && templates[i].shields < min) min = templates[i].shields;
+    }
+    return min === Infinity ? 0 : min;
+  }
+
+  // Applies the joint advance step (terminal checks, slot walk, heal and
+  // stalemate) to every option of a template for the given joint state.
+  private composeMove(
+    template: TransitionTemplate,
+    shooterIsAttacker: boolean,
+    shooterHp: number[],
+    fromSlot: number
+  ): Expansion {
+    const slot = this.schedule[fromSlot];
+    const edges: MoveEdge[] = new Array(template.outcomes.length);
+    for (let k = 0; k < template.outcomes.length; k++) {
+      const outcome = template.outcomes[k];
+      const newShooterHp = outcome.shooterHp ?? shooterHp;
+      const targets = outcome.targets;
+      const options: Successor[] = new Array(targets.length);
+      for (let t = 0; t < targets.length; t++) {
+        const hpA = shooterIsAttacker ? newShooterHp : targets[t];
+        const hpB = shooterIsAttacker ? targets[t] : newShooterHp;
+        options[t] = this.finishSlot(hpA, hpB, fromSlot, slot);
+      }
+      edges[k] = { prob: outcome.prob, options };
+    }
+    return { kind: 'move', decisionRole: template.decisionRole, edges };
+  }
+
+  // Expands one state for real: enumerates the slot's dice outcomes and runs
+  // rift self-damage plus target assignment for each. Returns the template
+  // and whether other joint states with the same key may reuse it.
+  private computeTransition(
+    state: WorkingState,
+    ctx: ExpandContext
+  ):
+    | { kind: 'move'; template: TransitionTemplate; templateUsable: boolean }
+    | { kind: 'fail'; reason: 'expand cap exceeded' | 'time budget exceeded' } {
+    const slot = this.schedule[state.slot];
+    const shooterIsAttacker = slot.role === 'A';
     const shooterTemplates = shooterIsAttacker
       ? this.attackerTemplates
       : this.defenderTemplates;
@@ -663,13 +1072,15 @@ export class BattleModel {
       return { kind: 'fail', reason: 'expand cap exceeded' };
     }
 
-    // No shooters / no dice at all: deterministic advance.
+    // No shooters / no dice at all: one deterministic outcome.
     if (shooterShips.length === 0 || outcomes.length === 0) {
-      const succ = this.advance(state.hpA, state.hpB, state.slot);
       return {
         kind: 'move',
-        decisionRole: null,
-        edges: [{ prob: 1, options: [succ] }],
+        template: {
+          decisionRole: null,
+          outcomes: [{ prob: 1, shooterHp: null, targets: [targetHp] }],
+        },
+        templateUsable: true,
       };
     }
 
@@ -681,6 +1092,23 @@ export class BattleModel {
     );
     const decisionRole =
       assignmentControl.kind === 'decision' ? assignmentControl.role : null;
+    // A heuristic planner whose ordering can tie ships of different
+    // configurations depends on the raw roster layout, so its states keep
+    // per-state expansion; candidate enumeration and rift-keyed templates
+    // (the key then holds the shooter's whole canonical HP) do not.
+    const templateUsable =
+      assignmentControl.kind === 'decision' ||
+      this.slotHasRift[state.slot] ||
+      this.heuristicContext(
+        shooterIsAttacker ? 'D' : 'A',
+        targetTemplates,
+        shooterIsAttacker
+          ? this.defenderCanonicalGroups
+          : this.attackerCanonicalGroups,
+        assignmentControl.damageType,
+        this.minLivingShield(shooterTemplates, shooterHp),
+        state.slot
+      ).groupOrderFree;
 
     const scratch: OutcomeScratch = {
       shooter: shooterIsAttacker ? this.attackerScratch : this.defenderScratch,
@@ -688,11 +1116,12 @@ export class BattleModel {
       shooterDirty: true,
     };
 
-    const edges: MoveEdge[] = [];
-    for (const outcome of outcomes) {
+    const templateOutcomes: TemplateOutcome[] = new Array(outcomes.length);
+    for (let k = 0; k < outcomes.length; k++) {
       if (ctx.deadlineExceeded?.()) {
         return { kind: 'fail', reason: 'time budget exceeded' };
       }
+      const outcome = outcomes[k];
       const resolved = this.resolveOutcome(
         state,
         slot,
@@ -705,12 +1134,20 @@ export class BattleModel {
         scratch
       );
       if (!resolved.ok) return { kind: 'fail', reason: resolved.reason };
-      edges.push({ prob: outcome.prob, options: resolved.options });
+      templateOutcomes[k] = {
+        prob: outcome.prob,
+        shooterHp: resolved.shooterHp,
+        targets: resolved.targets,
+      };
     }
     if (ctx.deadlineExceeded?.()) {
       return { kind: 'fail', reason: 'time budget exceeded' };
     }
-    return { kind: 'move', decisionRole, edges };
+    return {
+      kind: 'move',
+      template: { decisionRole, outcomes: templateOutcomes },
+      templateUsable,
+    };
   }
 
   // Return a finite ceiling only when it actually changes at least one
@@ -763,7 +1200,7 @@ export class BattleModel {
     ctx: ExpandContext,
     scratch: OutcomeScratch
   ):
-    | { ok: true; options: Successor[] }
+    | { ok: true; shooterHp: number[] | null; targets: number[][] }
     | {
         ok: false;
         reason: 'expand cap exceeded' | 'time budget exceeded';
@@ -812,17 +1249,11 @@ export class BattleModel {
     }
     const newShooterHp = selfDamageApplied
       ? this.livingHpVector(shooterMat.ships)
-      : shooterHp.slice();
-
-    const successorFrom = (newTargetHp: number[]): Successor => {
-      const hpA = shooterIsAttacker ? newShooterHp : newTargetHp;
-      const hpB = shooterIsAttacker ? newTargetHp : newShooterHp;
-      return this.finishSlot(hpA, hpB, state.slot, slot);
-    };
+      : null;
 
     if (outcome.shots.length === 0 || !this.anyAlive(targetHp)) {
       // No target damage this outcome.
-      return { ok: true, options: [successorFrom(targetHp.slice())] };
+      return { ok: true, shooterHp: newShooterHp, targets: [targetHp] };
     }
 
     if (assignmentControl.kind === 'decision') {
@@ -846,10 +1277,11 @@ export class BattleModel {
       if (candidates.length === 0) {
         return {
           ok: true,
-          options: [successorFrom(this.livingHpVector(targetMat.ships))],
+          shooterHp: newShooterHp,
+          targets: [this.livingHpVector(targetMat.ships)],
         };
       }
-      const options: Successor[] = [];
+      const targets: number[][] = [];
       for (const candidate of candidates) {
         if (ctx.deadlineExceeded?.()) {
           return { ok: false, reason: 'time budget exceeded' };
@@ -863,9 +1295,9 @@ export class BattleModel {
           const rosterIdx = targetMat.ships.indexOf(targetLiving[i]);
           newTargetHp[rosterIdx] = targetLiving[i].remainingHP() - dmg;
         }
-        options.push(successorFrom(newTargetHp));
+        targets.push(newTargetHp);
       }
-      return { ok: true, options };
+      return { ok: true, shooterHp: newShooterHp, targets };
     }
 
     // Heuristic assignment follows the fleet's selected deterministic policy.
@@ -898,7 +1330,8 @@ export class BattleModel {
     if (cached !== undefined) {
       return {
         ok: true,
-        options: [successorFrom(this.applyGroupedHp(groups, targetHp, cached))],
+        shooterHp: newShooterHp,
+        targets: [this.applyGroupedHp(groups, targetHp, cached)],
       };
     }
 
@@ -924,7 +1357,7 @@ export class BattleModel {
       memoKey,
       this.encodeGroupedHp(groups, targetHp, newTargetHp)
     );
-    return { ok: true, options: [successorFrom(newTargetHp)] };
+    return { ok: true, shooterHp: newShooterHp, targets: [newTargetHp] };
   }
 
   private assignmentControl(

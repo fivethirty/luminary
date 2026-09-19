@@ -98,7 +98,8 @@ describe('WinProbabilitySolver (policy mode)', () => {
     // chooseOption is the policy the forward pass and explainDecision follow.
     // Values that differ by less than DECISION_TIE_EPSILON are iteration
     // residuals, not preferences, so the first such option must win for both
-    // roles regardless of which one carries the larger value.
+    // roles regardless of which one carries the larger value. Options are
+    // ranges of the flat option array, so the test lays out five ranges.
     const make = () =>
       new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } });
     const solver = new WinProbabilitySolver(
@@ -107,7 +108,8 @@ describe('WinProbabilitySolver (policy mode)', () => {
     );
     type Choosable = {
       values: Float64Array;
-      chooseOption: (options: number[], role: 'A' | 'D') => number;
+      optionNode: { data: Int32Array };
+      chooseOption: (from: number, to: number, role: 'A' | 'D') => number;
     };
     const internal = solver as unknown as Choosable;
     internal.values = Float64Array.of(
@@ -116,15 +118,22 @@ describe('WinProbabilitySolver (policy mode)', () => {
       0.5 + 2e-9,
       0.5 - 5e-10
     );
+    internal.optionNode.data = Int32Array.of(
+      ...[0, 1, 2, 3],
+      ...[1, 0, 3],
+      ...[0, 1, 3],
+      ...[0, 3, 1],
+      ...[3, 0, 1]
+    );
     // Attacker maximizes: 2e-9 above the rest is a real preference.
-    expect(internal.chooseOption([0, 1, 2, 3], 'A')).toBe(2);
-    // Without option 2, options 0 and 1 tie and the lowest index wins.
-    expect(internal.chooseOption([1, 0, 3], 'A')).toBe(1);
-    expect(internal.chooseOption([0, 1, 3], 'A')).toBe(0);
-    // Defender minimizes: 3 is within the tolerance of 0, so 0 wins when it
-    // comes first, and 3 wins when it comes first.
-    expect(internal.chooseOption([0, 3, 1], 'D')).toBe(0);
-    expect(internal.chooseOption([3, 0, 1], 'D')).toBe(3);
+    expect(internal.chooseOption(0, 4, 'A')).toBe(2);
+    // Without option 2, options 0 and 1 tie and the first listed wins.
+    expect(internal.chooseOption(4, 7, 'A')).toBe(1);
+    expect(internal.chooseOption(7, 10, 'A')).toBe(0);
+    // Defender minimizes: 3 is within the tolerance of 0, so whichever of the
+    // two is listed first wins.
+    expect(internal.chooseOption(10, 13, 'D')).toBe(0);
+    expect(internal.chooseOption(13, 16, 'D')).toBe(3);
   });
 
   describe('deadline enforcement', () => {
@@ -187,6 +196,42 @@ describe('WinProbabilitySolver (policy mode)', () => {
       expect(outcome.reason).toBe('time budget exceeded');
       expect(outcome.pAttacker).toBeNaN();
     });
+  });
+
+  test('state values resolve skipped dice-less slots and string keys', () => {
+    // Schedule: A@3 (ion), D@2 (unarmed cruiser), D@1 (ion interceptor). The
+    // D@2 slot never has dice, so the graph stores no state at slot 1.
+    const model = new BattleModel(
+      [new Ship(ShipType.Interceptor, { initiative: 3, cannons: { ion: 1 } })],
+      [
+        new Ship(ShipType.Cruiser, { initiative: 2, hull: 1 }),
+        new Ship(ShipType.Interceptor, { initiative: 1, cannons: { ion: 1 } }),
+      ],
+      false,
+      false
+    );
+    const solver = new WinProbabilitySolver(model, {
+      perspective: 'A',
+      assignments: 'policy',
+    });
+    expect(solver.solve().ok).toBe(true);
+
+    const stored = { hpA: [1], hpB: [2, 1], slot: 2 };
+    const skipped = { hpA: [1], hpB: [2, 1], slot: 1 };
+    const storedValue = solver.getStateValue(stored);
+    expect(storedValue).toBeDefined();
+    expect(solver.getStateValue(skipped)).toBe(storedValue as number);
+    expect(solver.getValue(solver.canonicalKey(skipped))).toBeUndefined();
+    expect(solver.getValue(solver.canonicalKey(stored))).toBe(
+      storedValue as number
+    );
+
+    // With the armed defender dead, the attacker's next slot wraps to itself
+    // and the attacker can no longer lose: its reach value is exactly 1.
+    const onlyUnarmedLeft = { hpA: [1], hpB: [2, 0], slot: 1 };
+    expect(solver.getStateValue(onlyUnarmedLeft)).toBeCloseTo(1, 8);
+    // A dead target resolves straight to the terminal's reach value.
+    expect(solver.getStateValue({ hpA: [1], hpB: [0, 0], slot: 1 })).toBe(1);
   });
 
   test('solving twice yields identical values (determinism)', () => {

@@ -198,7 +198,8 @@ decision nodes.
 `assignments` controls the policy model:
 
 - `policy`: fleets use their selected deterministic DPS or NPC assignment policy; inherent NPC
-  fleets always use NPC assignments.
+  fleets always use NPC assignments. `BattleModel` enforces that for any roster without player
+  ships, whatever damage type a caller passes, so an NPC fleet never holds decision nodes.
 - `minimax`: selected non-NPC assignments are decisions. By default both player fleets are
   selected; exact combat and the mutable optimal planner pass only the roles whose fleet damage
   type is `OPTIMAL`. Attacker nodes maximize and defender nodes minimize the queried reach
@@ -240,15 +241,29 @@ The exact model must preserve these mutable-engine rules:
 Exact working state is an HP vector for each original roster plus a schedule position. Roster
 order is retained when materializing real ships for heuristic assignment. Canonical keys sort
 HP only within groups of ships with the same `configKey`; this collapses interchangeable states
-without changing first-seen planner behavior. Healing can increase HP, so the graph may contain
-cycles and must not be treated as a DAG.
+without changing first-seen planner behavior. The solver keys states by `canonicalCode`, a
+mixed-radix packing of the slot and each group's HP histogram into one safe integer (interned
+string keys when a roster is too large to pack); `canonicalKey` remains the readable form of the
+same identity. A slot at which no living ship rolls dice is a pass-through with one deterministic
+successor, so `advance` walks past such slots (applying wrap-around heal and stalemate exactly
+once per wrap) and the graph stores only states whose slot has dice; `getStateValue` resolves a
+dice-less state to that successor. Healing can increase HP, so the graph may contain cycles and
+must not be treated as a DAG.
 
 Policy transitions call the real `BinnedDamageAssignmentHelper` on materialized ship clones using
 each fleet's selected NPC or DPS policy. They do not reimplement either targeting planner. Those
 results are memoized per `BattleModel` on exactly the inputs the planners read: the sorted shots,
 the living targets' `(configKey, HP)` in roster order, the target role, the shooter fleet's
 minimum shield after rift self-damage, and the target's remaining missile-phase initiatives. A
-planner change that reads any other state must extend that key. Minimax transitions reuse
+planner change that reads any other state must extend that key. Above that, `BattleModel`
+memoizes each expansion's transition template (dice outcomes, rift self-damage, and every
+assignment option's target HP) per factor of the joint state: slot and context, the living dice
+ships of the slot by configuration group, the shooter's minimum living shield when its fleet mixes
+shields, the shooter's whole canonical HP for missile or rift slots, and the target's canonical HP.
+Joint states sharing a factor receive representative successor HP vectors that are canonically
+equal to their own; factors whose heuristic planner ordering can tie ships of different
+configurations are excluded so first-seen roster semantics are unchanged there. Minimax
+transitions reuse
 `enumerateCandidates` to produce legal, distinct successor assignments. Its search prunes partial
 assignments by the multiset of `(configKey, resulting HP)`, so the candidate set is complete and
 independent of roster order within a configuration group; the mutable optimal planner shares it,

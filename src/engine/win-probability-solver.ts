@@ -65,14 +65,51 @@ export const DECISION_TIE_EPSILON = 1e-9;
 // Long loops check elapsed time in proportion to their cheap inner work. More
 // expensive state expansions have their own finer-grained abort callback.
 const DEADLINE_CHECK_INTERVAL = 256;
+// Chance-node dice outcomes that reach the same successor share one stored
+// edge with summed probability. Exact; measured at about 3% fewer edges on the
+// 14-ship mirror with no material time change.
+const MERGE_DUPLICATE_SUCCESSORS = true;
+
+// Node role / terminal tags stored in the flat graph arrays.
+const ROLE_NONE = 0;
+const ROLE_A = 1;
+const ROLE_D = 2;
+const TERMINAL_NONE = 0;
+const TERMINAL_TAGS: readonly Terminal[] = [
+  'AttackerWins',
+  'DefenderWins',
+  'Draw',
+];
 
 type TerminalInfo = { outcome: Terminal; hpA: number[]; hpB: number[] };
-type Edge = { prob: number; options: number[] }; // node indices
-type Node = {
-  terminal: TerminalInfo | null;
-  decisionRole: Role | null;
-  edges: Edge[];
-};
+
+// Append-only typed buffers so the graph is stored in CSR-style arrays rather
+// than one object per node and edge. `data` is only valid up to `length`.
+class Int32Buffer {
+  data = new Int32Array(1024);
+  length = 0;
+  push(value: number): void {
+    if (this.length === this.data.length) {
+      const grown = new Int32Array(this.data.length * 2);
+      grown.set(this.data);
+      this.data = grown;
+    }
+    this.data[this.length++] = value;
+  }
+}
+
+class Float64Buffer {
+  data = new Float64Array(1024);
+  length = 0;
+  push(value: number): void {
+    if (this.length === this.data.length) {
+      const grown = new Float64Array(this.data.length * 2);
+      grown.set(this.data);
+      this.data = grown;
+    }
+    this.data[this.length++] = value;
+  }
+}
 
 type TerminalMassResult =
   | { ok: true; absorbed: Float64Array; residual: number }
@@ -217,14 +254,32 @@ function solveLinearSystem(
  * under the solved policy, yielding the full outcome distribution (attacker /
  * defender / draw) and expected survivors — the exact replacement for a
  * Monte Carlo run.
+ *
+ * Graph storage is flat: node i owns edges [nodeEdgeStart[i], nodeEdgeEnd[i])
+ * and edge e owns option nodes [edgeOptionStart[e], edgeOptionStart[e + 1]).
+ * States are keyed by BattleModel's packed numeric codes.
  */
 export class WinProbabilitySolver {
   private readonly ctx: ExpandContext;
   private readonly perspective: Role;
   private readonly caps: SolverCaps;
   private readonly now: () => number;
-  private keyToIndex = new Map<string, number>();
-  private nodes: Node[] = [];
+  private codeToIndex = new Map<number, number>();
+  private terminalCodeToIndex = new Map<number, number>();
+  // Lazily built from codeToIndex for the string-keyed diagnostics API.
+  private keyToIndex: Map<string, number> | null = null;
+  private nodeCount = 0;
+  private nodeEdgeStart = new Int32Buffer();
+  private nodeEdgeEnd = new Int32Buffer();
+  private nodeRole = new Int32Buffer();
+  private nodeTerminal = new Int32Buffer();
+  // Enumerated dice outcomes per node (before duplicate-successor merging),
+  // so work counters report enumeration effort rather than storage.
+  private nodeOutcomes = new Int32Buffer();
+  private terminalInfo = new Map<number, TerminalInfo>();
+  private edgeProb = new Float64Buffer();
+  private edgeOptionStart = new Int32Buffer();
+  private optionNode = new Int32Buffer();
   private values: Float64Array = new Float64Array(0);
   private initialIndex = -1;
   private solved: SolveResult | null = null;
@@ -257,6 +312,7 @@ export class WinProbabilitySolver {
       maxOutcomes: this.caps.maxOutcomesPerSlot,
       deadlineExceeded: () => this.timeBudgetExceeded(),
     };
+    this.edgeOptionStart.push(0);
   }
 
   // Reach-set membership per role (fact 10).
@@ -278,7 +334,7 @@ export class WinProbabilitySolver {
       this.solved = {
         ok: false,
         winProbability: NaN,
-        states: this.nodes.length,
+        states: this.nodeCount,
         sweeps: 0,
         reason: built.reason,
       };
@@ -290,7 +346,7 @@ export class WinProbabilitySolver {
     this.solved = {
       ok: iter.ok,
       winProbability,
-      states: this.nodes.length,
+      states: this.nodeCount,
       sweeps: iter.sweeps,
       reason: iter.reason,
     };
@@ -327,7 +383,7 @@ export class WinProbabilitySolver {
     }
     const { absorbed, residual } = propagated;
     const entries: TerminalDistributionEntry[] = [];
-    for (let i = 0; i < this.nodes.length; i++) {
+    for (let i = 0; i < this.nodeCount; i++) {
       if (i % DEADLINE_CHECK_INTERVAL === 0 && this.timeBudgetExceeded()) {
         this.terminalDistribution = this.terminalDistributionFailure(
           'time budget exceeded'
@@ -336,7 +392,7 @@ export class WinProbabilitySolver {
       }
       const probability = absorbed[i];
       if (probability === 0) continue;
-      const terminal = this.nodes[i].terminal;
+      const terminal = this.terminalInfo.get(i);
       if (!terminal) continue;
       entries.push({
         probability,
@@ -349,18 +405,34 @@ export class WinProbabilitySolver {
       ok: true,
       entries,
       residual,
-      states: this.nodes.length,
+      states: this.nodeCount,
     };
     return this.terminalDistribution;
   }
 
   // Raw reach value for a state key (P reach AttackerWins for 'A', P reach
-  // AttackerWins∪Draw for 'D'). Used by the planner: argmax for attacker,
-  // argmin for defender. Undefined if the state was not reached.
+  // AttackerWins∪Draw for 'D'). Undefined if the state was not reached.
+  // `key` is a canonicalKey() string; getStateValue() is the cheaper form.
   getValue(key: string): number | undefined {
-    const idx = this.keyToIndex.get(key);
+    const idx = this.stringKeyToIndex().get(key);
     if (idx === undefined) return undefined;
     return this.values[idx];
+  }
+
+  // Raw reach value of a working state. Used by the planner: argmax for
+  // attacker, argmin for defender. A state whose slot has no dice is resolved
+  // to the stored successor it passes through to (or its terminal value).
+  // Undefined if the state was not reached.
+  getStateValue(state: WorkingState): number | undefined {
+    const idx = this.codeToIndex.get(this.model.canonicalCode(state));
+    if (idx !== undefined) return this.values[idx];
+    const resolved = this.model.resolvePassThrough(state);
+    if ('terminal' in resolved) return this.target(resolved.terminal);
+    if (resolved.state === state) return undefined;
+    const resolvedIdx = this.codeToIndex.get(
+      this.model.canonicalCode(resolved.state)
+    );
+    return resolvedIdx === undefined ? undefined : this.values[resolvedIdx];
   }
 
   canonicalKey(state: WorkingState): string {
@@ -370,7 +442,7 @@ export class WinProbabilitySolver {
   getGraphStats(): SolverGraphStats {
     this.solve();
     const stats: SolverGraphStats = {
-      states: this.nodes.length,
+      states: this.nodeCount,
       terminalStates: 0,
       chanceStates: 0,
       attackerDecisionStates: 0,
@@ -378,15 +450,24 @@ export class WinProbabilitySolver {
       chanceOutcomes: 0,
       assignmentOptions: 0,
     };
-    for (const node of this.nodes) {
-      if (node.terminal) stats.terminalStates++;
-      else if (node.decisionRole === 'A') stats.attackerDecisionStates++;
-      else if (node.decisionRole === 'D') stats.defenderDecisionStates++;
+    const role = this.nodeRole.data;
+    const terminal = this.nodeTerminal.data;
+    const outcomes = this.nodeOutcomes.data;
+    const edgeStart = this.nodeEdgeStart.data;
+    const edgeEnd = this.nodeEdgeEnd.data;
+    const optionStart = this.edgeOptionStart.data;
+    for (let i = 0; i < this.nodeCount; i++) {
+      if (terminal[i] !== TERMINAL_NONE) stats.terminalStates++;
+      else if (role[i] === ROLE_A) stats.attackerDecisionStates++;
+      else if (role[i] === ROLE_D) stats.defenderDecisionStates++;
       else stats.chanceStates++;
-      stats.chanceOutcomes += node.edges.length;
-      for (const edge of node.edges) {
-        stats.assignmentOptions += edge.options.length;
-      }
+      stats.chanceOutcomes += outcomes[i];
+      // Chance edges that merged several outcomes still count each outcome's
+      // single assignment; decision edges count their candidate lists.
+      stats.assignmentOptions +=
+        role[i] === ROLE_NONE
+          ? outcomes[i]
+          : optionStart[edgeEnd[i]] - optionStart[edgeStart[i]];
     }
     return stats;
   }
@@ -394,69 +475,110 @@ export class WinProbabilitySolver {
   explainDecision(key: string): DecisionExplanation | undefined {
     const solved = this.solve();
     if (!solved.ok) return undefined;
-    const index = this.keyToIndex.get(key);
+    const index = this.stringKeyToIndex().get(key);
     if (index === undefined) return undefined;
-    const node = this.nodes[index];
-    if (!node.decisionRole) return undefined;
+    const role = this.roleOf(index);
+    if (!role) return undefined;
 
-    return {
-      role: node.decisionRole,
-      outcomes: node.edges.map((edge) => {
-        const selected = this.chooseOption(edge.options, node.decisionRole!);
-        return {
-          probability: edge.prob,
-          options: edge.options.map((option) => ({
-            value: this.values[option],
-            selected: option === selected,
-          })),
-        };
-      }),
-    };
+    const outcomes: DecisionExplanation['outcomes'] = [];
+    const optionStart = this.edgeOptionStart.data;
+    const optionNode = this.optionNode.data;
+    for (
+      let e = this.nodeEdgeStart.data[index];
+      e < this.nodeEdgeEnd.data[index];
+      e++
+    ) {
+      const selected = this.chooseOption(
+        optionStart[e],
+        optionStart[e + 1],
+        role
+      );
+      const options: { value: number; selected: boolean }[] = [];
+      for (let o = optionStart[e]; o < optionStart[e + 1]; o++) {
+        options.push({
+          value: this.values[optionNode[o]],
+          selected: optionNode[o] === selected,
+        });
+      }
+      outcomes.push({ probability: this.edgeProb.data[e], options });
+    }
+    return { role, outcomes };
+  }
+
+  private roleOf(index: number): Role | null {
+    const tag = this.nodeRole.data[index];
+    if (tag === ROLE_A) return 'A';
+    if (tag === ROLE_D) return 'D';
+    return null;
+  }
+
+  private stringKeyToIndex(): Map<string, number> {
+    if (!this.keyToIndex) {
+      this.keyToIndex = new Map<string, number>();
+      for (const [code, index] of this.codeToIndex) {
+        this.keyToIndex.set(this.model.canonicalKeyFromCode(code), index);
+      }
+    }
+    return this.keyToIndex;
+  }
+
+  private newNode(): number {
+    const idx = this.nodeCount++;
+    this.nodeEdgeStart.push(0);
+    this.nodeEdgeEnd.push(0);
+    this.nodeRole.push(ROLE_NONE);
+    this.nodeTerminal.push(TERMINAL_NONE);
+    this.nodeOutcomes.push(0);
+    return idx;
+  }
+
+  private markTerminal(idx: number, info: TerminalInfo): void {
+    this.nodeTerminal.data[idx] = TERMINAL_TAGS.indexOf(info.outcome) + 1;
+    this.terminalInfo.set(idx, info);
   }
 
   private buildGraph(): { ok: boolean; reason?: string } {
     const initial = this.model.initialState();
-    const initialKey = this.model.canonicalKey(initial);
-    const stack: { state: WorkingState; key: string }[] = [
-      { state: initial, key: initialKey },
+    const initialCode = this.model.canonicalCode(initial);
+    const stack: { state: WorkingState; code: number }[] = [
+      { state: initial, code: initialCode },
     ];
     // A state can be reached by many dice outcomes before it is expanded. Keep
     // only one pending stack entry instead of scheduling duplicate work that is
     // later discarded by `expanded`.
-    const scheduled = new Set<string>([initialKey]);
+    const scheduled = new Set<number>([initialCode]);
     // Provisional index reservation so edges can reference successors by index
     // before those successors are expanded.
-    const indexOf = (key: string): number => {
-      let idx = this.keyToIndex.get(key);
+    const indexOf = (code: number): number => {
+      let idx = this.codeToIndex.get(code);
       if (idx === undefined) {
-        idx = this.nodes.length;
-        this.keyToIndex.set(key, idx);
-        this.nodes.push({ terminal: null, decisionRole: null, edges: [] });
+        idx = this.newNode();
+        this.codeToIndex.set(code, idx);
       }
       return idx;
     };
     // Terminal outcomes dedup into nodes too, keyed by outcome + HP vectors so
     // survivor information is preserved for the forward pass.
     const terminalIndexOf = (info: TerminalInfo): number => {
-      const key = `T|${info.outcome}|${info.hpA.join('.')}|${info.hpB.join('.')}`;
-      let idx = this.keyToIndex.get(key);
+      const code = this.model.terminalCode(info.outcome, info.hpA, info.hpB);
+      let idx = this.terminalCodeToIndex.get(code);
       if (idx === undefined) {
-        idx = this.nodes.length;
-        this.keyToIndex.set(key, idx);
-        this.nodes.push({ terminal: info, decisionRole: null, edges: [] });
+        idx = this.newNode();
+        this.terminalCodeToIndex.set(code, idx);
+        this.markTerminal(idx, info);
       }
       return idx;
     };
-    const expanded = new Set<string>();
+    const expanded = new Set<number>();
 
-    this.initialIndex = indexOf(initialKey);
+    this.initialIndex = indexOf(initialCode);
 
     while (stack.length > 0) {
-      const { state, key } = stack.pop()!;
-      scheduled.delete(key);
-      if (expanded.has(key)) continue;
-      expanded.add(key);
-      if (this.nodes.length > this.caps.maxStates) {
+      const { state, code } = stack.pop()!;
+      scheduled.delete(code);
+      if (expanded.has(code)) continue;
+      expanded.add(code);
+      if (this.nodeCount > this.caps.maxStates) {
         return { ok: false, reason: 'maxStates exceeded' };
       }
       // Expansion cost varies enormously by state, so check every state and
@@ -464,28 +586,68 @@ export class WinProbabilitySolver {
       if (this.timeBudgetExceeded()) {
         return { ok: false, reason: 'time budget exceeded' };
       }
-      const idx = indexOf(key);
+      const idx = indexOf(code);
 
       const exp = this.model.expand(state, this.ctx);
       if (exp.kind === 'fail') {
         return { ok: false, reason: exp.reason };
       }
       if (exp.kind === 'terminal') {
-        this.nodes[idx] = {
-          terminal: { outcome: exp.outcome, hpA: state.hpA, hpB: state.hpB },
-          decisionRole: null,
-          edges: [],
-        };
+        this.markTerminal(idx, {
+          outcome: exp.outcome,
+          hpA: state.hpA,
+          hpB: state.hpB,
+        });
         continue;
       }
 
-      const edges: Edge[] = [];
+      const firstEdge = this.edgeProb.length;
+      this.nodeEdgeStart.data[idx] = firstEdge;
+      // Distinct dice outcomes of a chance node that land in the same successor
+      // are one edge with summed probability; decision nodes keep every
+      // outcome because their option lists are compared by the solved policy.
+      const mergeChance =
+        MERGE_DUPLICATE_SUCCESSORS && exp.decisionRole === null;
       for (let edgeIndex = 0; edgeIndex < exp.edges.length; edgeIndex++) {
         if (this.timeBudgetExceeded()) {
           return { ok: false, reason: 'time budget exceeded' };
         }
         const edge = exp.edges[edgeIndex];
-        const options: number[] = [];
+        if (mergeChance && edge.options.length === 1) {
+          const opt = edge.options[0];
+          let succ: number;
+          if ('terminal' in opt) {
+            succ = terminalIndexOf({
+              outcome: opt.terminal,
+              hpA: opt.hpA,
+              hpB: opt.hpB,
+            });
+          } else {
+            const ocode = this.model.canonicalCode(opt.state);
+            succ = indexOf(ocode);
+            if (!expanded.has(ocode) && !scheduled.has(ocode)) {
+              scheduled.add(ocode);
+              stack.push({ state: opt.state, code: ocode });
+            }
+          }
+          let merged = false;
+          for (let e = firstEdge; e < this.edgeProb.length; e++) {
+            if (this.optionNode.data[this.edgeOptionStart.data[e]] === succ) {
+              this.edgeProb.data[e] += edge.prob;
+              merged = true;
+              break;
+            }
+          }
+          if (!merged) {
+            this.optionNode.push(succ);
+            this.edgeProb.push(edge.prob);
+            this.edgeOptionStart.push(this.optionNode.length);
+          }
+          if (this.nodeCount > this.caps.maxStates) {
+            return { ok: false, reason: 'maxStates exceeded' };
+          }
+          continue;
+        }
         for (
           let optionIndex = 0;
           optionIndex < edge.options.length;
@@ -499,7 +661,7 @@ export class WinProbabilitySolver {
           }
           const opt = edge.options[optionIndex];
           if ('terminal' in opt) {
-            options.push(
+            this.optionNode.push(
               terminalIndexOf({
                 outcome: opt.terminal,
                 hpA: opt.hpA,
@@ -507,25 +669,28 @@ export class WinProbabilitySolver {
               })
             );
           } else {
-            const okey = this.model.canonicalKey(opt.state);
-            const oidx = indexOf(okey);
-            options.push(oidx);
-            if (!expanded.has(okey) && !scheduled.has(okey)) {
-              scheduled.add(okey);
-              stack.push({ state: opt.state, key: okey });
+            const ocode = this.model.canonicalCode(opt.state);
+            this.optionNode.push(indexOf(ocode));
+            if (!expanded.has(ocode) && !scheduled.has(ocode)) {
+              scheduled.add(ocode);
+              stack.push({ state: opt.state, code: ocode });
             }
           }
-          if (this.nodes.length > this.caps.maxStates) {
+          if (this.nodeCount > this.caps.maxStates) {
             return { ok: false, reason: 'maxStates exceeded' };
           }
         }
-        edges.push({ prob: edge.prob, options });
+        this.edgeProb.push(edge.prob);
+        this.edgeOptionStart.push(this.optionNode.length);
       }
-      this.nodes[idx] = {
-        terminal: null,
-        decisionRole: exp.decisionRole,
-        edges,
-      };
+      this.nodeEdgeEnd.data[idx] = this.edgeProb.length;
+      this.nodeOutcomes.data[idx] = exp.edges.length;
+      this.nodeRole.data[idx] =
+        exp.decisionRole === 'A'
+          ? ROLE_A
+          : exp.decisionRole === 'D'
+            ? ROLE_D
+            : ROLE_NONE;
     }
     return { ok: true };
   }
@@ -539,21 +704,16 @@ export class WinProbabilitySolver {
     | { ok: true; components: ComponentOrder }
     | { ok: false; reason: 'time budget exceeded' } {
     if (this.components) return { ok: true, components: this.components };
-    const n = this.nodes.length;
-    // Successor lists in compressed form. Every option of every outcome is a
-    // dependency, even the ones the solved policy will not take.
-    const succStart = new Int32Array(n + 1);
-    for (let i = 0; i < n; i++) {
-      let count = 0;
-      for (const edge of this.nodes[i].edges) count += edge.options.length;
-      succStart[i + 1] = succStart[i] + count;
-    }
-    const succ = new Int32Array(succStart[n]);
-    for (let i = 0, k = 0; i < n; i++) {
-      for (const edge of this.nodes[i].edges) {
-        for (const option of edge.options) succ[k++] = option;
-      }
-    }
+    const n = this.nodeCount;
+    // Successor lists straight from the flat graph: node v's options occupy
+    // optionNode[optionStart[edgeStart[v]] .. optionStart[edgeEnd[v]]) because
+    // edges and their options are appended contiguously per node. Every option
+    // of every outcome is a dependency, even the ones the solved policy will
+    // not take. A terminal has edgeStart === edgeEnd, so its range is empty.
+    const edgeStart = this.nodeEdgeStart.data;
+    const edgeEnd = this.nodeEdgeEnd.data;
+    const optionStart = this.edgeOptionStart.data;
+    const succ = this.optionNode.data;
 
     // Iterative Tarjan: the graph is far too deep for recursion.
     const index = new Int32Array(n).fill(-1);
@@ -576,7 +736,7 @@ export class WinProbabilitySolver {
       stack[sp++] = root;
       onStack[root] = 1;
       callNode[csp] = root;
-      callPos[csp] = succStart[root];
+      callPos[csp] = optionStart[edgeStart[root]];
       csp++;
       while (csp > 0) {
         if (
@@ -587,7 +747,7 @@ export class WinProbabilitySolver {
         }
         const v = callNode[csp - 1];
         const p = callPos[csp - 1];
-        if (p < succStart[v + 1]) {
+        if (p < optionStart[edgeEnd[v]]) {
           callPos[csp - 1] = p + 1;
           const w = succ[p];
           if (index[w] === -1) {
@@ -595,7 +755,7 @@ export class WinProbabilitySolver {
             stack[sp++] = w;
             onStack[w] = 1;
             callNode[csp] = w;
-            callPos[csp] = succStart[w];
+            callPos[csp] = optionStart[edgeStart[w]];
             csp++;
           } else if (onStack[w] === 1 && index[w] < low[v]) {
             low[v] = index[w];
@@ -616,7 +776,11 @@ export class WinProbabilitySolver {
           order[emitted++] = w;
         } while (w !== v);
         let hasCycle = emitted - first > 1;
-        for (let q = succStart[v]; !hasCycle && q < succStart[v + 1]; q++) {
+        for (
+          let q = optionStart[edgeStart[v]];
+          !hasCycle && q < optionStart[edgeEnd[v]];
+          q++
+        ) {
           hasCycle = succ[q] === v;
         }
         cyclic.push(hasCycle ? 1 : 0);
@@ -632,27 +796,35 @@ export class WinProbabilitySolver {
     return { ok: true, components: this.components };
   }
 
-  // Current value of a non-terminal state from its successors' values. Adds
+  // Current value of non-terminal state i from its successors' values. Adds
   // the outcomes and options it visited to `this.work` so callers can check
   // the deadline in proportion to the work done.
-  private nodeValue(node: Node): number {
+  private nodeValue(i: number): number {
+    const values = this.values;
+    const edgeStart = this.nodeEdgeStart.data[i];
+    const end = this.nodeEdgeEnd.data[i];
+    const prob = this.edgeProb.data;
+    const optionStart = this.edgeOptionStart.data;
+    const optionNode = this.optionNode.data;
+    const tag = this.nodeRole.data[i];
     let v = 0;
-    for (const edge of node.edges) {
-      let edgeVal: number;
-      if (node.decisionRole) {
-        const isMax = node.decisionRole === 'A';
-        edgeVal = isMax ? -Infinity : Infinity;
-        for (const opt of edge.options) {
-          const ov = this.values[opt];
+    if (tag === ROLE_NONE) {
+      for (let e = edgeStart; e < end; e++) {
+        v += prob[e] * values[optionNode[optionStart[e]]];
+      }
+    } else {
+      const isMax = tag === ROLE_A;
+      for (let e = edgeStart; e < end; e++) {
+        let edgeVal = isMax ? -Infinity : Infinity;
+        for (let o = optionStart[e]; o < optionStart[e + 1]; o++) {
+          const ov = values[optionNode[o]];
           edgeVal = isMax ? Math.max(edgeVal, ov) : Math.min(edgeVal, ov);
         }
-        this.work += edge.options.length;
-      } else {
-        edgeVal = this.values[edge.options[0]];
+        v += prob[e] * edgeVal;
       }
-      v += edge.prob * edgeVal;
+      this.work += optionStart[end] - optionStart[edgeStart];
     }
-    this.work += 1 + node.edges.length;
+    this.work += 1 + (end - edgeStart);
     return v;
   }
 
@@ -666,15 +838,16 @@ export class WinProbabilitySolver {
   // rule). `sweeps` reports the most any swept component needed; an exactly
   // solved component counts as one.
   private iterate(): { ok: boolean; sweeps: number; reason?: string } {
-    const n = this.nodes.length;
+    const n = this.nodeCount;
     this.values = new Float64Array(n);
+    const values = this.values;
+    const terminal = this.nodeTerminal.data;
     for (let i = 0; i < n; i++) {
       if (i % DEADLINE_CHECK_INTERVAL === 0 && this.timeBudgetExceeded()) {
         return { ok: false, sweeps: 0, reason: 'time budget exceeded' };
       }
-      const terminal = this.nodes[i].terminal;
-      if (terminal) {
-        this.values[i] = this.target(terminal.outcome);
+      if (terminal[i] !== TERMINAL_NONE) {
+        values[i] = this.target(TERMINAL_TAGS[terminal[i] - 1]);
       }
     }
     const ordered = this.componentOrder();
@@ -696,8 +869,7 @@ export class WinProbabilitySolver {
       const to = start[c + 1];
       if (cyclic[c] === 0) {
         const i = order[from];
-        const node = this.nodes[i];
-        if (!node.terminal) this.values[i] = this.nodeValue(node);
+        if (terminal[i] === TERMINAL_NONE) values[i] = this.nodeValue(i);
         if (this.work >= nextCheck) {
           nextCheck = this.work + DEADLINE_CHECK_INTERVAL;
           if (this.timeBudgetExceeded()) return timedOut(sweeps);
@@ -721,12 +893,11 @@ export class WinProbabilitySolver {
         let maxDelta = 0;
         for (let k = from; k < to; k++) {
           const i = order[k];
-          const node = this.nodes[i];
-          if (node.terminal) continue; // absorbing
-          const v = this.nodeValue(node);
-          const delta = Math.abs(v - this.values[i]);
+          if (terminal[i] !== TERMINAL_NONE) continue; // absorbing
+          const v = this.nodeValue(i);
+          const delta = Math.abs(v - values[i]);
           if (delta > maxDelta) maxDelta = delta;
-          this.values[i] = v;
+          values[i] = v;
           if (this.work >= nextCheck) {
             nextCheck = this.work + DEADLINE_CHECK_INTERVAL;
             if (this.timeBudgetExceeded()) return timedOut(sweeps);
@@ -779,25 +950,31 @@ export class WinProbabilitySolver {
     to: number
   ): boolean {
     const size = to - from;
+    const role = this.nodeRole.data;
     for (let k = from; k < to; k++) {
-      if (this.nodes[order[k]].decisionRole) return false;
+      if (role[order[k]] !== ROLE_NONE) return false;
     }
     const local = this.componentLocal;
     for (let k = from; k < to; k++) local[order[k]] = k - from;
+    const edgeStart = this.nodeEdgeStart.data;
+    const edgeEnd = this.nodeEdgeEnd.data;
+    const prob = this.edgeProb.data;
+    const optionStart = this.edgeOptionStart.data;
+    const optionNode = this.optionNode.data;
     const matrix = new Float64Array(size * size);
     const rhs = new Float64Array(size);
     for (let k = from; k < to; k++) {
       const row = k - from;
-      const node = this.nodes[order[k]];
+      const i = order[k];
       matrix[row * size + row] = 1;
-      for (const edge of node.edges) {
-        // Decision-free nodes have exactly one successor per outcome.
-        const successor = edge.options[0];
+      for (let e = edgeStart[i]; e < edgeEnd[i]; e++) {
+        // Chance edges have exactly one successor.
+        const successor = optionNode[optionStart[e]];
         const column = local[successor];
-        if (column >= 0) matrix[row * size + column] -= edge.prob;
-        else rhs[row] += edge.prob * this.values[successor];
+        if (column >= 0) matrix[row * size + column] -= prob[e];
+        else rhs[row] += prob[e] * this.values[successor];
       }
-      this.work += 1 + node.edges.length;
+      this.work += 1 + (edgeEnd[i] - edgeStart[i]);
     }
     for (let k = from; k < to; k++) local[order[k]] = -1;
     if (!solveLinearSystem(matrix, rhs, size)) return false;
@@ -811,24 +988,27 @@ export class WinProbabilitySolver {
     return true;
   }
 
-  // Picks the option the solved policy takes at a decision edge: the lowest
-  // option index whose value is within DECISION_TIE_EPSILON of the best. Any
-  // tie-broken choice has the same win value up to that tolerance, though
-  // survivor mixes can differ between equally-optimal lines, so the choice
-  // must not depend on which option carries the smaller iteration residual.
-  private chooseOption(options: number[], decisionRole: Role): number {
+  // Picks the option the solved policy takes at a decision edge whose options
+  // occupy [from, to) of optionNode: the lowest option index whose value is
+  // within DECISION_TIE_EPSILON of the best. Any tie-broken choice has the
+  // same win value up to that tolerance, though survivor mixes can differ
+  // between equally-optimal lines, so the choice must not depend on which
+  // option carries the smaller iteration residual.
+  private chooseOption(from: number, to: number, decisionRole: Role): number {
+    const optionNode = this.optionNode.data;
     const isMax = decisionRole === 'A';
     let bestVal = isMax ? -Infinity : Infinity;
-    for (const option of options) {
-      const v = this.values[option];
+    for (let o = from; o < to; o++) {
+      const v = this.values[optionNode[o]];
       if (isMax ? v > bestVal : v < bestVal) bestVal = v;
     }
-    for (const option of options) {
-      if (Math.abs(this.values[option] - bestVal) <= DECISION_TIE_EPSILON) {
-        return option;
+    for (let o = from; o < to; o++) {
+      const candidate = optionNode[o];
+      if (Math.abs(this.values[candidate] - bestVal) <= DECISION_TIE_EPSILON) {
+        return candidate;
       }
     }
-    return options[0];
+    return optionNode[from];
   }
 
   // Pushes probability mass forward from the initial state under the solved
@@ -839,7 +1019,7 @@ export class WinProbabilitySolver {
     const propagated = this.propagateTerminalMass();
     if (!propagated.ok) return this.outcomeFailure(propagated.reason);
     const { absorbed, residual } = propagated;
-    const n = this.nodes.length;
+    const n = this.nodeCount;
 
     let pAttacker = 0;
     let pDefenderTerm = 0;
@@ -853,7 +1033,7 @@ export class WinProbabilitySolver {
       }
       const m = absorbed[i];
       if (m === 0) continue;
-      const terminal = this.nodes[i].terminal!;
+      const terminal = this.terminalInfo.get(i)!;
       const attackerCounts = this.model.survivorsByType('A', terminal.hpA);
       const defenderCounts = this.model.survivorsByType('D', terminal.hpB);
       const compositionKey = this.compositionKey(
@@ -908,7 +1088,7 @@ export class WinProbabilitySolver {
       survivorDistribution: Array.from(compositionMass.values()).sort(
         (a, b) => b.probability - a.probability
       ),
-      states: this.nodes.length,
+      states: this.nodeCount,
     };
   }
 
@@ -920,19 +1100,24 @@ export class WinProbabilitySolver {
     mass: Float64Array,
     absorbed: Float64Array
   ): void {
-    const node = this.nodes[i];
-    if (node.terminal) {
+    if (this.nodeTerminal.data[i] !== TERMINAL_NONE) {
       absorbed[i] += m;
       this.work++;
       return;
     }
-    for (const edge of node.edges) {
-      const targetIdx = node.decisionRole
-        ? this.chooseOption(edge.options, node.decisionRole)
-        : edge.options[0];
-      mass[targetIdx] += edge.prob * m;
+    const edgeStart = this.nodeEdgeStart.data[i];
+    const end = this.nodeEdgeEnd.data[i];
+    const prob = this.edgeProb.data;
+    const optionStart = this.edgeOptionStart.data;
+    const optionNode = this.optionNode.data;
+    const role = this.roleOfTag(this.nodeRole.data[i]);
+    for (let e = edgeStart; e < end; e++) {
+      const targetIdx = role
+        ? this.chooseOption(optionStart[e], optionStart[e + 1], role)
+        : optionNode[optionStart[e]];
+      mass[targetIdx] += prob[e] * m;
     }
-    this.work += 1 + node.edges.length;
+    this.work += 1 + (end - edgeStart);
   }
 
   // Pushes mass through the components in topological order, so an acyclic
@@ -948,7 +1133,7 @@ export class WinProbabilitySolver {
     const ordered = this.componentOrder();
     if (!ordered.ok) return ordered;
     const { nodes: order, start, cyclic, count } = ordered.components;
-    const n = this.nodes.length;
+    const n = this.nodeCount;
     const mass = new Float64Array(n);
     const absorbed = new Float64Array(n);
     mass[this.initialIndex] = 1;
@@ -1018,6 +1203,12 @@ export class WinProbabilitySolver {
     };
   }
 
+  private roleOfTag(tag: number): Role | null {
+    if (tag === ROLE_A) return 'A';
+    if (tag === ROLE_D) return 'D';
+    return null;
+  }
+
   private timeBudgetExceeded(): boolean {
     return this.deadline !== Infinity && this.now() >= this.deadline;
   }
@@ -1033,7 +1224,7 @@ export class WinProbabilitySolver {
       attackerSurvivors: {},
       defenderSurvivors: {},
       survivorDistribution: [],
-      states: this.nodes.length,
+      states: this.nodeCount,
     };
   }
 
@@ -1045,7 +1236,7 @@ export class WinProbabilitySolver {
       reason,
       entries: [],
       residual: NaN,
-      states: this.nodes.length,
+      states: this.nodeCount,
     };
   }
 

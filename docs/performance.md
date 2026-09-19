@@ -195,13 +195,55 @@ Outcome probabilities moved by at most 5e-13 on those cases and on the healing, 
 self-loop, and 1v1 controls; state and terminal counts are unchanged. Slow healing cycles that
 the sweep solved only to about 5e-8, or not at all within the cap, are now exact (for example six
 interceptors against an unarmed dreadnought that heals to full unless every shot lands). The
-interactive 12-ship exact-DPS tier is about 17 ms. Graph construction (0.9 s for the 14-ship case,
-26 s for the 12-ship minimax case) is now essentially the whole solve, so the 14-ship case still
-exceeds the interactive exact budget; per-state bookkeeping and per-side transition reuse, both
-prototyped with exact results on the product structure above, are the next targets. Reversing the
-sweep direction alone was tried first and only reached 96 sweeps on the 12-ship case, because
-every all-miss round is a cycle whose convergence rate, not the sweep order, bounds a whole-graph
-sweep.
+12-ship exact-DPS tier was then about 17 ms, and graph construction (0.9 s for the 14-ship case,
+26 s for the 12-ship minimax case) was essentially the whole solve; the bookkeeping and
+transition-template changes below address it. Reversing the sweep direction alone was tried first
+and only reached 96 sweeps on the 12-ship case, because every all-miss round is a cycle whose
+convergence rate, not the sweep order, bounds a whole-graph sweep.
+
+Three further exact bookkeeping changes then landed together (state, edge, and probability
+values are deterministic; times are the development machine):
+
+- Numeric state keys and flat graph storage: states are keyed by `canonicalCode` (mixed-radix
+  integers in a `Map<number, number>`) and terminals by a packed raw-HP code; nodes, edges, and
+  options live in CSR-style typed arrays instead of per-node objects. A key-only microbenchmark
+  measured 0.75 us per string key plus map insert against 0.08 us numeric, and the 14-ship heap
+  after construction fell from about 163 MB to 60 MB.
+- Dice-less slot skipping: `advance` walks past slots whose living ships roll no dice, so those
+  pass-through states (24% of the 14-ship graph) are never stored. The 14-ship graph fell from
+  150,076 states and 473,648 edges to 113,436 and 437,008; `getStateValue` resolves a dice-less
+  state to the successor it passes through to.
+- Duplicate-successor merging in chance nodes: dice outcomes of one state that land in the same
+  successor share an edge with summed probability, 3% fewer stored edges on the 14-ship graph;
+  `chanceOutcomes` still reports enumerated outcomes.
+
+With those in place the 14-ship uncapped solve was 0.42 s (construction 0.36 s) and the
+interactive exact-DPS tier completed it in about 513 ms, inside the 600 ms allocation with too
+little margin for slower hardware. Construction was then per-outcome bookkeeping: 437,000
+outcomes each paid a memo lookup, deadline checks, and terminal checks, while the planner itself
+ran only 3,160 times.
+
+Transition templates remove that per-outcome work. Everything an expansion computes before the
+joint advance step (dice outcomes, rift self-damage, and the target HP vector of every assignment
+option) depends on the joint state only through a factor: the slot and solver context, the living
+dice ships of the slot by configuration group, the shooter's minimum living shield when its fleet
+mixes shields, the shooter's whole canonical HP when the slot fires missiles or rift dice, and the
+target's canonical HP. The 14-ship graph has 113,000 expansions but only about 5,400 distinct
+factors, so `BattleModel` memoizes the template per factor and joint states that share it pay
+only the advance step per outcome. Template vectors are representatives of canonical states: a
+joint state whose raw roster layout differs from the first-seen layout receives canonically equal
+successors, which the solver identifies anyway, and multi-fleet carry-over consumes them by
+canonical equivalence. A heuristic planner whose ordering can tie ships of different
+configurations depends on the raw layout, so such factors are marked and their states keep
+per-state expansion. Measured uncapped: 14-ship construction 0.36 s to 0.20 s (total 0.26 s), the
+12-ship minimax build 24 s to 1.8 s (total 1.9 s), and the interactive 14-ship exact-DPS tier
+about 274 ms (range 270 to 299 ms over five runs). A 48-row differential across rift, missile,
+mixed-shield, tie-prone, splitter, NPC, heal, damaged-roster, and multi-fleet cases in policy and
+minimax modes matched the previous solver to 2e-14.
+
+The 12-ship exact-optimal tier remains outside the 300 ms budget: its build is now candidate
+enumeration and option bookkeeping over about 2.1 million assignment options, so the preflight
+still routes it to exact DPS.
 
 ## Benchmark Assets
 
