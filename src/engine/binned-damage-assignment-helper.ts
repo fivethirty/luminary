@@ -26,7 +26,8 @@ export class BinnedDamageAssignmentHelper {
     shots: Shot[],
     targetShips: Ship[],
     damageType: DamageType,
-    upcomingPhases: Phase[] = []
+    upcomingPhases: Phase[] = [],
+    targetShield?: number
   ) {
     if (damageType === DamageType.OPTIMAL) {
       // Always set by the fleet before this type is selected (see Fleet).
@@ -40,7 +41,8 @@ export class BinnedDamageAssignmentHelper {
       shots,
       targetShips,
       damageType,
-      upcomingPhases
+      upcomingPhases,
+      targetShield
     );
   }
 
@@ -241,13 +243,18 @@ export class BinnedDamageAssignmentHelper {
     shots: Shot[],
     ships: Ship[],
     damageType: DamageType,
-    upcomingPhases: Phase[]
+    upcomingPhases: Phase[],
+    targetShield?: number
   ) {
     if (ships.length === 0 || shots.length === 0) return;
 
     const damagePlanner = this.getDamagePlanner(damageType);
 
-    const sortedShips = damagePlanner.optimallySortShips(ships, upcomingPhases);
+    const sortedShips = damagePlanner.optimallySortShips(
+      ships,
+      upcomingPhases,
+      targetShield
+    );
     const sortedShots = damagePlanner.optimallySortShots(shots);
 
     // Precompute: can this shot hit that ship?
@@ -261,7 +268,8 @@ export class BinnedDamageAssignmentHelper {
       sortedShips,
       sortedShots,
       remainingHp,
-      upcomingPhases
+      upcomingPhases,
+      targetShield
     );
     if (maxScore === 0) {
       return;

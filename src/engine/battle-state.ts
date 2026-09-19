@@ -603,7 +603,8 @@ export class BattleModel {
       outcome.shots,
       targetLiving,
       assignmentControl.damageType,
-      phases
+      phases,
+      shooterMat.fleet.getMinShield()
     );
     if (ctx.deadlineExceeded?.()) {
       return { ok: false, reason: 'time budget exceeded' };

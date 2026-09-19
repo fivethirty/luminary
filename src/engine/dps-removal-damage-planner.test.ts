@@ -170,6 +170,23 @@ describe('DpsRemovalDamagePlanner', () => {
       );
       expect(sortedShips[0]).toBe(armedInterceptor);
     });
+    test('discounts weapon priority when computers cannot beat target shields', () => {
+      const starbase = new Ship(ShipType.Starbase, {
+        cannons: { antimatter: 2 },
+      });
+      const dread = new Ship(ShipType.Dreadnought, {
+        computers: 2,
+        cannons: { antimatter: 1 },
+      });
+
+      const sortedShips = new DpsRemovalDamagePlanner().optimallySortShips(
+        [dread, starbase],
+        [],
+        3
+      );
+
+      expect(sortedShips[0]).toBe(starbase);
+    });
     test('handles no ships', () => {
       const sortedShips = new DpsRemovalDamagePlanner().optimallySortShips(
         [],
@@ -372,12 +389,10 @@ describe('DpsRemovalDamagePlanner', () => {
       const ship1 = new Ship(ShipType.Interceptor, { cannons: { ion: 1 } });
       const ship2 = new Ship(ShipType.Cruiser, {
         hull: 1,
-        computers: 1,
-        cannons: { ion: 1 },
+        cannons: { plasma: 1 },
       });
       const ship3 = new Ship(ShipType.Dreadnought, {
         hull: 2,
-        computers: 2,
         cannons: { ion: 1 },
       });
       const result1 = new DpsRemovalDamagePlanner().evaluate(
