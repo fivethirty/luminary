@@ -82,9 +82,12 @@ export function enumerateCandidates(
   const partialStateKey = (shotIdx: number): string => {
     const parts = new Array<string>(ships.length);
     for (let i = 0; i < ships.length; i++) {
-      // Cap at remaining HP so overkill collapses to the same state.
-      const applied = Math.min(assignments[i], remainingHp[i]);
-      parts[i] = `${configKeys[i]}#${applied}`;
+      // Key on the ship's resulting HP (overkill collapses to 0): two partial
+      // assignments with the same (config, HP) multiset have identical
+      // subtrees. Keying on applied damage alone conflates same-config ships
+      // that currently have different HP and drops legal candidates.
+      const resultingHp = Math.max(0, remainingHp[i] - assignments[i]);
+      parts[i] = `${configKeys[i]}#${resultingHp}`;
     }
     return `${shotIdx}:${parts.sort().join(',')}`;
   };
