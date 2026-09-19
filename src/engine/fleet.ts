@@ -75,7 +75,8 @@ export class Fleet {
       shots,
       targetShips,
       this.getDamageType(),
-      upcomingPhases
+      upcomingPhases,
+      this.getMinShield()
     );
   }
 

@@ -34,10 +34,15 @@ export abstract class AbstractDamagePlanner {
     ships: Ship[],
     remainingHp: number[],
     damageAssignments: number[],
-    upcomingPhases: Phase[]
+    upcomingPhases: Phase[],
+    targetShield?: number
   ): Plan;
 
-  abstract optimallySortShips(ships: Ship[], upcomingPhases: Phase[]): Ship[];
+  abstract optimallySortShips(
+    ships: Ship[],
+    upcomingPhases: Phase[],
+    targetShield?: number
+  ): Ship[];
 
   optimallySortShots(shots: Shot[]): Shot[] {
     return sortShotsForAssignment(shots);
@@ -47,7 +52,8 @@ export abstract class AbstractDamagePlanner {
     sortedShips: Ship[],
     shots: Shot[],
     remainingHp: number[],
-    upcomingPhases: Phase[]
+    upcomingPhases: Phase[],
+    targetShield?: number
   ): number {
     let maxDamage = shots.reduce((sum, shot) => sum + shot.damage, 0);
     const minDamageAmt = Math.min(...shots.map((shot) => shot.damage));
@@ -80,7 +86,8 @@ export abstract class AbstractDamagePlanner {
       sortedShips,
       remainingHp,
       damageAssignments,
-      upcomingPhases
+      upcomingPhases,
+      targetShield
     ).score;
   }
 }
