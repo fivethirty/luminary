@@ -22,7 +22,12 @@ import {
   reconcileFactionStructure,
   sanitizeFleetComposition,
 } from '@ui/fleet-rules';
-import { normalizeShipConfig, shipConfigsEqual } from '@ui/ship-config';
+import {
+  MAX_STAT,
+  MIN_INITIATIVE,
+  normalizeShipConfig,
+  shipConfigsEqual,
+} from '@ui/ship-config';
 import {
   calculateBlueprint,
   isBlueprintShipType,
@@ -49,12 +54,13 @@ import type {
 // (NPCs defend only, no mixed player/NPC fleets) are enforced.
 const LEGACY_SHARE_VERSION = '1';
 const SHARE_VERSION = '2';
-const MAX_STAT = 99;
 
 interface StatField {
   key: string;
   get: (config: Required<ShipConfig>) => number;
   set: (config: Required<ShipConfig>, value: number) => void;
+  /** Lowest accepted value when decoding; defaults to zero. */
+  min?: number;
 }
 
 function weaponFields(
@@ -99,6 +105,7 @@ const STAT_FIELDS: StatField[] = [
     set: (c, v) => {
       c.initiative = v;
     },
+    min: MIN_INITIATIVE,
   },
   {
     key: 'heal',
@@ -217,8 +224,8 @@ export function encodeBattleQuery(fleets: FleetState[]): string {
   return new URLSearchParams([['v', SHARE_VERSION], ...params]).toString();
 }
 
-function clampStat(value: number): number {
-  return Math.min(MAX_STAT, Math.max(0, Math.round(value)));
+function clampStat(value: number, min = 0): number {
+  return Math.min(MAX_STAT, Math.max(min, Math.round(value)));
 }
 
 interface FleetDraft {
@@ -373,7 +380,10 @@ export function parseBattleQuery(search: string): FleetState[] | null {
 
     const field = STAT_FIELDS_BY_KEY.get(parts[2]);
     if (field && Number.isFinite(numeric)) {
-      field.set(ship.config as Required<ShipConfig>, clampStat(numeric));
+      field.set(
+        ship.config as Required<ShipConfig>,
+        clampStat(numeric, field.min)
+      );
       recognized = true;
     }
   }

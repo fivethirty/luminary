@@ -205,6 +205,83 @@ describe('StatCubeElement', () => {
     expect(dec.disabled).toBe(true);
   });
 
+  test('supports a negative minimum', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    cube.min = -3;
+    document.body.appendChild(cube);
+
+    const input = cube.querySelector('input') as HTMLInputElement;
+    const dec = cube.querySelector('.stat-dec') as HTMLButtonElement;
+    let changes = 0;
+    cube.addEventListener('change', () => changes++);
+
+    expect(input.getAttribute('aria-valuemin')).toBe('-3');
+    expect(input.min).toBe('-3');
+    expect(dec.disabled).toBe(false);
+
+    dec.click();
+    expect(cube.value).toBe(-1);
+    expect(input.value).toBe('-1');
+    expect(input.getAttribute('aria-valuenow')).toBe('-1');
+
+    dec.click();
+    dec.click();
+    expect(cube.value).toBe(-3);
+    expect(dec.disabled).toBe(true);
+    dec.click();
+    expect(cube.value).toBe(-3);
+    expect(changes).toBe(3);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+    expect(cube.value).toBe(-2);
+
+    input.value = '-2';
+    input.dispatchEvent(new Event('input'));
+    expect(input.value).toBe('-2');
+    input.dispatchEvent(new Event('change'));
+    expect(cube.value).toBe(-2);
+
+    input.value = '-9';
+    input.dispatchEvent(new Event('change'));
+    expect(cube.value).toBe(-3);
+
+    cube.value = -10;
+    expect(cube.value).toBe(-3);
+  });
+
+  test('accepts a typed minus sign only when negatives are allowed', () => {
+    const cube = document.createElement('calc-stat-cube') as StatCubeElement;
+    document.body.appendChild(cube);
+    const input = cube.querySelector('input') as HTMLInputElement;
+
+    const minusEvent = () => {
+      const event = new InputEvent('beforeinput', {
+        data: '-',
+        inputType: 'insertText',
+      });
+      let prevented = false;
+      event.preventDefault = () => {
+        prevented = true;
+      };
+      input.dispatchEvent(event);
+      return prevented;
+    };
+
+    expect(minusEvent()).toBe(true);
+    input.value = '-4';
+    input.dispatchEvent(new Event('input'));
+    expect(input.value).toBe('4');
+
+    cube.min = -5;
+    expect(minusEvent()).toBe(false);
+    input.value = '-4';
+    input.dispatchEvent(new Event('input'));
+    expect(input.value).toBe('-4');
+    input.value = '4-';
+    input.dispatchEvent(new Event('input'));
+    expect(input.value).toBe('4');
+  });
+
   test('touch stepper activation releases button focus', () => {
     const cube = document.createElement('calc-stat-cube') as StatCubeElement;
     document.body.appendChild(cube);
