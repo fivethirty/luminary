@@ -281,7 +281,7 @@ describe('computeExactBattle', () => {
       expect(result.survivorDistribution).toHaveLength(2);
     });
 
-    test('homogeneous fleets solve exactly and match the DPS-vs-DPS solve', () => {
+    test('one-HP homogeneous fleets solve exactly and match the DPS-vs-DPS solve', () => {
       const make = () => [interceptor(), interceptor(), interceptor()];
       const bothOptimal = computeExactBattle(
         new Fleet('D', make(), false, DamageType.OPTIMAL),
@@ -291,8 +291,8 @@ describe('computeExactBattle', () => {
         new Fleet('D', make()),
         new Fleet('A', make())
       );
-      // Certify the substitution: one-sided optimization gains nothing against
-      // a homogeneous enemy, so all three formulations agree.
+      // Every ion hit kills a one-HP interceptor, so assignment choices exist
+      // but have no value, and all three formulations agree.
       const oneSided = computeExactBattle(
         new Fleet('D', make()),
         new Fleet('A', make(), false, DamageType.OPTIMAL)
@@ -309,8 +309,8 @@ describe('computeExactBattle', () => {
     });
 
     test('one mixed side keeps the non-trivial optimizer and solves exactly', () => {
-      // Attacker is homogeneous → the defender's targeting is trivial; the
-      // attacker (facing a mixed defender) keeps its optimal mode.
+      // Every hit kills a one-HP attacker ship, so the defender's choices are
+      // worthless; the attacker (facing a mixed defender) keeps its optimal mode.
       const bothOptimal = computeExactBattle(
         new Fleet('D', mixed(), false, DamageType.OPTIMAL),
         new Fleet(

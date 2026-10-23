@@ -1029,7 +1029,6 @@ export class BattleModel {
     const assignmentControl = this.assignmentControl(
       slot,
       shooter.damageType,
-      this.hasOneLivingConfiguration(target.templates, targetHp),
       ctx
     );
     const templateUsable = this.templateReusable(
@@ -1325,6 +1324,14 @@ export class BattleModel {
     const targetMat = scratch.target;
     this.resetMaterializedFleet(targetMat, target.templates, targetHp);
     const targetLiving = targetMat.ships.filter((s) => s.isAlive());
+    const lethalVolley = this.lethalUniformVolley(shots, targetLiving);
+    if (lethalVolley !== null) {
+      const newTargetHp = targetMat.ships.map((s) => s.remainingHP());
+      for (let i = 0; i < lethalVolley; i++) {
+        newTargetHp[targetMat.ships.indexOf(targetLiving[i])] = 0;
+      }
+      return { kind: 'targets', targets: [newTargetHp] };
+    }
     let candidateDeadlineExceeded = false;
     const candidates = enumerateCandidates(shots, targetLiving, {
       shouldAbort: ctx.deadlineExceeded
@@ -1359,6 +1366,36 @@ export class BattleModel {
       targets.push(newTargetHp);
     }
     return { kind: 'targets', targets };
+  }
+
+  // Kills to apply when every living target shares one configuration and
+  // every landing shot destroys any of them outright, or null otherwise. Such
+  // a volley has one successor worth considering: the assignments differ only
+  // in how many lethal shots are wasted on already-destroyed ships, and
+  // destroying more enemy ships is weakly dominant for the shooter (enemy
+  // ships deal damage or, for the mutual-no-cannons rule, hold the field;
+  // they never absorb the shooter's own damage). The candidate enumerator
+  // would reach the same distinct states, but exploring a lethal volley
+  // against a swarm costs shots × ships nodes per dice outcome for nothing.
+  private lethalUniformVolley(
+    shots: Shot[],
+    targetLiving: Ship[]
+  ): number | null {
+    if (targetLiving.length === 0) return null;
+    const first = targetLiving[0];
+    const configKey = first.configKey();
+    let maxHp = 0;
+    for (const ship of targetLiving) {
+      if (ship.configKey() !== configKey) return null;
+      if (ship.remainingHP() > maxHp) maxHp = ship.remainingHP();
+    }
+    let hits = 0;
+    for (const shot of shots) {
+      if (!first.shotHits(shot)) continue;
+      if (shot.damage < maxHp) return null;
+      hits++;
+    }
+    return Math.min(hits, targetLiving.length);
   }
 
   // Heuristic assignment follows the fleet's selected deterministic policy.
@@ -1420,30 +1457,22 @@ export class BattleModel {
     return { kind: 'targets', targets: [newTargetHp] };
   }
 
+  // A player fleet in minimax mode decides every assignment, including those
+  // against a single living configuration: identical ships are interchangeable
+  // as targets, but how damage is split among them (concentrate, or spread to
+  // bring each to a kill threshold) is a real choice with a real value.
   private assignmentControl(
     slot: Slot,
     shooterDamageType: DamageType,
-    targetIsHomogeneous: boolean,
     ctx: ExpandContext
   ): AssignmentControl {
     if (shooterDamageType === DamageType.NPC) {
       return { kind: 'heuristic', damageType: DamageType.NPC };
     }
-    if (ctx.decisionRoles.includes(slot.role) && !targetIsHomogeneous) {
+    if (ctx.decisionRoles.includes(slot.role)) {
       return { kind: 'decision', role: slot.role };
     }
     return { kind: 'heuristic', damageType: DamageType.DPS };
-  }
-
-  private hasOneLivingConfiguration(templates: Ship[], hp: number[]): boolean {
-    let livingConfig: string | null = null;
-    for (let index = 0; index < templates.length; index++) {
-      if (hp[index] <= 0) continue;
-      const key = templates[index].configKey();
-      if (livingConfig === null) livingConfig = key;
-      else if (key !== livingConfig) return false;
-    }
-    return livingConfig !== null;
   }
 
   // Terminal check after a slot's damage (fact 4), else advance.

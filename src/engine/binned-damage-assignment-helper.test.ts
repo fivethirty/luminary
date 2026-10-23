@@ -348,6 +348,36 @@ describe('BinnedDamageAssignment', () => {
       expect(cruiser.remainingHP()).toBe(0);
     });
 
+    test('ignores dice that cannot hit any target', () => {
+      // The battle loop forwards a die that missed every ship when the
+      // shooter's computers beat the target fleet's lowest shield. The plan
+      // must depend on the landed hits only, as the exact model passes.
+      const targets = () => [
+        ...Array.from(
+          { length: 4 },
+          () => new Ship(ShipType.Cruiser, { hull: 3, shields: 2 })
+        ),
+        new Ship(ShipType.Interceptor),
+      ];
+      const hit = { roll: 4, computers: 6, damage: 1 };
+      const miss = { roll: DICE_VALUES.MISS, computers: 6, damage: 1 };
+      const plan = (shots: Shot[]) => {
+        const ships = targets();
+        new BinnedDamageAssignmentHelper().assignDamage(
+          shots,
+          ships,
+          DamageType.DPS,
+          [],
+          0
+        );
+        return ships.map((ship) => ship.remainingHP());
+      };
+
+      const hitsOnly = plan(Array(7).fill(hit));
+      expect(plan([...Array(7).fill(hit), miss])).toEqual(hitsOnly);
+      expect(plan([miss, ...Array(7).fill(hit), miss])).toEqual(hitsOnly);
+    });
+
     test('spreads damage when unable to kill', () => {
       const ship1 = new Ship(ShipType.Interceptor, { hull: 2, shields: 1 });
       const ship2 = new Ship(ShipType.Cruiser, { hull: 2, shields: 2 });

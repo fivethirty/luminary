@@ -616,7 +616,7 @@ describe('App', () => {
     ]);
   });
 
-  test('keeps optimal mode when homogeneous targeting is reduced in the solver', () => {
+  test('keeps optimal mode for a single-type fleet facing a mixed fleet', () => {
     const singleTypeDefender = new Fleet(
       'Defender',
       [

@@ -253,8 +253,10 @@ dice-less state to that successor. Healing can increase HP, so the graph may con
 must not be treated as a DAG.
 
 Policy transitions call the real `BinnedDamageAssignmentHelper` on materialized ship clones using
-each fleet's selected NPC or DPS policy. They do not reimplement either targeting planner. Those
-results are memoized per `BattleModel` on exactly the inputs the planners read: the sorted shots,
+each fleet's selected NPC or DPS policy. They do not reimplement either targeting planner. The
+helper plans over the shots that can hit a living target only, so the dice the mutable loop
+forwards as misses never change a plan and both engines assign identical damage for identical
+hits. Those results are memoized per `BattleModel` on exactly the inputs the planners read: the sorted shots,
 the living targets' `(configKey, HP)` in roster order, the target role, the shooter fleet's
 minimum shield after rift self-damage, and the target's remaining missile-phase initiatives. A
 planner change that reads any other state must extend that key. Above that, `BattleModel`
@@ -270,9 +272,9 @@ transitions reuse
 assignments by the multiset of `(configKey, resulting HP)`, so the candidate set is complete and
 independent of roster order within a configuration group; the mutable optimal planner shares it,
 so both the exact solver and live optimal play depend on that invariant. NPC assignment remains
-deterministic. When all living targets have one combat configuration, concentrating damage is
-deterministic under DPS and is used as an exact reduction of that otherwise redundant minimax
-decision node.
+deterministic. Minimax decisions are enumerated against every target fleet, including one whose
+living ships share a single configuration: identical targets are interchangeable, but how damage
+is split among them is still a choice with a value.
 
 `dice-distribution.ts` groups ordinary die rolls by the set of living shield values they hit.
 Identical dice are exchangeable, so it enumerates multinomial multisets rather than roll
