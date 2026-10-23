@@ -127,7 +127,7 @@ const scenarios: Scenario[] = [
     true
   ),
   mirrorScenario(
-    '3 interceptors + 1 cruiser state-local shortcut control',
+    '3 interceptors + 1 cruiser exact-optimal mirror',
     [
       {
         type: ShipType.Interceptor,

@@ -281,7 +281,7 @@ describe('BattleModel', () => {
       expect(damagedHp(DamageType.DPS)).toEqual([4, 3]);
     });
 
-    test('optimal mode uses deterministic DPS concentration against one living configuration', () => {
+    test('optimal mode enumerates assignments against one living configuration', () => {
       const target = () =>
         new Ship(ShipType.Interceptor, {
           initiative: 2,
@@ -307,8 +307,45 @@ describe('BattleModel', () => {
 
       expect(exp.kind).toBe('move');
       if (exp.kind !== 'move') return;
-      expect(exp.decisionRole).toBeNull();
+      // Identical targets are interchangeable, but two ion hits can still be
+      // concentrated (0/2) or spread (1/1): a real choice the defender owns.
+      expect(exp.decisionRole).toBe('D');
+      const twoHits = exp.edges.find((edge) => edge.options.length > 1);
+      expect(twoHits).toBeDefined();
+      const hpVectors = twoHits!.options
+        .map((option) => ('state' in option ? option.state.hpA.join('/') : ''))
+        .sort();
+      expect(hpVectors).toEqual(['0/2', '1/1']);
+    });
+
+    test('optimal mode collapses a lethal volley against identical targets', () => {
+      // Two one-HP interceptors; every ion hit destroys one. Assignments differ
+      // only in wasted overkill, so the slot has one successor per outcome
+      // with as many kills as there were hits.
+      const target = () =>
+        new Ship(ShipType.Interceptor, { initiative: 2, cannons: { ion: 1 } });
+      const model = new BattleModel(
+        [target(), target()],
+        [new Ship(ShipType.Cruiser, { initiative: 3, cannons: { ion: 2 } })],
+        false,
+        false
+      );
+      const exp = model.expand(model.initialState(), {
+        decisionRoles: ['D'],
+        maxOutcomes: 100_000,
+      });
+      expect(exp.kind).toBe('move');
+      if (exp.kind !== 'move') return;
+      expect(exp.decisionRole).toBe('D');
       expect(exp.edges.every((edge) => edge.options.length === 1)).toBe(true);
+      const survivors = exp.edges.map((edge) => {
+        const option = edge.options[0];
+        return 'state' in option
+          ? option.state.hpA.filter((hp) => hp > 0).length
+          : 0;
+      });
+      // Zero, one and two hits leave two, one and zero interceptors.
+      expect([...new Set(survivors)].sort()).toEqual([0, 1, 2]);
     });
 
     test('minimax mode keeps NPC assignments deterministic', () => {

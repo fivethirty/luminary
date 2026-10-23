@@ -303,7 +303,15 @@ export class BinnedDamageAssignmentHelper {
       upcomingPhases,
       targetShield
     );
-    const sortedShots = damagePlanner.optimallySortShots(shots);
+    // The plan is a function of the shots that can land on some target. Dice
+    // that missed every ship (the battle loop forwards them when the shooter's
+    // computers beat the target fleet's lowest shield) must not influence the
+    // result, so the exact model, which passes hits only, and the mutable loop
+    // assign identical damage for identical hits.
+    const sortedShots = damagePlanner
+      .optimallySortShots(shots)
+      .filter((shot) => sortedShips.some((ship) => ship.shotHits(shot)));
+    if (sortedShots.length === 0) return;
 
     // Precompute: can this shot hit that ship?
     const canDamage: number[][] = sortedShots.map((shot) =>

@@ -74,9 +74,18 @@ a time prediction as described above; direct `computeExactCombat` callers, which
 still apply a static 200,000-option cutoff. Keep both thresholds with the exact preflight, cover
 them with focused tests, and measure whether they still avoid wasted work as the solver changes.
 
-Homogeneous targeting is reduced inside the exact state model rather than by the preflight. When
-all living targets share one combat configuration, the slot uses deterministic DPS concentration
-without discarding optimal decisions against heterogeneous targets elsewhere in the same battle.
+Minimax slots enumerate assignments even when every living target shares one combat
+configuration. An earlier reduction substituted DPS concentration there on the assumption that
+identical targets leave no choice. That is false: splitting damage among identical ships
+(concentrating, or spreading to bring each to a kill threshold) is a real decision, the
+substitution made optimal values against uniform fleets wrong, and it made them non-monotonic in
+fleet size, since adding a second ship type switched the real decision on. Uniform fleets
+therefore carry more decision states than before (the 4-cruiser counterexample in the optimal
+solver tests grows from 125 to 700 states); the preflight estimate already counts them. The one
+reduction kept is sound: a volley in which every landing shot destroys any living target, all of
+one configuration, has a single successor worth considering (maximal kills, since assignments
+differ only in wasted overkill), so `BattleModel` applies it without candidate enumeration. The
+10-interceptor benchmark mirror depends on it: about 6 ms with the reduction, 68 ms without.
 
 Exact multi-fleet combat memoizes successful engagements for one request. Fleet identity and
 reputation payload do not enter the engagement key; attacker/defender role, planner policy,
