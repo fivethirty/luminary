@@ -9,6 +9,8 @@ import { ShipType } from './ship';
 export class MultiBattle {
   private fleets: Fleet[];
   private readonly destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
+  private readonly engagementsFought: Record<string, number> = {};
+  private readonly retreatedFromOnlyBattle: string[] = [];
 
   constructor(fleets: Fleet[]) {
     if (fleets.length < 2) {
@@ -33,6 +35,10 @@ export class MultiBattle {
       const battle = new Battle(attacker, defender);
       const result = battle.fight();
       results.push(result);
+      this.engagementsFought[attacker.name] =
+        (this.engagementsFought[attacker.name] ?? 0) + 1;
+      this.engagementsFought[defender.name] =
+        (this.engagementsFought[defender.name] ?? 0) + 1;
 
       addDestroyedShips(
         (this.destroyedShipsCreditedToFleet[attacker.name] ??= {}),
@@ -50,6 +56,14 @@ export class MultiBattle {
           this.fleets.splice(secondLastIndex, 1);
           break;
         case BattleOutcome.Defender:
+          // A stalemate or the round cap removes the attacker alive: the
+          // retreat the Stalemate rule requires.
+          if (
+            attacker.isAlive() &&
+            this.engagementsFought[attacker.name] === 1
+          ) {
+            this.retreatedFromOnlyBattle.push(attacker.name);
+          }
           this.fleets.splice(lastIndex, 1);
           break;
         case BattleOutcome.Draw:
@@ -63,6 +77,10 @@ export class MultiBattle {
 
   getRemainingFleets(): Fleet[] {
     return [...this.fleets];
+  }
+
+  getRetreatedFromOnlyBattle(): string[] {
+    return [...this.retreatedFromOnlyBattle];
   }
 
   getDestroyedShipsCreditedToFleet(): DestroyedShipsCreditedToFleet {

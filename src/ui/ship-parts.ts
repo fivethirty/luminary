@@ -547,6 +547,9 @@ function chassisStats(
     stats.computers = 1;
   } else if (factionId === 'rho-indi') {
     stats.shields = 1;
+    if (type === ShipType.Interceptor || type === ShipType.Cruiser) {
+      stats.initiative += 1;
+    }
   }
 
   if (type === ShipType.Orbital) {

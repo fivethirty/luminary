@@ -7,10 +7,14 @@ import { Ship, ShipType, WeaponType } from './ship';
 export const MAX_POPULATION_DAMAGE_BUCKET = 7;
 
 export type PopulationDamageBucket = {
-  /** Exact damage for 0..6; seven or more damage for the final bucket. */
+  /**
+   * Population Cubes removed, 0..6 exactly and seven or more in the final
+   * bucket: cubes the attack destroys plus cubes lost with defender ships
+   * destroyed in battle.
+   */
   damage: number;
   exactProbability: number;
-  /** Probability of inflicting at least `damage`. */
+  /** Probability of removing at least `damage` cubes. */
   atLeastProbability: number;
 };
 
@@ -31,6 +35,13 @@ type PopulationBombardmentOptions = {
    * about factions or technologies.
    */
   automaticWipe?: boolean | ((winningFleetName: string) => boolean);
+  /**
+   * Population Cubes carried by each defender ship of a type. A carried cube
+   * leaves with its ship when the ship is destroyed in battle (an Exiles
+   * Orbital returns its cube to the graveyard), so the attack only needs to
+   * destroy the cubes that remain. Sector population counts carried cubes.
+   */
+  populationOnDefenderShips?: Partial<Record<ShipType, number>>;
 };
 
 type SurvivorComposition = CombatOutcomeSummary['survivorDistribution'][number];
@@ -58,6 +69,7 @@ export function calculatePopulationBombardment(
 ): PopulationBombardmentResult {
   const volleyCache = new Map<Fleet, Map<string, DamageDistribution>>();
   const defenderFleetName = options.defenderFleetName ?? fleets[0]?.name;
+  const defender = fleets.find((fleet) => fleet.name === defenderFleetName);
   const attackers = fleets.filter((fleet) => fleet.name !== defenderFleetName);
   const damageByAttacker = new Map(
     attackers.map((fleet) => [fleet.name, emptyDamageDistribution()])
@@ -91,9 +103,18 @@ export function calculatePopulationBombardment(
       survivorCounts,
       volleyCache
     );
+    const removedInBattle = populationLostWithDefenderShips(
+      defender,
+      terminalOutcome,
+      options.populationOnDefenderShips
+    );
     for (let damage = 0; damage <= MAX_POPULATION_DAMAGE_BUCKET; damage++) {
       const weightedProbability = terminalOutcome.probability * volley[damage];
-      damageByAttacker.get(winner.name)![damage] += weightedProbability;
+      const removed = Math.min(
+        MAX_POPULATION_DAMAGE_BUCKET,
+        damage + removedInBattle
+      );
+      damageByAttacker.get(winner.name)![removed] += weightedProbability;
     }
     addZeroDamageForOtherAttackers(
       damageByAttacker,
@@ -110,6 +131,26 @@ export function calculatePopulationBombardment(
       ])
     ),
   };
+}
+
+// Cubes carried by defender ships that this outcome destroyed.
+function populationLostWithDefenderShips(
+  defender: Fleet | undefined,
+  outcome: SurvivorComposition,
+  populationOnShips: Partial<Record<ShipType, number>> | undefined
+): number {
+  if (!defender || !populationOnShips) return 0;
+  const survivors = outcome.survivors[defender.name] ?? {};
+  let lost = 0;
+  for (const [rawType, cubes] of Object.entries(populationOnShips)) {
+    if (!cubes) continue;
+    const type = rawType as ShipType;
+    const fielded = defender
+      .getRoster()
+      .filter((ship) => ship.type === type).length;
+    lost += cubes * Math.max(0, fielded - (survivors[type] ?? 0));
+  }
+  return lost;
 }
 
 function damageBuckets(

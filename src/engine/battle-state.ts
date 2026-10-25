@@ -3,7 +3,7 @@
  * successor construction; WinProbabilitySolver owns graph values and policy.
  */
 import { DamageType } from 'src/constants';
-import { Ship, Shot, WeaponDamage } from './ship';
+import { Ship, shipActivations, ShipType, Shot, WeaponDamage } from './ship';
 import { Fleet } from './fleet';
 import { Phase } from './battle';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
@@ -17,10 +17,22 @@ import { Terminal, terminalFromSurvival } from './battle-rules';
 export type Role = 'A' | 'D';
 export type { Terminal } from './battle-rules';
 
-// A slot in the fixed battle schedule (fact 1): missile slots first (initiative
-// descending, defender before attacker on ties), then cannon slots in the same
-// order. Missile slots are consumed once; cannon slots repeat cyclically.
-type Slot = { role: Role; initiative: number; missile: boolean };
+// A slot in the fixed battle schedule (fact 1): one activation of one ship
+// type at one initiative. Missile slots come first (initiative descending,
+// defender before attacker on ties, a fleet's tied types in activation order),
+// then cannon slots in the same order. Missile slots are consumed once; cannon
+// slots repeat cyclically.
+type Slot = {
+  role: Role;
+  initiative: number;
+  shipType: ShipType;
+  missile: boolean;
+};
+
+// Identifies one activation of a fleet's roster, as a phase-tail entry.
+function activationKey(initiative: number, shipType: ShipType): string {
+  return `${initiative}:${shipType}`;
+}
 
 // HP aligned to each fleet's original roster order (0 = dead) plus the schedule
 // position. Roster order is preserved so heuristic materialization matches the
@@ -199,7 +211,7 @@ export class BattleModel {
   private readonly heuristicContexts = new Map<string, HeuristicMemoContext>();
   private readonly shotSignatures = new WeakMap<Shot[], string>();
   private readonly slotTailSignatures: string[];
-  private readonly slotTailInitiatives: number[][];
+  private readonly slotTailActivations: string[][];
   // One helper for the whole solve: its planners only cache pure per-config
   // priorities, and the mutable engine also keeps one helper per fleet.
   private readonly assignmentHelper = new BinnedDamageAssignmentHelper();
@@ -228,12 +240,12 @@ export class BattleModel {
     this.defender.opponent = this.attacker;
     this.schedule = this.buildSchedule();
     this.numMissileSlots = this.schedule.filter((s) => s.missile).length;
-    this.slotTailInitiatives = this.schedule.map((_, index) =>
-      this.targetMissileTailInitiatives(index)
+    this.slotTailActivations = this.schedule.map((_, index) =>
+      this.targetMissileTailActivations(index)
     );
-    this.slotTailSignatures = this.slotTailInitiatives.map(
-      (initiatives, index) =>
-        this.schedule[index].missile ? `m${initiatives.join(',')}` : 'c'
+    this.slotTailSignatures = this.slotTailActivations.map(
+      (activations, index) =>
+        this.schedule[index].missile ? `m${activations.join(',')}` : 'c'
     );
     this.canonicalCodeFits =
       Math.max(1, this.schedule.length) *
@@ -251,6 +263,7 @@ export class BattleModel {
       for (let i = 0; i < templates.length; i++) {
         const ship = templates[i];
         if (ship.initiative !== slot.initiative) continue;
+        if (ship.type !== slot.shipType) continue;
         if (slot.missile ? ship.hasMissiles() : ship.hasCannons()) {
           indices.push(i);
         }
@@ -297,11 +310,15 @@ export class BattleModel {
     });
     const canonicalGroups = this.buildCanonicalGroups(templates);
     const rawWeights = BattleModel.rawWeights(templates);
+    // NPC rosters never hold the Antimatter Splitter (Fleet applies the same
+    // rule), so a flag passed for one is ignored.
+    const playerSplitter =
+      splitter && templates.some((ship) => ship.isPlayerShip());
     return new SideModel(
       role,
       templates,
       initialHp,
-      splitter,
+      playerSplitter,
       // Inherent NPC rosters always use NPC targeting, whatever a caller
       // passes: player fleets may select NPC, DPS, or optimal, NPC fleets
       // cannot select anything else (Fleet.getDamageType applies the same
@@ -312,7 +329,7 @@ export class BattleModel {
       rawWeights,
       BattleModel.rawRadix(templates, rawWeights),
       new Set(templates.map((ship) => ship.shields)).size > 1,
-      this.materializeFleet(templates, initialHp, splitter)
+      this.materializeFleet(templates, initialHp, playerSplitter)
     );
   }
 
@@ -329,25 +346,35 @@ export class BattleModel {
   }
 
   // Mirrors getAllPhases(): each fleet contributes a cannon slot for every
-  // distinct initiative and a missile slot for every initiative holding a
-  // missile ship; then missiles-first, initiative-descending, defender-first.
+  // (initiative, ship type) activation and a missile slot for every activation
+  // holding a missile ship; then missiles-first, initiative-descending,
+  // defender-first, a fleet's tied types in activation order.
   private buildSchedule(): Slot[] {
     const forFleet = (templates: Ship[], role: Role): Slot[] => {
-      const initiatives = Array.from(
-        new Set(templates.map((s) => s.initiative))
-      );
-      const cannon: Slot[] = initiatives.map((initiative) => ({
+      const activations = shipActivations(templates);
+      const cannon: Slot[] = activations.map(({ initiative, shipType }) => ({
         role,
         initiative,
+        shipType,
         missile: false,
       }));
       const hasMissiles = templates.some((s) => s.hasMissiles());
       if (!hasMissiles) return cannon;
-      const missile: Slot[] = initiatives
-        .filter((initiative) =>
-          templates.some((s) => s.initiative === initiative && s.hasMissiles())
+      const missile: Slot[] = activations
+        .filter(({ initiative, shipType }) =>
+          templates.some(
+            (s) =>
+              s.initiative === initiative &&
+              s.type === shipType &&
+              s.hasMissiles()
+          )
         )
-        .map((initiative) => ({ role, initiative, missile: true }));
+        .map(({ initiative, shipType }) => ({
+          role,
+          initiative,
+          shipType,
+          missile: true,
+        }));
       return [...missile, ...cannon];
     };
 
@@ -366,7 +393,8 @@ export class BattleModel {
         if (a.slot.initiative !== b.slot.initiative) {
           return b.slot.initiative - a.slot.initiative;
         }
-        return a.index - b.index; // stable: defender before attacker
+        // Stable: defender before attacker, then each fleet's activation order.
+        return a.index - b.index;
       })
       .map((entry) => entry.slot);
   }
@@ -384,11 +412,20 @@ export class BattleModel {
     return this.numMissileSlots;
   }
 
-  // Schedule index of a slot by descriptor, or -1 if none matches.
-  findSlot(role: Role, initiative: number, missile: boolean): number {
+  // Schedule index of a slot by descriptor, or -1 if none matches. Without a
+  // ship type, the first activation at that initiative matches.
+  findSlot(
+    role: Role,
+    initiative: number,
+    missile: boolean,
+    shipType?: ShipType
+  ): number {
     return this.schedule.findIndex(
       (s) =>
-        s.role === role && s.initiative === initiative && s.missile === missile
+        s.role === role &&
+        s.initiative === initiative &&
+        s.missile === missile &&
+        (shipType === undefined || s.shipType === shipType)
     );
   }
 
@@ -658,21 +695,24 @@ export class BattleModel {
     return ships.map((s) => s.remainingHP());
   }
 
-  // Initiatives of the target fleet's own missile phases that follow `fromSlot`
-  // before the next cannon phase. DpsRemovalDamagePlanner.getShipPriority reads
-  // the phase tail only to ask whether a target ship still has missiles to
-  // fire (`phase.ships.includes(ship)`), and a living ship is in such a phase
-  // exactly when its initiative matches one of these. Cannon slots have no tail.
-  private targetMissileTailInitiatives(fromSlot: number): number[] {
+  // Activations of the target fleet's own missile phases that follow
+  // `fromSlot` before the next cannon phase. DpsRemovalDamagePlanner reads the
+  // phase tail only to ask whether a target ship still has missiles to fire
+  // (`phase.ships.includes(ship)`), and a living ship is in such a phase
+  // exactly when its (initiative, ship type) matches one of these. Cannon
+  // slots have no tail.
+  private targetMissileTailActivations(fromSlot: number): string[] {
     const slot = this.schedule[fromSlot];
     if (!slot.missile) return [];
-    const initiatives = new Set<number>();
+    const activations = new Set<string>();
     for (let i = fromSlot + 1; i < this.schedule.length; i++) {
       const next = this.schedule[i];
       if (!next.missile) break;
-      if (next.role !== slot.role) initiatives.add(next.initiative);
+      if (next.role !== slot.role) {
+        activations.add(activationKey(next.initiative, next.shipType));
+      }
     }
-    return Array.from(initiatives).sort((a, b) => a - b);
+    return Array.from(activations).sort();
   }
 
   // Mixed-radix HP histogram per canonical group; equal codes mean equal
@@ -722,7 +762,7 @@ export class BattleModel {
           target.canonicalGroups,
           damageType,
           shooterShield,
-          this.slotTailInitiatives[fromSlot]
+          this.slotTailActivations[fromSlot]
         ),
       };
       this.heuristicContexts.set(contextKey, context);
@@ -741,7 +781,7 @@ export class BattleModel {
     groups: CanonicalGroup[],
     damageType: DamageType.NPC | DamageType.DPS,
     targetShield: number,
-    tailInitiatives: number[]
+    tailActivations: string[]
   ): boolean {
     if (groups.length < 2) return true;
     const planner =
@@ -760,12 +800,14 @@ export class BattleModel {
       return ships;
     });
     const phases: Phase[] = [];
-    if (tailInitiatives.length > 0) {
+    if (tailActivations.length > 0) {
       const probeFleet = new Fleet('memo-probe', [], false, DamageType.DPS);
       phases.push({
         ships: representatives
           .flat()
-          .filter((ship) => tailInitiatives.includes(ship.initiative)),
+          .filter((ship) =>
+            tailActivations.includes(activationKey(ship.initiative, ship.type))
+          ),
         initiative: 0,
         shootingFleet: probeFleet,
         targetFleet: probeFleet,
@@ -848,8 +890,12 @@ export class BattleModel {
       const shootingFleet = shooter.scratch.fleet;
       const targetFleet = shooter.opponent.scratch.fleet;
       tail.push({
-        ships: shootingFleet.getLivingShipsAtInitiative(slot.initiative),
+        ships: shootingFleet.getLivingShipsAtInitiative(
+          slot.initiative,
+          slot.shipType
+        ),
         initiative: slot.initiative,
+        shipType: slot.shipType,
         shootingFleet,
         targetFleet,
         missilePhase: true,
@@ -1000,12 +1046,8 @@ export class BattleModel {
     const shooterHp = shooter.hp(state);
     const targetHp = target.hp(state);
 
-    const livingShooterIdx = this.livingShipsAtInitiative(
-      shooter,
-      shooterHp,
-      slot.initiative
-    );
-    // No shooters at this initiative: one deterministic outcome.
+    const livingShooterIdx = this.livingShipsInSlot(shooter, shooterHp, slot);
+    // No living shooters in this activation: one deterministic outcome.
     if (livingShooterIdx.length === 0) {
       return {
         kind: 'move',
@@ -1076,15 +1118,20 @@ export class BattleModel {
     };
   }
 
-  // Roster indices of a side's living ships at one initiative.
-  private livingShipsAtInitiative(
+  // Roster indices of a side's living ships in one activation.
+  private livingShipsInSlot(
     side: SideModel,
     hp: number[],
-    initiative: number
+    slot: Slot
   ): number[] {
     const indices: number[] = [];
     for (let i = 0; i < side.templates.length; i++) {
-      if (hp[i] > 0 && side.templates[i].initiative === initiative) {
+      const ship = side.templates[i];
+      if (
+        hp[i] > 0 &&
+        ship.initiative === slot.initiative &&
+        ship.type === slot.shipType
+      ) {
         indices.push(i);
       }
     }
@@ -1324,14 +1371,6 @@ export class BattleModel {
     const targetMat = scratch.target;
     this.resetMaterializedFleet(targetMat, target.templates, targetHp);
     const targetLiving = targetMat.ships.filter((s) => s.isAlive());
-    const lethalVolley = this.lethalUniformVolley(shots, targetLiving);
-    if (lethalVolley !== null) {
-      const newTargetHp = targetMat.ships.map((s) => s.remainingHP());
-      for (let i = 0; i < lethalVolley; i++) {
-        newTargetHp[targetMat.ships.indexOf(targetLiving[i])] = 0;
-      }
-      return { kind: 'targets', targets: [newTargetHp] };
-    }
     let candidateDeadlineExceeded = false;
     const candidates = enumerateCandidates(shots, targetLiving, {
       shouldAbort: ctx.deadlineExceeded
@@ -1366,36 +1405,6 @@ export class BattleModel {
       targets.push(newTargetHp);
     }
     return { kind: 'targets', targets };
-  }
-
-  // Kills to apply when every living target shares one configuration and
-  // every landing shot destroys any of them outright, or null otherwise. Such
-  // a volley has one successor worth considering: the assignments differ only
-  // in how many lethal shots are wasted on already-destroyed ships, and
-  // destroying more enemy ships is weakly dominant for the shooter (enemy
-  // ships deal damage or, for the mutual-no-cannons rule, hold the field;
-  // they never absorb the shooter's own damage). The candidate enumerator
-  // would reach the same distinct states, but exploring a lethal volley
-  // against a swarm costs shots × ships nodes per dice outcome for nothing.
-  private lethalUniformVolley(
-    shots: Shot[],
-    targetLiving: Ship[]
-  ): number | null {
-    if (targetLiving.length === 0) return null;
-    const first = targetLiving[0];
-    const configKey = first.configKey();
-    let maxHp = 0;
-    for (const ship of targetLiving) {
-      if (ship.configKey() !== configKey) return null;
-      if (ship.remainingHP() > maxHp) maxHp = ship.remainingHP();
-    }
-    let hits = 0;
-    for (const shot of shots) {
-      if (!first.shotHits(shot)) continue;
-      if (shot.damage < maxHp) return null;
-      hits++;
-    }
-    return Math.min(hits, targetLiving.length);
   }
 
   // Heuristic assignment follows the fleet's selected deterministic policy.

@@ -187,6 +187,31 @@ describe('DpsRemovalDamagePlanner', () => {
 
       expect(sortedShips[0]).toBe(starbase);
     });
+    test('weights a rift cannon by its expected damage', () => {
+      // Two antimatter cannons at +1 computer against shield 0 deal 2.67
+      // expected damage per round; one rift die deals 1 on average, whatever
+      // the shields.
+      const riftCruiser = new Ship(ShipType.Cruiser, { hull: 1, rift: 1 });
+      const dread = new Ship(ShipType.Dreadnought, {
+        hull: 3,
+        computers: 1,
+        cannons: { antimatter: 2 },
+      });
+      const planner = new DpsRemovalDamagePlanner();
+
+      expect(planner.optimallySortShips([riftCruiser, dread], [], 0)[0]).toBe(
+        dread
+      );
+      // Without a target shield cannons count at nominal damage: two ion
+      // cannons (2) still outrank one rift die (1), where the old weight of 6
+      // would not.
+      const ionInterceptor = new Ship(ShipType.Interceptor, {
+        cannons: { ion: 2 },
+      });
+      expect(
+        planner.optimallySortShips([riftCruiser, ionInterceptor], [])[0]
+      ).toBe(ionInterceptor);
+    });
     test('handles no ships', () => {
       const sortedShips = new DpsRemovalDamagePlanner().optimallySortShips(
         [],

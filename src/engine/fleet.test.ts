@@ -4,6 +4,32 @@ import { Fleet } from './fleet';
 import { DICE_VALUES, GUARANTEED_HIT, RIFT_MISS } from 'src/constants';
 
 describe('Fleet', () => {
+  test('ignores the Antimatter Splitter for NPC fleets', () => {
+    const guardian = new Ship(
+      ShipType.Guardian,
+      { cannons: { antimatter: 1 } },
+      GUARANTEED_HIT
+    );
+    const cruiser = new Ship(
+      ShipType.Cruiser,
+      { cannons: { antimatter: 1 } },
+      GUARANTEED_HIT
+    );
+    const npc = new Fleet('NPC', [guardian], true);
+    const player = new Fleet('Player', [cruiser], true);
+
+    expect(npc.antimatterSplitter).toBe(false);
+    expect(player.antimatterSplitter).toBe(true);
+    expect(
+      npc.shootCannonsForInitiative(guardian.initiative, 0).map((s) => s.damage)
+    ).toEqual([4]);
+    expect(
+      player
+        .shootCannonsForInitiative(cruiser.initiative, 0)
+        .map((s) => s.damage)
+    ).toEqual([1, 1, 1, 1]);
+  });
+
   describe('getInitiatives', () => {
     test.each([
       {

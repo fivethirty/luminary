@@ -37,6 +37,7 @@ export class CombatSimulator {
         lastFleetStanding: string | null;
         survivors: Record<string, Partial<Record<ShipType, number>>>;
         destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
+        retreatedFromOnlyBattle: string[];
       }
     >();
     let draws = 0;
@@ -64,6 +65,9 @@ export class CombatSimulator {
       const standingFleetName = remaining[0]?.name ?? null;
       const destroyedShipsCreditedToFleet =
         multiBattle.getDestroyedShipsCreditedToFleet();
+      const retreatedFromOnlyBattle = multiBattle
+        .getRetreatedFromOnlyBattle()
+        .sort();
 
       if (remaining.length === 0) {
         draws++;
@@ -82,7 +86,8 @@ export class CombatSimulator {
         fleets,
         finalSurvivors,
         destroyedShipsCreditedToFleet,
-        standingFleetName
+        standingFleetName,
+        retreatedFromOnlyBattle
       );
       const existing = compositionCounts.get(key);
       if (existing) {
@@ -93,6 +98,7 @@ export class CombatSimulator {
           lastFleetStanding: standingFleetName,
           survivors: finalSurvivors,
           destroyedShipsCreditedToFleet,
+          retreatedFromOnlyBattle,
         });
       }
       completedIterations++;
@@ -114,6 +120,7 @@ export class CombatSimulator {
           lastFleetStanding: entry.lastFleetStanding,
           survivors: entry.survivors,
           destroyedShipsCreditedToFleet: entry.destroyedShipsCreditedToFleet,
+          retreatedFromOnlyBattle: entry.retreatedFromOnlyBattle,
         }))
         .sort((a, b) => b.probability - a.probability),
       timeTaken: endTime - startTime,
@@ -153,7 +160,8 @@ export class CombatSimulator {
     fleets: Fleet[],
     survivors: Record<string, Partial<Record<ShipType, number>>>,
     destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet,
-    lastFleetStanding: string | null
+    lastFleetStanding: string | null,
+    retreatedFromOnlyBattle: readonly string[]
   ): string {
     const survivorKey = fleets
       .map((fleet) => {
@@ -175,6 +183,6 @@ export class CombatSimulator {
         return `${fleet.name}=${shipCounts}`;
       })
       .join('|');
-    return `${survivorKey}||standing:${lastFleetStanding ?? 'draw'}||credits:${creditKey}`;
+    return `${survivorKey}||standing:${lastFleetStanding ?? 'draw'}||credits:${creditKey}||retreated-first:${retreatedFromOnlyBattle.join(',')}`;
   }
 }

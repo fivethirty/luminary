@@ -184,14 +184,25 @@ describe('ship parts', () => {
   });
 
   test('derives Rho Indi starting blueprints using faction defaults', () => {
-    const cruiser = calculateBlueprint(
-      ShipType.Cruiser,
-      createStartingBlueprint(ShipType.Cruiser, 'rho-indi'),
-      'rho-indi'
-    );
-
-    expect(cruiser.config).toEqual(
-      getStartingShipConfig('cruiser', 'rho-indi').config
+    for (const [type, preset] of [
+      [ShipType.Interceptor, 'interceptor'],
+      [ShipType.Cruiser, 'cruiser'],
+      [ShipType.Starbase, 'starbase'],
+    ] as const) {
+      const blueprint = calculateBlueprint(
+        type,
+        createStartingBlueprint(type, 'rho-indi'),
+        'rho-indi'
+      );
+      expect(blueprint.config).toEqual(
+        getStartingShipConfig(preset, 'rho-indi').config
+      );
+    }
+    expect(
+      getStartingShipConfig('interceptor', 'rho-indi').config.initiative
+    ).toBe(4);
+    expect(getStartingShipConfig('cruiser', 'rho-indi').config.initiative).toBe(
+      3
     );
   });
 

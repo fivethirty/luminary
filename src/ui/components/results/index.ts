@@ -6,7 +6,12 @@ import {
   state,
   type SimulationResults,
 } from '@ui/state';
-import { battleUrl, copyToClipboard, formatChatReport } from '@ui/share';
+import {
+  battleUrl,
+  copyToClipboard,
+  formatChatReport,
+  methodSummary,
+} from '@ui/share';
 import { deriveShortFleetNames, fleetColor } from '@ui/fleet-metadata';
 import { formatCompactFleetComposition } from '@ui/fleet-composition';
 import { resultClassesForFleet } from '@ui/result-presentation';
@@ -112,10 +117,7 @@ export class ResultsElement extends HTMLElement {
 
   private renderWinPercentages(results: SimulationResults) {
     const resultsTime = this.querySelector('.results-time')!;
-    resultsTime.textContent =
-      results.method === 'exact'
-        ? `${results.methodLabel} · deterministic · ${results.timeTaken} ms`
-        : `${results.methodLabel} · ${results.iterations.toLocaleString()} iterations · ${results.timeTaken} ms`;
+    resultsTime.textContent = `${methodSummary(results)} · ${results.timeTaken} ms`;
     const oddsStrip = this.querySelector('#odds-strip')!;
     const resultsBars = this.querySelector('#results-bars')!;
     oddsStrip.innerHTML = '';

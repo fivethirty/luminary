@@ -1,6 +1,6 @@
 import { DICE_VALUES } from 'src/constants';
 import { Fleet } from './fleet';
-import { RiftShot, Ship, Shot } from './ship';
+import { RiftShot, Ship, ShipType, Shot } from './ship';
 import { terminalFromSurvival } from './battle-rules';
 
 const MAX_ROUNDS: number = 100;
@@ -13,6 +13,9 @@ export const BattleOutcome = {
 export type Phase = {
   ships: Ship[];
   initiative: number;
+  // The ship type activating in this phase. Battles build one phase per
+  // (initiative, ship type); undefined (planner probes) means every type.
+  shipType?: ShipType;
   shootingFleet: Fleet;
   targetFleet: Fleet;
   missilePhase?: boolean;
@@ -57,7 +60,12 @@ export class Battle {
     while (rounds < MAX_ROUNDS) {
       rounds++;
 
-      for (let i = 0; i < phases.length; i++) {
+      // An Engagement Round activates every queued phase once before the
+      // end-of-round heal and stalemate check, so iterate over the queue
+      // length at the start of the round: a phase dropped mid-round (its ship
+      // type destroyed) must not push the last phases into the next round.
+      const phaseCount = phases.length;
+      for (let i = 0; i < phaseCount; i++) {
         const phase = phases.shift()!;
         if (phase.ships.filter((ship) => ship.isAlive()).length > 0) {
           phases.push(phase);
@@ -83,6 +91,9 @@ export class Battle {
     };
   }
 
+  // One phase per (initiative, ship type), so tied ship types of one fleet
+  // roll and assign their dice on separate activations (see shipActivations
+  // for the order of tied types).
   private getPhasesForFleet({
     shootingFleet,
     targetFleet,
@@ -90,35 +101,36 @@ export class Battle {
     shootingFleet: Fleet;
     targetFleet: Fleet;
   }): Phase[] {
-    const initiatives = [...shootingFleet.getInitiatives()];
-    const cannonInitiatives = initiatives.map((initiative) => {
-      return {
-        ships: shootingFleet.getLivingShipsAtInitiative(initiative),
+    const activations = shootingFleet.getActivations();
+    const cannonPhases: Phase[] = activations.map(
+      ({ initiative, shipType }) => ({
+        ships: shootingFleet.getLivingShipsAtInitiative(initiative, shipType),
         initiative,
+        shipType,
         shootingFleet,
         targetFleet,
         missilePhase: false,
-      };
-    });
-    if (!shootingFleet.hasMissiles()) {
-      return cannonInitiatives;
-    }
-    const missileInitiatives = initiatives
-      .map((initiative) => {
-        const missileShips = shootingFleet
-          .getLivingShipsAtInitiative(initiative)
-          .filter((ship) => ship.hasMissiles());
-        if (missileShips.length === 0) return null;
-        return {
-          ships: missileShips,
-          initiative,
-          shootingFleet,
-          targetFleet,
-          missilePhase: true,
-        };
       })
-      .filter((phase) => phase !== null);
-    return [...missileInitiatives, ...cannonInitiatives];
+    );
+    if (!shootingFleet.hasMissiles()) {
+      return cannonPhases;
+    }
+    const missilePhases: Phase[] = [];
+    for (const { initiative, shipType } of activations) {
+      const missileShips = shootingFleet
+        .getLivingShipsAtInitiative(initiative, shipType)
+        .filter((ship) => ship.hasMissiles());
+      if (missileShips.length === 0) continue;
+      missilePhases.push({
+        ships: missileShips,
+        initiative,
+        shipType,
+        shootingFleet,
+        targetFleet,
+        missilePhase: true,
+      });
+    }
+    return [...missilePhases, ...cannonPhases];
   }
 
   private getAllPhases(): Phase[] {
@@ -130,7 +142,9 @@ export class Battle {
       shootingFleet: this.defender,
       targetFleet: this.attacker,
     });
-    // If attacker and defender have the same initiative, defender phases should come first
+    // If attacker and defender have the same initiative, defender phases should
+    // come first; the stable sort also keeps each fleet's tied types in
+    // activation order.
     return [...defenderPhases, ...attackerPhases].sort((a, b) => {
       if (a.missilePhase !== b.missilePhase) {
         return a.missilePhase ? -1 : 1; // Missile phase come first
@@ -140,12 +154,13 @@ export class Battle {
   }
 
   private resolveMissilePhase(
-    { shootingFleet, initiative, targetFleet }: Phase,
+    { shootingFleet, initiative, shipType, targetFleet }: Phase,
     upcomingPhases: Phase[]
   ): BattleResult | null {
     const shooterMissiles = shootingFleet.shootMissilesForInitiative(
       initiative,
-      targetFleet.getMinShield()
+      targetFleet.getMinShield(),
+      shipType
     );
     shootingFleet.assignDamage(
       shooterMissiles,
@@ -166,13 +181,14 @@ export class Battle {
   }
 
   private resolveCannonPhase(
-    { shootingFleet, targetFleet, initiative }: Phase,
+    { shootingFleet, targetFleet, initiative, shipType }: Phase,
     upcomingPhases: Phase[]
   ): BattleResult | null {
     const battleResult = this.resolveFleetCannonFire(
       shootingFleet,
       targetFleet,
       initiative,
+      shipType,
       upcomingPhases
     );
     if (battleResult) return battleResult;
@@ -183,13 +199,18 @@ export class Battle {
     firingFleet: Fleet,
     targetFleet: Fleet,
     initiative: number,
+    shipType: ShipType | undefined,
     upcomingPhases: Phase[]
   ): BattleResult | null {
     const cannons = firingFleet.shootCannonsForInitiative(
       initiative,
-      targetFleet.getMinShield()
+      targetFleet.getMinShield(),
+      shipType
     );
-    const rifts = firingFleet.shootRiftCannonsForInitiative(initiative);
+    const rifts = firingFleet.shootRiftCannonsForInitiative(
+      initiative,
+      shipType
+    );
     const riftTargetShots = this.convertRiftShotsToShots(rifts, 'targetDamage');
     const riftSelfShots = this.convertRiftShotsToShots(rifts, 'selfDamage');
     // Assigning self damage to the firing fleet's rift ships in case it shifts the damage assignment logic

@@ -8,7 +8,7 @@ import {
   battleLabel,
   formatChatReport,
 } from './share';
-import { exactResults } from './test-helpers';
+import { exactResults, monteCarloResults } from './test-helpers';
 import { calculateBlueprint, createStartingBlueprint } from './ship-parts';
 import { getStartingShipConfig } from './ship-presets';
 
@@ -280,6 +280,16 @@ describe('encodeBattleQuery', () => {
 });
 
 describe('parseBattleQuery', () => {
+  test('drops the Antimatter Splitter from NPC fleets', () => {
+    const decoded = parseBattleQuery(
+      '?v=2&d.guardian-adv=1&d.ams=1&a.interceptor=3&a.ams=1'
+    )!;
+
+    expect(decoded[0].antimatterSplitter).toBe(false);
+    expect(decoded[1].antimatterSplitter).toBe(true);
+    expect(encodeBattleQuery(decoded)).not.toContain('d.ams');
+  });
+
   test('round-trips a battle', () => {
     const decoded = parseBattleQuery(`?${encodeBattleQuery(battle())}`)!;
 
@@ -591,7 +601,31 @@ describe('formatChatReport', () => {
     expect(report).toContain('Attacker   73.4%');
     expect(report).toContain('Draw        4.8%');
     expect(report).toContain('Avg survivors (wins): Attacker 1.4× Cruiser');
+    expect(report).toContain('Exact · optimal targeting · deterministic');
     expect(report.endsWith('https://example.com/?v=1')).toBe(true);
+  });
+
+  test('labels fallback and sampled results with their method', () => {
+    const fallback = formatChatReport(
+      battle(),
+      exactResults({ ...results, methodLabel: 'Exact · DPS targeting' })
+    );
+    expect(fallback).toContain('Exact · DPS targeting · deterministic');
+
+    const sampled = formatChatReport(
+      battle(),
+      monteCarloResults({
+        victoryProbability: results.victoryProbability,
+        drawProbability: results.drawProbability,
+        expectedSurvivors: results.expectedSurvivors,
+        iterations: 1063,
+      })
+    );
+    const lines = sampled.split('\n');
+    expect(lines[lines.length - 2]).toBe(
+      `Monte Carlo · DPS targeting · ${(1063).toLocaleString()} iterations`
+    );
+    expect(lines[lines.length - 1]).toBe('```');
   });
 
   test('wraps the odds table in a code fence for chat clients', () => {
@@ -621,5 +655,6 @@ describe('formatChatReport', () => {
     expect(report).not.toContain('Draw');
     expect(report).not.toContain('Avg survivors');
     expect(report).toContain('Attacker    0.0%');
+    expect(report).toContain('Exact · optimal targeting · deterministic');
   });
 });

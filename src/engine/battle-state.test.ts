@@ -39,8 +39,73 @@ describe('BattleModel', () => {
         false
       );
       expect(model.schedule).toEqual([
-        { role: 'D', initiative: 3, missile: false },
-        { role: 'A', initiative: 3, missile: false },
+        {
+          role: 'D',
+          initiative: 3,
+          shipType: ShipType.Interceptor,
+          missile: false,
+        },
+        {
+          role: 'A',
+          initiative: 3,
+          shipType: ShipType.Interceptor,
+          missile: false,
+        },
+      ]);
+    });
+
+    test('tied ship types of one fleet activate separately, smallest first', () => {
+      const model = new BattleModel(
+        [
+          new Ship(ShipType.Cruiser, {
+            initiative: 3,
+            missiles: { plasma: 1 },
+            cannons: { ion: 1 },
+          }),
+          new Ship(ShipType.Interceptor, {
+            initiative: 3,
+            cannons: { ion: 1 },
+          }),
+        ],
+        [
+          new Ship(ShipType.Dreadnought, {
+            initiative: 3,
+            cannons: { ion: 1 },
+          }),
+          new Ship(ShipType.Interceptor, {
+            initiative: 2,
+            cannons: { ion: 1 },
+          }),
+        ],
+        false,
+        false
+      );
+      expect(model.schedule).toEqual([
+        { role: 'A', initiative: 3, shipType: ShipType.Cruiser, missile: true },
+        {
+          role: 'D',
+          initiative: 3,
+          shipType: ShipType.Dreadnought,
+          missile: false,
+        },
+        {
+          role: 'A',
+          initiative: 3,
+          shipType: ShipType.Interceptor,
+          missile: false,
+        },
+        {
+          role: 'A',
+          initiative: 3,
+          shipType: ShipType.Cruiser,
+          missile: false,
+        },
+        {
+          role: 'D',
+          initiative: 2,
+          shipType: ShipType.Interceptor,
+          missile: false,
+        },
       ]);
     });
 
@@ -64,10 +129,25 @@ describe('BattleModel', () => {
         false
       );
       expect(model.schedule).toEqual([
-        { role: 'A', initiative: 3, missile: true },
-        { role: 'D', initiative: 2, missile: true },
-        { role: 'A', initiative: 3, missile: false },
-        { role: 'D', initiative: 2, missile: false },
+        {
+          role: 'A',
+          initiative: 3,
+          shipType: ShipType.Interceptor,
+          missile: true,
+        },
+        { role: 'D', initiative: 2, shipType: ShipType.Cruiser, missile: true },
+        {
+          role: 'A',
+          initiative: 3,
+          shipType: ShipType.Interceptor,
+          missile: false,
+        },
+        {
+          role: 'D',
+          initiative: 2,
+          shipType: ShipType.Cruiser,
+          missile: false,
+        },
       ]);
     });
 
@@ -90,9 +170,19 @@ describe('BattleModel', () => {
         false
       );
       expect(model.schedule).toEqual([
-        { role: 'D', initiative: 1, missile: true },
-        { role: 'A', initiative: 3, missile: false },
-        { role: 'D', initiative: 1, missile: false },
+        { role: 'D', initiative: 1, shipType: ShipType.Cruiser, missile: true },
+        {
+          role: 'A',
+          initiative: 3,
+          shipType: ShipType.Interceptor,
+          missile: false,
+        },
+        {
+          role: 'D',
+          initiative: 1,
+          shipType: ShipType.Cruiser,
+          missile: false,
+        },
       ]);
     });
   });
@@ -200,7 +290,7 @@ describe('BattleModel', () => {
       expect(defenderMove.decisionRole).toBe('D');
 
       const attackerMove = model.expand(
-        { hpA: [1, 2], hpB: [1, 2], slot: 1 },
+        { hpA: [1, 2], hpB: [1, 2], slot: model.findSlot('A', 3, false) },
         ctx
       );
       expect(attackerMove.kind).toBe('move');
@@ -232,7 +322,7 @@ describe('BattleModel', () => {
       expect(defenderMove.decisionRole).toBeNull();
 
       const attackerMove = model.expand(
-        { hpA: [1, 2], hpB: [1, 2], slot: 1 },
+        { hpA: [1, 2], hpB: [1, 2], slot: model.findSlot('A', 3, false) },
         ctx
       );
       expect(attackerMove.kind).toBe('move');
@@ -318,10 +408,9 @@ describe('BattleModel', () => {
       expect(hpVectors).toEqual(['0/2', '1/1']);
     });
 
-    test('optimal mode collapses a lethal volley against identical targets', () => {
-      // Two one-HP interceptors; every ion hit destroys one. Assignments differ
-      // only in wasted overkill, so the slot has one successor per outcome
-      // with as many kills as there were hits.
+    test('optimal mode offers every kill count for a lethal volley against identical targets', () => {
+      // Two one-HP interceptors; every ion hit destroys one. Two hits can kill
+      // one interceptor or both, and the defender chooses between them.
       const target = () =>
         new Ship(ShipType.Interceptor, { initiative: 2, cannons: { ion: 1 } });
       const model = new BattleModel(
@@ -337,15 +426,97 @@ describe('BattleModel', () => {
       expect(exp.kind).toBe('move');
       if (exp.kind !== 'move') return;
       expect(exp.decisionRole).toBe('D');
-      expect(exp.edges.every((edge) => edge.options.length === 1)).toBe(true);
-      const survivors = exp.edges.map((edge) => {
-        const option = edge.options[0];
-        return 'state' in option
-          ? option.state.hpA.filter((hp) => hp > 0).length
-          : 0;
-      });
-      // Zero, one and two hits leave two, one and zero interceptors.
-      expect([...new Set(survivors)].sort()).toEqual([0, 1, 2]);
+      const twoHits = exp.edges.find((edge) => edge.options.length > 1);
+      expect(twoHits).toBeDefined();
+      const survivors = twoHits!.options
+        .map((option) =>
+          'state' in option ? option.state.hpA.filter((hp) => hp > 0).length : 0
+        )
+        .sort();
+      expect(survivors).toEqual([0, 1]);
+    });
+
+    test('optimal mode keeps every kill choice when identical targets have unequal HP', () => {
+      // One soliton hit destroys either cruiser. Killing the damaged one leaves
+      // a full-HP survivor; killing the healthy one leaves a 1-HP survivor.
+      // Both successors must reach the decision node.
+      const cruiser = () =>
+        new Ship(ShipType.Cruiser, {
+          initiative: 2,
+          hull: 2,
+          cannons: { ion: 1 },
+        });
+      const model = new BattleModel(
+        [cruiser(), cruiser()],
+        [
+          new Ship(ShipType.Dreadnought, {
+            initiative: 3,
+            computers: 5,
+            cannons: { soliton: 1 },
+          }),
+        ],
+        false,
+        false
+      );
+      const exp = model.expand(
+        {
+          hpA: [1, 3],
+          hpB: model.initialState().hpB,
+          slot: model.findSlot('D', 3, false),
+        },
+        { decisionRoles: ['D'], maxOutcomes: 100_000 }
+      );
+      expect(exp.kind).toBe('move');
+      if (exp.kind !== 'move') return;
+      const hit = exp.edges.find((edge) => edge.options.length > 1);
+      expect(hit).toBeDefined();
+      const hpVectors = hit!.options
+        .map((option) =>
+          'state' in option ? option.state.hpA.join('/') : 'end'
+        )
+        .sort();
+      expect(hpVectors).toEqual(['0/3', '1/0']);
+    });
+
+    test('ignores the Antimatter Splitter for NPC rosters', () => {
+      // An advanced Guardian carries an antimatter cannon. Unsplit, its single
+      // die destroys at most one 1-HP interceptor per activation; split into
+      // four 1-damage shots it could destroy three. NPCs never own the tech.
+      const model = new BattleModel(
+        Array.from(
+          { length: 3 },
+          () =>
+            new Ship(ShipType.Interceptor, {
+              initiative: 3,
+              cannons: { ion: 1 },
+            })
+        ),
+        [
+          new Ship(ShipType.Guardian, {
+            initiative: 1,
+            hull: 3,
+            computers: 1,
+            cannons: { antimatter: 1 },
+          }),
+        ],
+        false,
+        true
+      );
+      const exp = model.expand(
+        { hpA: [1, 1, 1], hpB: [4], slot: model.findSlot('D', 1, false) },
+        CTX
+      );
+      expect(exp.kind).toBe('move');
+      if (exp.kind !== 'move') return;
+      for (const edge of exp.edges) {
+        for (const option of edge.options) {
+          const living =
+            'state' in option
+              ? option.state.hpA.filter((hp) => hp > 0).length
+              : option.hpA.filter((hp) => hp > 0).length;
+          expect(living).toBeGreaterThanOrEqual(2);
+        }
+      }
     });
 
     test('minimax mode keeps NPC assignments deterministic', () => {

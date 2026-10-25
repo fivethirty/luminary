@@ -9,7 +9,9 @@ export const DICE_VALUES = {
 
 export const HIT_AFTER_MODIFIERS = 6;
 
-export const TOTAL_RIFT_DIE_DAMAGE = 6;
+// Expected target damage of one rift die: its faces deal 1, 2 and 3 damage
+// and three faces deal none, whatever the computers and shields.
+export const EXPECTED_RIFT_DIE_DAMAGE = 1;
 
 export const GUARANTEED_HIT = () => DICE_VALUES.HIT;
 export const GUARANTEED_MISS = () => DICE_VALUES.MISS;

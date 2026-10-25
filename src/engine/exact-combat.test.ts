@@ -739,6 +739,9 @@ describe('computeExactCombat', () => {
           Middle: {},
           Top: {},
         },
+        // Bottom retreats from its only engagement; Middle held it before
+        // retreating from Top, so it keeps its participation draw.
+        retreatedFromOnlyBattle: ['Bottom'],
       },
     ]);
   });

@@ -88,6 +88,8 @@ export interface SurvivorDistributionEntry {
     string,
     Partial<Record<ShipType, number>>
   >;
+  /** Fleets removed alive by the only engagement they fought (see engine). */
+  retreatedFromOnlyBattle?: string[];
 }
 
 const DEFAULT_SECTOR_POPULATION = 2;
@@ -628,6 +630,11 @@ export function setDetailedOutcomesExpanded(expanded: boolean) {
 
 export function toggleAntimatterSplitter(fleetId: string) {
   const fleet = getFleetById(fleetId);
+  // NPC blueprints never research technologies, so the flag is not a setting
+  // of an NPC fleet: the card hides it, the URL codec drops it and the engine
+  // ignores it. State keeps the player's choice so it survives swapping the
+  // defender to an NPC layout and back.
+  if (isNpcFleet(fleet)) return;
   fleet.antimatterSplitter = !fleet.antimatterSplitter;
   notifyFleetsChanged();
 }

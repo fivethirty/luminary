@@ -247,6 +247,137 @@ describe('reputation tile draws', () => {
     expect(result.byFleet.attacker.probabilityByDrawCount[1]).toBe(1);
   });
 
+  test('applies the retreat penalty to an attacker removed by stalemate', () => {
+    const fleets = [
+      fleet('defender', [
+        [ShipType.Cruiser, 1],
+        [ShipType.Interceptor, 1],
+      ]),
+      fleet('attacker', [[ShipType.Interceptor, 2]]),
+    ];
+    const stalemate = (
+      probability: number,
+      defender: Record<string, number>,
+      credited: Partial<Record<ShipType, number>>
+    ): ReputationSurvivorDistributionEntry => ({
+      probability,
+      lastFleetStanding: 'defender',
+      survivors: { defender, attacker: { Interceptor: 2 } },
+      destroyedShipsCreditedToFleet: { defender: {}, attacker: credited },
+    });
+
+    const result = calculateReputationDrawDistributions(fleets, [
+      stalemate(0.5, { Cruiser: 1, Interceptor: 1 }, {}),
+      // Missiles destroyed the Interceptor before neither side could fire.
+      stalemate(0.5, { Cruiser: 1 }, { Interceptor: 1 }),
+    ]);
+
+    expect(result.available).toBe(true);
+    if (!result.available) return;
+    // Retreating forfeits the participation tile but keeps kill draws.
+    expect(result.byFleet.attacker.probabilityByDrawCount).toEqual({
+      0: 0.5,
+      1: 0.5,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    });
+    expect(result.byFleet.defender.probabilityByDrawCount[1]).toBe(1);
+  });
+
+  test('uses the engine record of fleets that retreated from their only battle', () => {
+    // After attacker-2 and attacker-3 destroy each other, attacker-1 attacks
+    // the defender fresh and stalemates: the engine records it, and the
+    // battle-order inference alone would have kept its participation draw.
+    const fleets = [
+      fleet('defender', [[ShipType.Starbase, 1]]),
+      fleet('attacker-1', [[ShipType.Interceptor, 1]]),
+      fleet('attacker-2', [[ShipType.Interceptor, 1]]),
+      fleet('attacker-3', [[ShipType.Cruiser, 1]]),
+    ];
+    const outcome: ReputationSurvivorDistributionEntry = {
+      probability: 1,
+      lastFleetStanding: 'defender',
+      survivors: {
+        defender: { Starbase: 1 },
+        'attacker-1': { Interceptor: 1 },
+        'attacker-2': {},
+        'attacker-3': {},
+      },
+      destroyedShipsCreditedToFleet: {
+        defender: {},
+        'attacker-1': {},
+        'attacker-2': { Cruiser: 1 },
+        'attacker-3': { Interceptor: 1 },
+      },
+    };
+
+    const inferred = calculateReputationDrawDistributions(fleets, [outcome]);
+    expect(inferred.available).toBe(true);
+    if (!inferred.available) return;
+    expect(inferred.byFleet['attacker-1'].probabilityByDrawCount[1]).toBe(1);
+
+    const recorded = calculateReputationDrawDistributions(fleets, [
+      { ...outcome, retreatedFromOnlyBattle: ['attacker-1'] },
+    ]);
+    expect(recorded.available).toBe(true);
+    if (!recorded.available) return;
+    expect(recorded.byFleet['attacker-1'].probabilityByDrawCount[0]).toBe(1);
+    expect(recorded.byFleet['attacker-1'].expectedDraws).toBe(0);
+    expect(recorded.byFleet['attacker-2'].probabilityByDrawCount[3]).toBe(1);
+  });
+
+  test('keeps participation for a fleet that won a battle before retreating', () => {
+    const fleets = [
+      fleet('defender', [[ShipType.Dreadnought, 1]]),
+      fleet('attacker-1', [[ShipType.Cruiser, 1]]),
+      fleet('attacker-2', [[ShipType.Interceptor, 2]]),
+    ];
+    const outcomes: ReputationSurvivorDistributionEntry[] = [
+      {
+        // attacker-2 destroys attacker-1, then stalemates against the
+        // defender and retreats.
+        probability: 0.6,
+        lastFleetStanding: 'defender',
+        survivors: {
+          defender: { Dreadnought: 1 },
+          'attacker-1': {},
+          'attacker-2': { Interceptor: 2 },
+        },
+        destroyedShipsCreditedToFleet: {
+          defender: {},
+          'attacker-1': {},
+          'attacker-2': { Cruiser: 1 },
+        },
+      },
+      {
+        // attacker-2 stalemates against attacker-1 and retreats from its only
+        // battle; attacker-1 then loses to the defender.
+        probability: 0.4,
+        lastFleetStanding: 'defender',
+        survivors: {
+          defender: { Dreadnought: 1 },
+          'attacker-1': {},
+          'attacker-2': { Interceptor: 2 },
+        },
+        destroyedShipsCreditedToFleet: {
+          defender: { Cruiser: 1 },
+          'attacker-1': {},
+          'attacker-2': {},
+        },
+      },
+    ];
+
+    const result = calculateReputationDrawDistributions(fleets, outcomes);
+
+    expect(result.available).toBe(true);
+    if (!result.available) return;
+    expect(result.byFleet['attacker-2'].probabilityByDrawCount[3]).toBe(0.6);
+    expect(result.byFleet['attacker-2'].probabilityByDrawCount[0]).toBe(0.4);
+    expect(result.byFleet['attacker-1'].probabilityByDrawCount[1]).toBe(1);
+  });
+
   test('requires engagement credit for n-way terminal outcomes', () => {
     const result = calculateReputationDrawDistributions(
       [

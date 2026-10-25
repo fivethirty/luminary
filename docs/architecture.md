@@ -109,9 +109,15 @@ composition root between those layers.
 
 ### Setup State Contract
 
-Fleet position determines role: index 0 is the defender and later entries are attackers. NPCs,
-starbases, and orbitals are defender-only; player hulls may mix, while an NPC fleet contains one
-NPC type. A fleet has at most one row and one configuration for each ship type. Input order matters
+Fleet position determines role: index 0 is the defender and later entries are attackers. Attackers
+are assumed to be listed in order of entry into the sector, latest at the bottom; the engines do not
+reorder them. Engagements resolve from the bottom of the list upward, and in each engagement the
+upper fleet acts as the Defender: it fires first on initiative ties, holds the sector on a
+stalemate, and is credited at the sampled round cap. NPCs, starbases, and orbitals are
+defender-only; player hulls may mix, while an NPC fleet contains one NPC type. NPC fleets never hold
+the Antimatter Splitter, a player technology: the fleet card hides it, the URL codec drops it, and
+both engines ignore it. State keeps the player's choice, so it returns when the defender is swapped
+from an NPC layout back to player ships. A fleet has at most one row and one configuration for each ship type. Input order matters
 when sanitizing imported data: after role-invalid entries are removed, the first valid ship
 determines player versus NPC composition, and the first row for each type is retained. State takes
 ownership of imported and updated configurations and clamps quantities at this boundary.
@@ -169,6 +175,14 @@ hull, including fleets removed from battle by a defender-favored stalemate. Mate
 survivors; population bombardment uses only the last fleet standing. Exact multi-fleet branches
 archive living removed fleets in the same reporting payload described above, without adding them
 back to later engagements.
+
+A fleet removed alive by a stalemate (or, when sampling, by the round cap) is modeled as making the
+retreat the Stalemate rule requires (RB p.20). Reputation draws apply the Retreat Penalty to it (RB
+p.21): it draws for opponent ships it destroyed but not for participation, unless it fought an
+earlier battle in the sector to a finish, since one participation tile covers "one or more
+battles". Sector population counts every cube, including one on an Exiles Orbital. That Orbital
+fights as a ship, and its cube is lost with it when it is destroyed (Outcasts sheet), so the
+population attack only needs hits for the cubes that remain.
 
 ### Control Reuse Boundaries
 
@@ -230,10 +244,14 @@ both draw-as-loss and defender-favored nontermination.
 
 The exact model must preserve these mutable-engine rules:
 
-- The schedule contains all missile slots first, then cannon slots. Both groups use descending
-  initiative with the defender first on ties. Missile slots run once; cannon slots cycle.
-- A slot re-queries its fleet for living shooters. Minimum-shield filtering is therefore based
-  on the currently living target ships and may change after a ship dies.
+- Each slot is one activation of one ship type at one initiative: every ship type attacks on its
+  own activation (RB p.19), so tied types of one fleet never pool their dice. The schedule contains
+  all missile slots first, then cannon slots. Both groups use descending initiative with the
+  defender first on ties, and a fleet's own tied types in `TIED_INITIATIVE_ACTIVATION_ORDER`
+  (smallest hull first). Missile slots run once; cannon slots cycle. Both engines derive their
+  activations from `shipActivations`.
+- A slot re-queries its fleet for living shooters of its ship type. Minimum-shield filtering is
+  therefore based on the currently living target ships and may change after a ship dies.
 - Within a cannon slot, resolve weapon and rift rolls, assign rift self-damage with the NPC
   planner, assign target damage, then check the terminal outcome. This ordering permits a rift
   cannon to produce a draw. Missile slots can only destroy the target fleet.
@@ -258,7 +276,8 @@ helper plans over the shots that can hit a living target only, so the dice the m
 forwards as misses never change a plan and both engines assign identical damage for identical
 hits. Those results are memoized per `BattleModel` on exactly the inputs the planners read: the sorted shots,
 the living targets' `(configKey, HP)` in roster order, the target role, the shooter fleet's
-minimum shield after rift self-damage, and the target's remaining missile-phase initiatives. A
+minimum shield after rift self-damage, and the target's remaining missile-phase activations
+(initiative and ship type). A
 planner change that reads any other state must extend that key. Above that, `BattleModel`
 memoizes each expansion's transition template (dice outcomes, rift self-damage, and every
 assignment option's target HP) per factor of the joint state: slot and context, the living dice
@@ -299,15 +318,29 @@ application must not restart an optimal solve after that runner chooses a simple
 
 ## Intentional Model Differences
 
-The exact model does not reproduce two mutable-loop details:
+The exact model does not reproduce one mutable-loop detail:
 
 - It models unbounded rounds and credits residual nontermination to the defender instead of
   stopping at the engine's finite round cap.
-- It heals on exact schedule wrap-around. The mutable battle loop can shorten a round while
-  iterating when phases disappear.
+
+Both engines heal at the end of each Engagement Round, after every queued activation has fired
+once, including when a phase is dropped mid-round because its ship type was destroyed.
+
+Both engines also fix one choice the rules leave to a player. When a player's own ship types tie
+on initiative, the owner chooses their order of attack (RB p.18); the engines use the order of the
+rulebook's combat example, smallest hull first, and optimal targeting does not optimize that order.
 
 Keep these differences explicit. Do not add another approximation without documenting it here
 and adding a focused test.
+
+## Not Yet Modeled
+
+Marked for later addition:
+
+- Enlightened of Lyra may flip unused Colony Ships during the Combat Phase to reroll one of their
+  own dice per Colony Ship (Seekers sheet). Selecting Lyra currently changes only the fleet's name.
+- Descendants of Draco may not battle the Ancients (RB p.27). The app does not prevent a Draco
+  fleet from fighting an Ancient defender.
 
 ## Validation
 

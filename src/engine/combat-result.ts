@@ -16,6 +16,13 @@ type CombatSurvivorDistributionEntry = {
   /** Every living hull, including fleets that retreated from an engagement. */
   survivors: Record<string, ShipCountByType>;
   destroyedShipsCreditedToFleet?: DestroyedShipsCreditedToFleet;
+  /**
+   * Fleets removed from the sector alive (the stalemate retreat, or the sampled
+   * round cap) by the only engagement they fought in this outcome. The Retreat
+   * Penalty costs them the participation reputation draw; a fleet that fought
+   * an earlier engagement keeps it.
+   */
+  retreatedFromOnlyBattle?: string[];
 };
 
 /** Outcome maps shared by exact, sampled, and interactively orchestrated runs. */

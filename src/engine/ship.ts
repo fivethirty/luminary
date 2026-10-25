@@ -36,6 +36,46 @@ export function isPlayerShipType(type: ShipType): boolean {
   return !npcTypes.includes(type);
 }
 
+// Each ship type attacks on its own activation: "In Initiative order, each Ship
+// type may make an Attack ... All dice of all colors for each Ship type are
+// rolled simultaneously" (RB p.19). Ties between one owner's types are the
+// owner's choice ("you choose the order of Attack for your Ships that are tied
+// for Initiative", RB p.18); both engines fix that order to the one the
+// rulebook's combat example uses, smallest hull first (the reverse of the NPC
+// "largest to smallest" size order). NPC fleets field a single type.
+export const TIED_INITIATIVE_ACTIVATION_ORDER: readonly ShipType[] = [
+  ShipType.Interceptor,
+  ShipType.Starbase,
+  ShipType.Cruiser,
+  ShipType.Orbital,
+  ShipType.Dreadnought,
+  ShipType.Ancient,
+  ShipType.Guardian,
+  ShipType.GCDS,
+];
+
+export type ShipActivation = { initiative: number; shipType: ShipType };
+
+// The distinct (initiative, ship type) activations of a roster, initiative
+// descending and tied types in TIED_INITIATIVE_ACTIVATION_ORDER. The mutable
+// battle and the exact schedule both derive their phases from this list.
+export function shipActivations(ships: readonly Ship[]): ShipActivation[] {
+  const seen = new Set<string>();
+  const activations: ShipActivation[] = [];
+  for (const ship of ships) {
+    const key = `${ship.initiative}:${ship.type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    activations.push({ initiative: ship.initiative, shipType: ship.type });
+  }
+  return activations.sort(
+    (a, b) =>
+      b.initiative - a.initiative ||
+      TIED_INITIATIVE_ACTIVATION_ORDER.indexOf(a.shipType) -
+        TIED_INITIATIVE_ACTIVATION_ORDER.indexOf(b.shipType)
+  );
+}
+
 export const WeaponDamage: Record<WeaponType, number> = {
   ion: 1,
   plasma: 2,

@@ -262,7 +262,16 @@ export function getStartingShipConfig(
     config.shields += 1;
     config.initiative += 1;
   } else if (factionId === 'rho-indi') {
+    // Outcasts sheet: all blueprints have additional Gauss Shields, and
+    // Interceptor and Cruiser blueprints have increased Initiative Bonuses
+    // (the species board prints 3 and 2 instead of 2 and 1).
     config.shields += 1;
+    if (
+      preset.type === ShipType.Interceptor ||
+      preset.type === ShipType.Cruiser
+    ) {
+      config.initiative += 1;
+    }
   } else if (factionId === 'exiles' && preset.type !== ShipType.Orbital) {
     config.computers += 1;
   }

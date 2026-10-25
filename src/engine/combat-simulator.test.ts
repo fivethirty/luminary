@@ -126,6 +126,7 @@ describe('CombatSimulator', () => {
             defender: {},
             attacker: {},
           },
+          retreatedFromOnlyBattle: ['attacker'],
         },
       ]);
     });

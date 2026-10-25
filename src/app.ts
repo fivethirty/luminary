@@ -1,5 +1,6 @@
 import type { CombatRunResult } from '@calc/combat-runner';
 import { calculatePopulationBombardment } from '@calc/population-bombardment';
+import { ShipType } from '@calc/ship';
 import '@ui/components/fleet';
 import type { FleetElement } from '@ui/components/fleet';
 import '@ui/components/results';
@@ -257,6 +258,9 @@ function applySimulationResult(
       {
         defenderFleetName: state.fleets[0]?.id,
         automaticWipe: state.fleets[0]?.factionId === 'planta',
+        // Only an Orbital crewed by an Exiles cube fights as a ship, and its
+        // cube is lost with it (Outcasts species sheet).
+        populationOnDefenderShips: { [ShipType.Orbital]: 1 },
       }
     ),
     reputationDraws: calculateReputationDrawDistributions(
