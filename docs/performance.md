@@ -81,11 +81,17 @@ identical targets leave no choice. That is false: splitting damage among identic
 substitution made optimal values against uniform fleets wrong, and it made them non-monotonic in
 fleet size, since adding a second ship type switched the real decision on. Uniform fleets
 therefore carry more decision states than before (the 4-cruiser counterexample in the optimal
-solver tests grows from 125 to 700 states); the preflight estimate already counts them. The one
-reduction kept is sound: a volley in which every landing shot destroys any living target, all of
-one configuration, has a single successor worth considering (maximal kills, since assignments
-differ only in wasted overkill), so `BattleModel` applies it without candidate enumeration. The
-10-interceptor benchmark mirror depends on it: about 6 ms with the reduction, 68 ms without.
+solver tests grows from 125 to 700 states); the preflight estimate already counts them. A second
+reduction, which collapsed a volley whose every hit destroys any living target of one
+configuration to its maximal-kill successor, was also removed. Identical ships at different HP are
+distinct targets, so it kept one roster-order kill set and dropped the better alternatives; it
+also bypassed the candidate order that the solver and the live optimal planner share for
+tie-breaking. It broke the optimal-value ordering (defender-only optimal <= DPS policy <=
+attacker-only optimal, with both-sided optimal in between) in 43 of 298 random battles and
+understated an optimal fleet's win chance by up to 12 points. Without it the 10-interceptor
+benchmark mirror takes about 66 ms instead of 6 ms. Before adding any decision-node reduction,
+show that it preserves full enumeration's values and tie-break order, and check that ordering on
+randomized battles.
 
 Exact multi-fleet combat memoizes successful engagements for one request. Fleet identity and
 reputation payload do not enter the engagement key; attacker/defender role, planner policy,

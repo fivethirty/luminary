@@ -3,7 +3,7 @@ import { AbstractDamagePlanner, Plan } from './abstract-damage-planner';
 import {
   DICE_VALUES,
   HIT_AFTER_MODIFIERS,
-  TOTAL_RIFT_DIE_DAMAGE,
+  EXPECTED_RIFT_DIE_DAMAGE,
 } from 'src/constants';
 import { Phase } from './battle';
 
@@ -35,7 +35,9 @@ export class DpsRemovalDamagePlanner extends AbstractDamagePlanner {
     const priorityKey = `${ship.configKey()}|shield:${targetShield ?? 'raw'}`;
     let priority = this.shipPriority[priorityKey];
     if (!priority) {
-      const riftDamage = ship.rift * TOTAL_RIFT_DIE_DAMAGE;
+      // Rift dice ignore computers and shields, so a rift die is worth its
+      // expected damage whether or not the target shield is known.
+      const riftDamage = ship.rift * EXPECTED_RIFT_DIE_DAMAGE;
       const hitChance =
         targetShield === undefined
           ? 1

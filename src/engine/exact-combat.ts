@@ -101,6 +101,8 @@ type OutcomeVariant = {
   probability: number;
   destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
   retreatedSurvivors: Record<string, ShipCountByType>;
+  // Sorted names of fleets removed alive by the only engagement they fought.
+  retreatedFromOnlyBattle: string[];
 };
 
 type EngagementPolicies = {
@@ -258,11 +260,12 @@ export function computeExactCombat(
       fleets: fleets.map(fleetStateFromFleet),
       outcomeVariants: new Map([
         [
-          outcomeVariantKey(initialCredits, initialRetreatedSurvivors),
+          outcomeVariantKey(initialCredits, initialRetreatedSurvivors, []),
           {
             probability: 1,
             destroyedShipsCreditedToFleet: initialCredits,
             retreatedSurvivors: initialRetreatedSurvivors,
+            retreatedFromOnlyBattle: [],
           },
         ],
       ]),
@@ -474,17 +477,20 @@ export function estimateExactStateSpace(fleets: readonly Fleet[]): number {
   for (const fleet of fleets) {
     const roster = fleet.getRoster();
     const groups = new Map<string, { count: number; maxHp: number }>();
-    const initiatives = new Set<number>();
-    const missileInitiatives = new Set<number>();
+    // One schedule slot per (initiative, ship type) activation, plus one per
+    // activation holding missiles (see BattleModel.buildSchedule).
+    const activations = new Set<string>();
+    const missileActivations = new Set<string>();
     for (const ship of roster) {
       const key = ship.configKey();
       const group = groups.get(key);
       if (group) group.count++;
       else groups.set(key, { count: 1, maxHp: ship.maxHP() });
-      initiatives.add(ship.initiative);
-      if (ship.hasMissiles()) missileInitiatives.add(ship.initiative);
+      const activation = `${ship.initiative}:${ship.type}`;
+      activations.add(activation);
+      if (ship.hasMissiles()) missileActivations.add(activation);
     }
-    scheduleSlots += initiatives.size + missileInitiatives.size;
+    scheduleSlots += activations.size + missileActivations.size;
     for (const group of groups.values()) {
       estimate = multiplyCapped(
         estimate,
@@ -858,6 +864,7 @@ function summarizeBranches(
       lastFleetStanding: string | null;
       survivors: Record<string, Partial<Record<ShipType, number>>>;
       destroyedShipsCreditedToFleet: DestroyedShipsCreditedToFleet;
+      retreatedFromOnlyBattle: string[];
     }
   >();
   let drawPercentage = 0;
@@ -875,7 +882,8 @@ function summarizeBranches(
         standingFleetName ?? 'draw'
       }||variant:${outcomeVariantKey(
         variant.destroyedShipsCreditedToFleet,
-        variant.retreatedSurvivors
+        variant.retreatedSurvivors,
+        variant.retreatedFromOnlyBattle
       )}`;
       const existing = compositionMass.get(compositionKey);
       if (existing) {
@@ -886,6 +894,7 @@ function summarizeBranches(
           lastFleetStanding: standingFleetName,
           survivors,
           destroyedShipsCreditedToFleet: variant.destroyedShipsCreditedToFleet,
+          retreatedFromOnlyBattle: variant.retreatedFromOnlyBattle,
         });
       }
 
@@ -1014,6 +1023,14 @@ function advanceOutcomeVariants(
       variant.destroyedShipsCreditedToFleet
     );
     const retreatedSurvivors = cloneSurvivorMap(variant.retreatedSurvivors);
+    // A credit key marks a fleet that entered an earlier engagement, so a
+    // fleet retreating now without one leaves its only battle.
+    const retreatedFromOnlyBattle = [
+      ...variant.retreatedFromOnlyBattle,
+      ...Object.keys(retreatedInEngagement).filter(
+        (fleetName) => !(fleetName in credits)
+      ),
+    ].sort();
     for (const [fleetName, destroyed] of Object.entries(
       destroyedInEngagement
     )) {
@@ -1030,6 +1047,7 @@ function advanceOutcomeVariants(
       probability: variant.probability * probability,
       destroyedShipsCreditedToFleet: credits,
       retreatedSurvivors,
+      retreatedFromOnlyBattle,
     });
   }
   return advanced;
@@ -1050,7 +1068,8 @@ function addOutcomeVariant(
 ): void {
   const key = outcomeVariantKey(
     variant.destroyedShipsCreditedToFleet,
-    variant.retreatedSurvivors
+    variant.retreatedSurvivors,
+    variant.retreatedFromOnlyBattle
   );
   const existing = target.get(key);
   if (existing) {
@@ -1084,11 +1103,12 @@ function cloneSurvivorMap(
 
 function outcomeVariantKey(
   credits: DestroyedShipsCreditedToFleet,
-  retreatedSurvivors: Record<string, ShipCountByType>
+  retreatedSurvivors: Record<string, ShipCountByType>,
+  retreatedFromOnlyBattle: readonly string[]
 ): string {
   return `${destructionCreditKey(credits)}||retreated:${shipCountMapKey(
     retreatedSurvivors
-  )}`;
+  )}||retreated-first:${retreatedFromOnlyBattle.join(',')}`;
 }
 
 function destructionCreditKey(credits: DestroyedShipsCreditedToFleet): string {

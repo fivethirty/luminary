@@ -138,6 +138,52 @@ describe('MultiBattle', () => {
       });
     });
 
+    test('records a fleet that retreats from its only battle, including after a draw', () => {
+      // attacker3's rift die destroys attacker2 and itself; attacker1 then
+      // attacks the defender without having fought, and neither side is armed.
+      const unarmed = (name: string, type: ShipType) =>
+        new Fleet(name, [new Ship(type, {}, GUARANTEED_MISS)]);
+      const multiBattle = new MultiBattle([
+        unarmed('defender', ShipType.Starbase),
+        unarmed('attacker1', ShipType.Interceptor),
+        unarmed('attacker2', ShipType.Interceptor),
+        new Fleet('attacker3', [
+          new Ship(ShipType.Cruiser, { hull: 0, rift: 1 }, GUARANTEED_HIT),
+        ]),
+      ]);
+      const results = multiBattle.run();
+
+      expect(results.map((result) => result.outcome)).toEqual([
+        BattleOutcome.Draw,
+        BattleOutcome.Defender,
+      ]);
+      expect(multiBattle.getRetreatedFromOnlyBattle()).toEqual(['attacker1']);
+    });
+
+    test('does not record a retreat after an earlier engagement', () => {
+      // attacker2's missile destroys attacker1, then (firing again in the next
+      // engagement) only dents the unarmed Starbase, and the two stalemate: it
+      // retreats, but it fought attacker1 first.
+      const multiBattle = new MultiBattle([
+        new Fleet('defender', [
+          new Ship(ShipType.Starbase, { hull: 2 }, GUARANTEED_MISS),
+        ]),
+        new Fleet('attacker1', [
+          new Ship(ShipType.Interceptor, {}, GUARANTEED_MISS),
+        ]),
+        new Fleet('attacker2', [
+          new Ship(ShipType.Cruiser, { missiles: { ion: 1 } }, GUARANTEED_HIT),
+        ]),
+      ]);
+      const results = multiBattle.run();
+
+      expect(results.map((result) => result.outcome)).toEqual([
+        BattleOutcome.Attacker,
+        BattleOutcome.Defender,
+      ]);
+      expect(multiBattle.getRetreatedFromOnlyBattle()).toEqual([]);
+    });
+
     test('winning fleet carries damage between battles', () => {
       const defender = new Fleet('defender', [
         new Ship(

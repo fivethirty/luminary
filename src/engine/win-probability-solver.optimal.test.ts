@@ -136,6 +136,58 @@ describe('WinProbabilitySolver (minimax assignments)', () => {
     );
   });
 
+  test('a lethal volley against damaged identical targets keeps the better kill', () => {
+    // Three ion missiles chip the two dreadnoughts, then one antimatter hit
+    // destroys either. Killing the healthy dreadnought and leaving the damaged
+    // one for the ion follow-up is the better line. A removed reduction kept
+    // only the roster-order kill and reported 0.1796, below the DPS policy.
+    const finisher: ShipConfig = {
+      initiative: 3,
+      computers: 2,
+      missiles: { ion: 3 },
+      cannons: { antimatter: 1 },
+    };
+    const chipper: ShipConfig = {
+      initiative: 2,
+      computers: 2,
+      cannons: { ion: 2 },
+    };
+    const dreadnought: ShipConfig = {
+      initiative: 1,
+      hull: 3,
+      computers: 2,
+      cannons: { ion: 2 },
+    };
+    const model = () =>
+      new BattleModel(
+        [
+          new Ship(ShipType.Cruiser, finisher),
+          new Ship(ShipType.Cruiser, chipper),
+        ],
+        Array.from(
+          { length: 2 },
+          () => new Ship(ShipType.Dreadnought, dreadnought)
+        ),
+        false,
+        false
+      );
+    const policy = new WinProbabilitySolver(model(), {
+      perspective: 'A',
+      assignments: 'policy',
+    }).solve();
+    const optimal = new WinProbabilitySolver(model(), {
+      perspective: 'A',
+      assignments: 'minimax',
+      decisionRoles: ['A'],
+    }).solve();
+
+    expect(optimal.winProbability).toBeCloseTo(0.303804, 6);
+    // Optimal targeting can always play the DPS line, so it never does worse.
+    expect(optimal.winProbability).toBeGreaterThanOrEqual(
+      policy.winProbability - 1e-9
+    );
+  });
+
   test('identical healing cruisers keep the healing matchup value under enumeration', () => {
     const ships = () =>
       Array.from(

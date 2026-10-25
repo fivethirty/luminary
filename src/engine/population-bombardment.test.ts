@@ -363,6 +363,56 @@ describe('calculatePopulationBombardment', () => {
     }
   });
 
+  test('counts cubes lost with destroyed defender Orbitals', () => {
+    // An Exiles Orbital fights as a ship and its cube leaves with it, so a
+    // two-cube sector needs only one more hit after the Orbital dies.
+    const defender = new Fleet('defender', [
+      new Ship(ShipType.Orbital, { hull: 2, cannons: { ion: 1 } }),
+    ]);
+    const attacker = new Fleet('attacker', [
+      new Ship(ShipType.Cruiser, { cannons: { ion: 1 } }),
+    ]);
+    const outcomes: SurvivorOutcome[] = [
+      {
+        probability: 0.3,
+        survivors: {
+          defender: { [ShipType.Orbital]: 1 },
+          attacker: {},
+        },
+      },
+      {
+        probability: 0.7,
+        survivors: {
+          defender: {},
+          attacker: { [ShipType.Cruiser]: 1 },
+        },
+      },
+    ];
+
+    const result = calculatePopulationBombardment(
+      [defender, attacker],
+      outcomes,
+      { populationOnDefenderShips: { [ShipType.Orbital]: 1 } }
+    );
+
+    // The Ion Cannon hits population only on a 6.
+    expect(
+      bucket(result.byAttacker.attacker, 1).atLeastProbability
+    ).toBeCloseTo(0.7, 12);
+    expect(
+      bucket(result.byAttacker.attacker, 2).atLeastProbability
+    ).toBeCloseTo(0.7 / 6, 12);
+    expect(bucket(result.byAttacker.attacker, 3).atLeastProbability).toBe(0);
+
+    const withoutCarriedCubes = calculatePopulationBombardment(
+      [defender, attacker],
+      outcomes
+    );
+    expect(
+      bucket(withoutCarriedCubes.byAttacker.attacker, 1).atLeastProbability
+    ).toBeCloseTo(0.7 / 6, 12);
+  });
+
   test('rejects ambiguous same-hull survivor configurations', () => {
     const defender = new Fleet('defender', [new Ship(ShipType.Interceptor)]);
     const attacker = new Fleet('attacker', [

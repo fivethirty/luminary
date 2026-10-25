@@ -187,7 +187,11 @@ export type ReputationDrawDistributionResult =
  * engagement credit is authoritative for every battle size. Legacy two-fleet
  * outcomes may derive losses from terminal survivors when telemetry is absent;
  * n-way outcomes require it. A fleet that never reaches an engagement receives
- * zero draws for that outcome.
+ * zero draws for that outcome, and a fleet that retreated from every battle it
+ * fought loses the participation draw (see retreatedFromEveryBattle).
+ *
+ * `fleets` lists the participating fleets in battle order, defender first and
+ * latest entrant last, as the combat engines resolve them.
  */
 export function calculateReputationDrawDistributions(
   fleets: readonly FleetState[],
@@ -233,7 +237,13 @@ export function calculateReputationDrawDistributions(
           draws = 0;
         } else {
           draws = reputationDrawCount(
-            outcome.destroyedShipsCreditedToFleet[fleet.id] ?? {}
+            outcome.destroyedShipsCreditedToFleet[fleet.id] ?? {},
+            !retreatedFromEveryBattle(
+              fleets,
+              fleetIndex,
+              outcome,
+              initialCounts
+            )
           );
         }
       } else if (isTwoFleetBattle) {
@@ -347,7 +357,8 @@ function destroyedComposition(
 }
 
 function reputationDrawCount(
-  destroyed: Partial<Record<ShipType, number>>
+  destroyed: Partial<Record<ShipType, number>>,
+  participation = true
 ): ReputationDrawCount {
   let destroyedReputation = 0;
   for (const [type, count] of Object.entries(destroyed)) {
@@ -356,8 +367,48 @@ function reputationDrawCount(
   }
   return Math.min(
     5,
-    1 + Math.floor(destroyedReputation)
+    (participation ? 1 : 0) + Math.floor(destroyedReputation)
   ) as ReputationDrawCount;
+}
+
+// The engines resolve a stalemate, and a sampled battle that reaches the round
+// cap, by removing that engagement's attacker with its ships alive: the Retreat
+// the Stalemate rule requires (RB p.20). Under the Retreat Penalty (RB p.21;
+// FAQ p.30) a fleet whose remaining ships all retreat from a battle draws no
+// tile for participating in it, but one tile covers participating in "one or
+// more battles", so only a fleet retreating from the only battle it fought
+// loses the draw. Both engines record those fleets per outcome. Outcomes from
+// older callers without the record fall back to an inference from battle
+// order: every attacker after the first engagement has fought before, except
+// after an intermediate draw, so only the last-listed fleet can retreat from
+// its first battle, and it fought one exactly when it destroyed the whole
+// fleet listed above it.
+function retreatedFromEveryBattle(
+  fleets: readonly FleetState[],
+  fleetIndex: number,
+  outcome: ReputationSurvivorDistributionEntry,
+  initialCounts: ReadonlyMap<string, ReadonlyMap<ShipType, number>>
+): boolean {
+  const fleet = fleets[fleetIndex];
+  if (outcome.retreatedFromOnlyBattle !== undefined) {
+    return outcome.retreatedFromOnlyBattle.includes(fleet.id);
+  }
+  if (!Object.prototype.hasOwnProperty.call(outcome, 'lastFleetStanding')) {
+    return false;
+  }
+  if (outcome.lastFleetStanding === fleet.id) return false;
+  const survivors = outcome.survivors[fleet.id] ?? {};
+  if (!Object.values(survivors).some((count) => nonNegativeFinite(count) > 0)) {
+    return false;
+  }
+  if (fleetIndex === 0 || fleetIndex !== fleets.length - 1) return false;
+
+  const firstOpponent = fleets[fleetIndex - 1];
+  const credited = outcome.destroyedShipsCreditedToFleet?.[fleet.id] ?? {};
+  for (const [type, count] of initialCounts.get(firstOpponent.id)!) {
+    if (nonNegativeFinite(credited[type]) < count) return true;
+  }
+  return false;
 }
 
 function positiveProbabilityOutcomes<T extends { probability: number }>(

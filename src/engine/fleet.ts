@@ -1,4 +1,11 @@
-import { RiftShot, Ship, Shot } from './ship';
+import {
+  RiftShot,
+  Ship,
+  ShipActivation,
+  shipActivations,
+  ShipType,
+  Shot,
+} from './ship';
 import { BinnedDamageAssignmentHelper } from './binned-damage-assignment-helper';
 import { DamageType } from 'src/constants';
 import { Phase } from './battle';
@@ -10,23 +17,30 @@ export class Fleet {
   private readonly startsWithMixedShields: boolean;
   private readonly minShields: number;
   private readonly initiatives: Set<number>;
+  private readonly activations: ShipActivation[];
   private readonly binnedDamageAssignment = new BinnedDamageAssignmentHelper();
   // Built lazily the first time this fleet fights and reused across battles, so
   // its solved value tables survive the many iterations of a CombatSimulator run.
   private optimalPlanner: OptimalDamagePlanner | null = null;
+  // Antimatter Splitter is a player technology. NPC blueprints are fixed tiles
+  // that never research, so an NPC fleet ignores the flag (as it ignores the
+  // planner choice in getDamageType).
+  public readonly antimatterSplitter: boolean;
 
   constructor(
     public name: string,
     ships: Ship[],
-    public antimatterSplitter: boolean = false,
+    antimatterSplitter: boolean = false,
     private readonly playerPlanner: DamageType = DamageType.DPS
   ) {
     this.ships = Array.from(ships);
+    this.antimatterSplitter = antimatterSplitter && this.isPlayerFleet();
     this.startsWithMissiles = this.ships.some((ship) => ship.hasMissiles());
     const shields = new Set(this.ships.map((ship) => ship.shields));
     this.startsWithMixedShields = shields.size > 1;
     this.minShields = Math.min(...this.ships.map((ship) => ship.shields));
     this.initiatives = new Set(this.ships.flatMap((ship) => ship.initiative));
+    this.activations = shipActivations(this.ships);
   }
 
   // Called by Battle at the start of every fight. When this fleet plans
@@ -37,12 +51,15 @@ export class Fleet {
       return;
     }
     if (!this.optimalPlanner) {
+      // The fallback is the same DPS policy assignDamage applies, including
+      // the shooter's minimum shield that weights the targets' threat.
       this.optimalPlanner = new OptimalDamagePlanner((shots, ships, phases) =>
         this.binnedDamageAssignment.assignDamage(
           shots,
           ships,
           DamageType.DPS,
-          phases
+          phases,
+          this.getMinShield()
         )
       );
       this.binnedDamageAssignment.setOptimalPlanner(this.optimalPlanner);
@@ -54,19 +71,38 @@ export class Fleet {
     return this.initiatives;
   }
 
-  shootMissilesForInitiative(initiative: number, minShields: number): Shot[] {
-    return this.getLivingShipsAtInitiative(initiative).flatMap((ship) =>
-      ship.shootMissles(minShields)
+  // Distinct (initiative, ship type) activations of the roster; see
+  // shipActivations.
+  getActivations(): readonly ShipActivation[] {
+    return this.activations;
+  }
+
+  // The weapon methods fire one activation: the living ships at an initiative,
+  // optionally of one ship type (every type when omitted).
+  shootMissilesForInitiative(
+    initiative: number,
+    minShields: number,
+    shipType?: ShipType
+  ): Shot[] {
+    return this.getLivingShipsAtInitiative(initiative, shipType).flatMap(
+      (ship) => ship.shootMissles(minShields)
     );
   }
-  shootCannonsForInitiative(initiative: number, minShields: number): Shot[] {
-    return this.getLivingShipsAtInitiative(initiative).flatMap((ship) =>
-      ship.shootCannons(minShields, this.antimatterSplitter)
+  shootCannonsForInitiative(
+    initiative: number,
+    minShields: number,
+    shipType?: ShipType
+  ): Shot[] {
+    return this.getLivingShipsAtInitiative(initiative, shipType).flatMap(
+      (ship) => ship.shootCannons(minShields, this.antimatterSplitter)
     );
   }
-  shootRiftCannonsForInitiative(initiative: number): RiftShot[] {
-    return this.getLivingShipsAtInitiative(initiative).flatMap((ship) =>
-      ship.shootRiftCannon()
+  shootRiftCannonsForInitiative(
+    initiative: number,
+    shipType?: ShipType
+  ): RiftShot[] {
+    return this.getLivingShipsAtInitiative(initiative, shipType).flatMap(
+      (ship) => ship.shootRiftCannon()
     );
   }
 
@@ -139,9 +175,12 @@ export class Fleet {
     return Math.min(...this.getLivingShips().map((ship) => ship.shields));
   }
 
-  getLivingShipsAtInitiative(initiative: number): Ship[] {
+  getLivingShipsAtInitiative(initiative: number, shipType?: ShipType): Ship[] {
     return this.ships.filter(
-      (ship) => ship.isAlive() && ship.initiative === initiative
+      (ship) =>
+        ship.isAlive() &&
+        ship.initiative === initiative &&
+        (shipType === undefined || ship.type === shipType)
     );
   }
 

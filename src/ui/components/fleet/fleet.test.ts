@@ -596,6 +596,39 @@ describe('Fleet', () => {
     ]);
   });
 
+  test('hides the Antimatter Splitter for NPC fleets', () => {
+    const element = document.createElement('calc-fleet') as FleetElement;
+    element.fleet = state.fleets[0];
+    document.body.appendChild(element);
+    const splitterOption = () =>
+      element
+        .querySelector('.antimatter-splitter-checkbox')!
+        .closest('.tech-option')!;
+
+    addShip(element, 'interceptor');
+    expect(splitterOption().hasAttribute('hidden')).toBe(false);
+
+    addShip(element, 'guardian');
+    expect(splitterOption().hasAttribute('hidden')).toBe(true);
+
+    // The player's choice comes back with the player ships.
+    const checkbox = () =>
+      element.querySelector(
+        '.antimatter-splitter-checkbox'
+      ) as HTMLInputElement;
+    removeShipType(state.fleets[0].id, state.fleets[0].shipTypes[0].id);
+    element.dispatchEvent(new Event('ship-removed'));
+    addShip(element, 'interceptor');
+    checkbox().click();
+    expect(state.fleets[0].antimatterSplitter).toBe(true);
+    addShip(element, 'guardian');
+    removeShipType(state.fleets[0].id, state.fleets[0].shipTypes[0].id);
+    element.dispatchEvent(new Event('ship-removed'));
+    addShip(element, 'interceptor');
+    expect(splitterOption().hasAttribute('hidden')).toBe(false);
+    expect(checkbox().checked).toBe(true);
+  });
+
   test('ignores NPC planner change events', () => {
     const element = document.createElement('calc-fleet') as FleetElement;
     element.fleet = state.fleets[0];

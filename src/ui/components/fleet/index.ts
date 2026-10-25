@@ -456,6 +456,18 @@ export class FleetElement extends HTMLElement {
     this.updatePlannerControl();
   }
 
+  // NPC blueprints never research technologies, so an all-AI fleet has no
+  // Antimatter Splitter to offer; state clears the flag for those fleets.
+  private updateSplitterControl(allAi: boolean) {
+    const checkbox = this.querySelector(
+      '.antimatter-splitter-checkbox'
+    ) as HTMLInputElement | null;
+    const option = checkbox?.closest('.tech-option');
+    if (!checkbox || !option) return;
+    option.toggleAttribute('hidden', allAi);
+    checkbox.checked = this.fleet.antimatterSplitter;
+  }
+
   // An all-AI fleet always fights with the NPC planner (see Fleet.getDamageType),
   // so lock the control to a disabled "NPC" for those fleets. Player fleets may
   // choose NPC, DPS, or optimal assignment.
@@ -470,6 +482,7 @@ export class FleetElement extends HTMLElement {
 
     // Rebuild with only applicable choices. Hidden options still appear in
     // some iOS pickers, even when the select itself is disabled.
+    this.updateSplitterControl(allAi);
     select.innerHTML = '';
     if (allAi) {
       const npcOption = document.createElement('option');

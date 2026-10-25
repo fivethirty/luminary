@@ -70,10 +70,16 @@ describe('starting player blueprints', () => {
     }
   });
 
-  test('applies Rho Indi shields without removing hypothetical hull choices', () => {
+  test('applies Rho Indi shields and initiative without removing hypothetical hull choices', () => {
     for (const preset of PLAYER_PRESETS) {
+      const generic = getStartingShipConfig(preset).config;
       const rhoIndi = getStartingShipConfig(preset, 'rho-indi');
       expect(rhoIndi.config.shields).toBe(1);
+      // Interceptor and Cruiser blueprints have increased Initiative Bonuses.
+      expect(rhoIndi.config.initiative).toBe(
+        generic.initiative +
+          (preset === 'interceptor' || preset === 'cruiser' ? 1 : 0)
+      );
     }
     expect(getStartingShipConfig('dreadnought', 'rho-indi').type).toBe(
       ShipType.Dreadnought

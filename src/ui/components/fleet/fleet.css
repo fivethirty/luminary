@@ -272,6 +272,12 @@
   cursor: pointer;
 }
 
+/* `display: flex` above would otherwise override the UA's [hidden] rule and
+   offer the Antimatter Splitter to NPC fleets, which cannot research it. */
+.tech-option[hidden] {
+  display: none;
+}
+
 .damage-planner-option {
   margin-left: auto;
 }

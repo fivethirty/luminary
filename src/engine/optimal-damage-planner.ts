@@ -216,7 +216,8 @@ export class OptimalDamagePlanner {
     const idx = this.model!.findSlot(
       role,
       next.initiative,
-      next.missilePhase ?? false
+      next.missilePhase ?? false,
+      next.shipType
     );
     return idx >= 0 ? idx : this.model!.firstCannonSlot;
   }

@@ -19,6 +19,7 @@ import {
   type FleetColorId,
 } from '@ui/fleet-metadata';
 import {
+  isNpcComposition,
   reconcileFactionStructure,
   sanitizeFleetComposition,
 } from '@ui/fleet-rules';
@@ -202,7 +203,7 @@ export function encodeBattleQuery(fleets: FleetState[]): string {
     fleet.shipTypes.forEach((shipType) =>
       encodeShip(key, shipType, params, fleet.factionId ?? '')
     );
-    if (fleet.antimatterSplitter) {
+    if (fleet.antimatterSplitter && !isNpcComposition(fleet.shipTypes)) {
       params.push([`${key}.ams`, '1']);
     }
     if (fleet.plannerType !== 'optimal') {
@@ -434,7 +435,8 @@ export function parseBattleQuery(search: string): FleetState[] | null {
       factionId,
       colorId: draft?.colorId ?? defaultFleetColorId(index),
       colorIsManual: draft?.colorIsManual ?? false,
-      antimatterSplitter: draft?.antimatterSplitter ?? false,
+      antimatterSplitter:
+        (draft?.antimatterSplitter ?? false) && !isNpcComposition(shipTypes),
       plannerType: draft?.plannerType ?? 'optimal',
     };
   });
@@ -537,9 +539,18 @@ function resultForFleet<T>(
   return byFleet[fleet.id] ?? byFleet[fleet.name];
 }
 
+// How the odds were computed, as shown under the results and in chat reports:
+// the tier's method and targeting label plus, for sampled runs, the number of
+// iterations, so a fallback result is never mistaken for the requested one.
+export function methodSummary(results: SimulationResults): string {
+  return results.method === 'exact'
+    ? `${results.methodLabel} · deterministic`
+    : `${results.methodLabel} · ${results.iterations.toLocaleString()} iterations`;
+}
+
 // A plain-text battle report sized for chat: a one-line matchup, a fenced
-// monospace block with the odds bars, and the share URL left bare so chat
-// clients unfurl it.
+// monospace block with the odds bars and the method line, and the share URL
+// left bare so chat clients unfurl it.
 export function formatChatReport(
   fleets: FleetState[],
   results: SimulationResults,
@@ -569,9 +580,11 @@ export function formatChatReport(
       ? [`${fleet.name} ${survivors.join(', ')}`]
       : [];
   });
+  lines.push('');
   if (survivorParts.length > 0) {
-    lines.push('', `Avg survivors (wins): ${survivorParts.join(' · ')}`);
+    lines.push(`Avg survivors (wins): ${survivorParts.join(' · ')}`);
   }
+  lines.push(methodSummary(results));
 
   const matchup = fleets.map((fleet) => fleetLineup(fleet)).join('  vs  ');
   const report = `⚔ ${matchup}\n\`\`\`\n${lines.join('\n')}\n\`\`\``;

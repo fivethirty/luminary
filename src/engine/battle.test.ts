@@ -8,6 +8,7 @@ import {
   DICE_VALUES,
   GUARANTEED_HIT,
   GUARANTEED_MISS,
+  RIFT_MISS,
   RIFT_SELF_DAMAGE,
 } from 'src/constants';
 
@@ -100,6 +101,102 @@ describe('Battle', () => {
       expect(result.victors).toEqual([attacker]);
     });
 
+    test('tied ship types of one fleet attack on separate activations', () => {
+      const attacker = new Fleet('Attacker', [
+        ship(
+          { initiative: 3, hull: 1, cannons: { ion: 2 } },
+          ShipType.Cruiser,
+          GUARANTEED_HIT
+        ),
+        ship(
+          { initiative: 3, cannons: { ion: 1 } },
+          ShipType.Interceptor,
+          GUARANTEED_HIT
+        ),
+      ]);
+      const defender = new Fleet('Defender', [
+        ship(
+          { initiative: 1, hull: 5, cannons: { ion: 1 } },
+          ShipType.Dreadnought,
+          GUARANTEED_MISS
+        ),
+      ]);
+      const volleys: number[] = [];
+      const assignDamage = attacker.assignDamage.bind(attacker);
+      attacker.assignDamage = (shots, targets, phases) => {
+        volleys.push(shots.length);
+        return assignDamage(shots, targets, phases);
+      };
+
+      const result = new Battle(attacker, defender).fight();
+
+      // The Interceptor's die is assigned before the Cruiser rolls its two;
+      // the three dice are never pooled into one volley.
+      expect(volleys).toEqual([1, 2, 1, 2]);
+      expect(result.outcome).toBe(BattleOutcome.Attacker);
+    });
+
+    test("a dropped phase does not defer the round's last phases past the heal", () => {
+      // The defender's Dreadnought destroys the attacker's Interceptor, whose
+      // phase is then dropped mid-round. The defender's slow Interceptor must
+      // still fire in that round, before the end-of-round heal (RB p.18: an
+      // Engagement Round activates every ship type once).
+      const attacker = new Fleet('Attacker', [
+        ship(
+          { initiative: 3, cannons: { ion: 1 } },
+          ShipType.Interceptor,
+          GUARANTEED_MISS
+        ),
+        ship(
+          { initiative: 3, hull: 2, heal: 1, cannons: { ion: 1 } },
+          ShipType.Cruiser,
+          GUARANTEED_MISS
+        ),
+      ]);
+      const defender = new Fleet('Defender', [
+        ship(
+          { initiative: 4, hull: 1, cannons: { ion: 1 } },
+          ShipType.Dreadnought,
+          GUARANTEED_HIT
+        ),
+        ship(
+          { initiative: 1, cannons: { ion: 1 } },
+          ShipType.Interceptor,
+          GUARANTEED_MISS
+        ),
+      ]);
+      const log: string[] = [];
+      for (const fleet of [attacker, defender]) {
+        const assign = fleet.assignDamage.bind(fleet);
+        fleet.assignDamage = (shots, targets, phases) => {
+          log.push(`${fleet.name}:${phases.length}`);
+          return assign(shots, targets, phases);
+        };
+        const heal = fleet.heal.bind(fleet);
+        fleet.heal = () => {
+          log.push(`${fleet.name}:heal`);
+          heal();
+        };
+      }
+
+      new Battle(attacker, defender).fight();
+
+      // Round 1: D4 fires (four phases queued), the destroyed A3 Interceptor's
+      // phase resolves with no dice and is dropped, A3 Cruiser fires, then D1
+      // fires before both fleets heal. Round 2 repeats with three phases.
+      expect(log.slice(0, 9)).toEqual([
+        'Defender:4',
+        'Attacker:3',
+        'Attacker:3',
+        'Defender:3',
+        'Attacker:heal',
+        'Defender:heal',
+        'Defender:3',
+        'Attacker:3',
+        'Defender:3',
+      ]);
+    });
+
     test('higher initiative first first', () => {
       const attacker = ship(
         {
@@ -189,17 +286,20 @@ describe('Battle', () => {
     });
 
     test('rift cannons destroy the biggest rift ship', () => {
+      // The Interceptor activates first and its rift die misses; the Cruiser
+      // activation's two self-damage dice then destroy the biggest rift ship
+      // they can rather than the Interceptor.
       const riftInt = ship(
         {
           rift: 1,
           initiative: 3,
         },
         ShipType.Interceptor,
-        RIFT_SELF_DAMAGE
+        RIFT_MISS
       );
       const riftCruiser = ship(
         {
-          rift: 1,
+          rift: 2,
           hull: 1,
           initiative: 3,
         },

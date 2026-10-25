@@ -25,6 +25,7 @@ import {
   replaceBlueprintPart,
   resetShipBlueprint,
   setBlueprintMuonSource,
+  toggleAntimatterSplitter,
 } from './state';
 import { monteCarloResults } from './test-helpers';
 import { ShipType, type ShipConfig } from '@calc/ship';
@@ -190,6 +191,28 @@ describe('State', () => {
   });
 
   describe('addOrSwapShipPreset', () => {
+    test('keeps the Antimatter Splitter choice through an NPC round trip', () => {
+      addOrSwapShipPreset('fleet-0', 'interceptor');
+      toggleAntimatterSplitter('fleet-0');
+      expect(state.fleets[0].antimatterSplitter).toBe(true);
+
+      // NPC fleets cannot toggle the technology; the player's choice is kept
+      // (the card hides it, the codec drops it and the engine ignores it).
+      addOrSwapShipPreset('fleet-0', 'guardian-adv');
+      expect(state.fleets[0].shipTypes.map((ship) => ship.type)).toEqual([
+        ShipType.Guardian,
+      ]);
+      toggleAntimatterSplitter('fleet-0');
+      expect(state.fleets[0].antimatterSplitter).toBe(true);
+
+      removeShipType('fleet-0', state.fleets[0].shipTypes[0].id);
+      addOrSwapShipPreset('fleet-0', 'interceptor');
+      expect(state.fleets[0].shipTypes.map((ship) => ship.type)).toEqual([
+        ShipType.Interceptor,
+      ]);
+      expect(state.fleets[0].antimatterSplitter).toBe(true);
+    });
+
     test('adds player ships with their operating blueprint', () => {
       const cruiser = addOrSwapShipPreset('fleet-0', 'cruiser')!;
 
