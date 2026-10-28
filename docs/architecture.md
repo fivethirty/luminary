@@ -324,7 +324,10 @@ The exact model does not reproduce one mutable-loop detail:
   stopping at the engine's finite round cap.
 
 Both engines heal at the end of each Engagement Round, after every queued activation has fired
-once, including when a phase is dropped mid-round because its ship type was destroyed.
+once, including when a phase is dropped mid-round because its ship type was destroyed. A
+battle-ending cannon activation also ends its Engagement Round: living ships receive one repair
+tick before terminal HP is returned or carried into the next engagement. Destroyed ships never
+heal, and missile-only victories do not trigger Engagement Round repair.
 
 Both engines also fix one choice the rules leave to a player. When a player's own ship types tie
 on initiative, the owner chooses their order of attack (RB p.18); the engines use the order of the

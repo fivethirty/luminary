@@ -184,6 +184,35 @@ describe('MultiBattle', () => {
       expect(multiBattle.getRetreatedFromOnlyBattle()).toEqual([]);
     });
 
+    test('applies final-round repair before the next engagement', () => {
+      const opponent = (name: string) =>
+        new Fleet(name, [
+          new Ship(
+            ShipType.Interceptor,
+            { initiative: 2, cannons: { ion: 1 } },
+            GUARANTEED_HIT
+          ),
+        ]);
+      const survivor = new Ship(
+        ShipType.Cruiser,
+        { hull: 1, heal: 1, initiative: 1, cannons: { ion: 1 } },
+        GUARANTEED_HIT
+      );
+      const attacker = new Fleet('attacker2', [survivor]);
+      const battle = new MultiBattle([
+        opponent('defender'),
+        opponent('attacker1'),
+        attacker,
+      ]);
+
+      expect(battle.run().map((result) => result.outcome)).toEqual([
+        BattleOutcome.Attacker,
+        BattleOutcome.Attacker,
+      ]);
+      expect(battle.getRemainingFleets()).toEqual([attacker]);
+      expect(survivor.remainingHP()).toBe(2);
+    });
+
     test('winning fleet carries damage between battles', () => {
       const defender = new Fleet('defender', [
         new Ship(

@@ -45,8 +45,9 @@ export class NpcDamagePlanner extends AbstractDamagePlanner {
       if (remainingShipHp > damage) {
         allDestroyed = false;
         score +=
-          priorityWeight +
-          Math.pow(2, ship.maxHP() - (remainingShipHp - damage)); // Prioritize damage to ships that are closer to being destroyed
+          priorityWeight * damage +
+          (1 / (remainingShipHp - damage) - 1 / remainingShipHp) /
+            (ships.length + 1);
       } else {
         score += priorityWeight * KILL_WEIGHT;
       }

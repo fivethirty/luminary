@@ -221,6 +221,54 @@ describe('BattleModel', () => {
   });
 
   describe('expand', () => {
+    test.each([false, true])(
+      'repairs terminal cannon-round HP only (missile victory: %s)',
+      (missileVictory) => {
+        const model = new BattleModel(
+          [
+            new Ship(ShipType.Cruiser, {
+              hull: 3,
+              heal: 1,
+              initiative: 1,
+              cannons: { ion: 1 },
+              missiles: { ion: missileVictory ? 1 : 0 },
+            }),
+          ],
+          [
+            new Ship(ShipType.Interceptor, {
+              initiative: 2,
+              heal: 1,
+              cannons: { ion: 1 },
+            }),
+          ],
+          false,
+          false
+        );
+        const expansion = model.expand(
+          {
+            hpA: [2],
+            hpB: [1],
+            slot: model.findSlot('A', 1, missileVictory),
+          },
+          CTX
+        );
+
+        expect(expansion.kind).toBe('move');
+        if (expansion.kind !== 'move') return;
+        expect(
+          expansion.edges
+            .flatMap((edge) => edge.options)
+            .filter((option) => 'terminal' in option)
+        ).toEqual([
+          {
+            terminal: 'AttackerWins',
+            hpA: [missileVictory ? 2 : 3],
+            hpB: [0],
+          },
+        ]);
+      }
+    );
+
     test('checks the shared deadline around expensive dice enumeration', () => {
       const make = () =>
         new Ship(ShipType.Interceptor, {
