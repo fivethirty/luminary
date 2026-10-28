@@ -71,7 +71,11 @@ export class Battle {
           phases.push(phase);
         }
         const cannonResult = this.resolveCannonPhase(phase, phases);
-        if (cannonResult) return cannonResult;
+        if (cannonResult) {
+          this.attacker.heal();
+          this.defender.heal();
+          return cannonResult;
+        }
       }
 
       this.attacker.heal();

@@ -83,6 +83,29 @@ describe('BinnedDamageAssignment', () => {
       expect(cruiser.remainingHP()).toBe(5);
     });
 
+    test('concentrates NPC damage on larger ships when shields prevent kills', () => {
+      const dreadnought = new Ship(ShipType.Dreadnought, {
+        hull: 2,
+        shields: 2,
+      });
+      const cruiser = new Ship(ShipType.Cruiser, { hull: 3 });
+      const interceptor = new Ship(ShipType.Interceptor, { hull: 3 });
+
+      new BinnedDamageAssignmentHelper().assignDamage(
+        [
+          { roll: 4, computers: 2, damage: 1 },
+          { roll: 4, computers: 2, damage: 1 },
+          { roll: DICE_VALUES.HIT, computers: 2, damage: 1 },
+        ],
+        [dreadnought, cruiser, interceptor],
+        DamageType.NPC
+      );
+
+      expect(dreadnought.remainingHP()).toBe(2);
+      expect(cruiser.remainingHP()).toBe(2);
+      expect(interceptor.remainingHP()).toBe(4);
+    });
+
     test('targets lowest hp ship if same priority', () => {
       const dread1 = new Ship(ShipType.Dreadnought, { hull: 3 });
       const dread2 = new Ship(ShipType.Dreadnought, { hull: 3 });

@@ -269,6 +269,19 @@ describe('NpcDamagePlanner', () => {
       expect(result2.allDestroyed).toBe(false);
       expect(result1.score).toBeGreaterThan(result2.score);
     });
+    test('does not let existing damage override ship size priority', () => {
+      const dreadnought = new Ship(ShipType.Dreadnought, { hull: 2 });
+      const cruiser = new Ship(ShipType.Cruiser, { hull: 11 });
+      cruiser.takeDamage(10);
+      const ships = [dreadnought, cruiser];
+      const remainingHp = ships.map((ship) => ship.remainingHP());
+      const planner = new NpcDamagePlanner();
+
+      expect(
+        planner.evaluate(ships, remainingHp, [1, 0]).score
+      ).toBeGreaterThan(planner.evaluate(ships, remainingHp, [0, 1]).score);
+    });
+
     test('returns a higher score for destroying ships', () => {
       const ship1 = new Ship(ShipType.Interceptor);
       const ship2 = new Ship(ShipType.Cruiser, { hull: 1 });

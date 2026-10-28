@@ -197,6 +197,38 @@ describe('Battle', () => {
       ]);
     });
 
+    test.each([false, true])(
+      'repairs only cannon-round victories (missile victory: %s)',
+      (missileVictory) => {
+        const survivor = ship(
+          {
+            hull: 3,
+            heal: 1,
+            initiative: 1,
+            cannons: { ion: 1 },
+            missiles: { ion: missileVictory ? 1 : 0 },
+          },
+          ShipType.Cruiser,
+          GUARANTEED_HIT
+        );
+        survivor.takeDamage(1);
+        const opponent = ship(
+          { initiative: 2, heal: 1, cannons: { ion: 1 } },
+          ShipType.Interceptor,
+          GUARANTEED_HIT
+        );
+
+        const result = new Battle(
+          new Fleet('Attacker', [survivor]),
+          new Fleet('Defender', [opponent])
+        ).fight();
+
+        expect(result.outcome).toBe(BattleOutcome.Attacker);
+        expect(survivor.remainingHP()).toBe(3);
+        expect(opponent.isAlive()).toBe(false);
+      }
+    );
+
     test('higher initiative first first', () => {
       const attacker = ship(
         {

@@ -1502,7 +1502,13 @@ export class BattleModel {
       return this.advance(hpA, hpB, fromSlot);
     }
     const terminal = terminalFromSurvival(attackerAlive, defenderAlive);
-    if (terminal) return { terminal, hpA, hpB };
+    if (terminal) {
+      return {
+        terminal,
+        hpA: this.applyHeal(this.attacker.templates, hpA),
+        hpB: this.applyHeal(this.defender.templates, hpB),
+      };
+    }
     return this.advance(hpA, hpB, fromSlot);
   }
 
