@@ -10,7 +10,7 @@ study.
 
 ## Runtime
 
-- Use Bun 1.2.19 and the tracked `bun.lock`; do not create npm or legacy binary lockfiles.
+- Use Bun 1.4.5 and the tracked `bun.lock`; do not create npm or legacy binary lockfiles.
 - If `bun` is not on `PATH`, prefix commands with `mise exec --`, for example
   `mise exec -- bun run test:engine`.
 - Do not edit `dist/` or `node_modules/`. Preserve unrelated worktree changes.
@@ -43,12 +43,13 @@ study.
 
 ## Validation
 
-- After changing source or test files, run `bun run lint:fix` to apply Prettier formatting and
-  other safe ESLint fixes before final validation.
+- After changing source or test files, run `bun run lint:fix` to apply safe oxlint fixes, then
+  `bun run format` to apply oxfmt formatting, before final validation.
 - Exact solver: `bun run test:solver`; other engine work: `bun run test:engine`.
 - UI work: run the nearest component/state test while iterating.
-- UI consistency: `bun run audit:ui:strict` (also included in `bun run check`).
-- Type and style: `bun run typecheck` and `bun run lint`.
+- UI consistency: `bun test src/ui`, which includes the breakpoint-scale check (also included in
+  `bun run check`).
+- Type and style: `bun run typecheck`, `bun run lint`, and `bun run format:check`.
 - Cross-module completion: `bun run check` (includes the production build). Use `bun run build`
   alone for a focused asset/build check.
 

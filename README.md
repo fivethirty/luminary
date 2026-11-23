@@ -8,7 +8,7 @@ It lives at [luminary.baysoft.dev](https://luminary.baysoft.dev).
 
 ## Dependencies
 
-Luminary uses Bun 1.2.19 as its runtime and package manager. Install it directly or with the
+Luminary uses Bun 1.4.5 as its runtime and package manager. Install it directly or with the
 provided [mise](https://mise.jdx.dev/) file (recommended). `bun.lock` is the sole dependency
 lockfile.
 
