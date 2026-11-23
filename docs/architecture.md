@@ -354,12 +354,14 @@ bun run test:solver
 bun run test:engine
 bun test src/ui
 bun run lint:fix
+bun run format
 bun run typecheck
 bun run lint
+bun run format:check
 ```
 
-Run `lint:fix` after changing source or test files so Prettier formatting and other safe ESLint
-fixes are applied before the non-mutating validation commands.
+Run `lint:fix` and then `format` after changing source or test files so safe oxlint fixes and oxfmt
+formatting are applied before the non-mutating validation commands.
 
 Before completing a cross-module engine change, run:
 
